@@ -61,6 +61,19 @@ public class Program
                 // Register the interaction handler
                 services.AddSingleton<InteractionHandler>();
 
+                // Register the kgsm-specific LLM pieces. The reusable agent loop,
+                // Ollama client, and conversation store are registered by
+                // AddLocalLlm (inside AddInfrastructureServices). Here we supply
+                // the application's tool dispatcher, prompt builder, and the
+                // policy-bearing assistant that drives a turn.
+                services.AddSingleton<Llm.IConfirmationContext, Llm.ConfirmationContext>();
+                services.AddSingleton<TheKrystalShip.Llm.Interfaces.IToolDispatcher, Llm.ToolDispatcher>();
+                services.AddSingleton<Llm.ISystemPromptBuilder, Llm.SystemPromptBuilder>();
+                services.AddSingleton<Llm.IServerAssistant, Llm.ServerAssistant>();
+
+                // Register the message handler (LLM bridge)
+                services.AddSingleton<MessageHandler>();
+
                 // Register hosted service
                 services.AddHostedService<BotService>();
             });

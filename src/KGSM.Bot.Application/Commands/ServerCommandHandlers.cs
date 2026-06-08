@@ -271,3 +271,46 @@ public class RestartServerCommandHandler : IRequestHandler<RestartServerCommand,
         }
     }
 }
+
+/// <summary>
+/// Command handler for updating a server instance
+/// </summary>
+public class UpdateServerCommandHandler : IRequestHandler<UpdateServerCommand, OperationResult>
+{
+    private readonly IServerInstanceService _serverInstanceService;
+    private readonly ILogger<UpdateServerCommandHandler> _logger;
+
+    public UpdateServerCommandHandler(
+        IServerInstanceService serverInstanceService,
+        ILogger<UpdateServerCommandHandler> logger)
+    {
+        _serverInstanceService = serverInstanceService;
+        _logger = logger;
+    }
+
+    public async Task<OperationResult> Handle(UpdateServerCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Updating server instance {InstanceName}", request.InstanceName);
+
+            var result = await _serverInstanceService.UpdateAsync(request.InstanceName);
+
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to update server instance {InstanceName}: {Error}",
+                    request.InstanceName, result.Error);
+                return OperationResult.Failure(result.Error ?? "Unknown error");
+            }
+
+            _logger.LogInformation("Successfully updated server instance {InstanceName}",
+                request.InstanceName);
+            return OperationResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating server instance {InstanceName}", request.InstanceName);
+            return OperationResult.Failure($"An error occurred: {ex.Message}");
+        }
+    }
+}

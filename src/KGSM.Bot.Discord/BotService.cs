@@ -15,6 +15,7 @@ public class BotService : BackgroundService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly InteractionHandler _interactionHandler;
+    private readonly MessageHandler _messageHandler;
     private readonly ServerEventCoordinatorService _serverEventCoordinator;
     private readonly DiscordOptions _discordOptions;
     private readonly ILogger<BotService> _logger;
@@ -22,12 +23,14 @@ public class BotService : BackgroundService
     public BotService(
         DiscordSocketClient discordClient,
         InteractionHandler interactionHandler,
+        MessageHandler messageHandler,
         ServerEventCoordinatorService serverEventCoordinator,
         IOptions<DiscordOptions> discordOptions,
         ILogger<BotService> logger)
     {
         _discordClient = discordClient;
         _interactionHandler = interactionHandler;
+        _messageHandler = messageHandler;
         _serverEventCoordinator = serverEventCoordinator;
         _discordOptions = discordOptions.Value;
         _logger = logger;
@@ -47,6 +50,9 @@ public class BotService : BackgroundService
 
             // Initialize the interaction handler
             await _interactionHandler.InitializeAsync();
+
+            // Initialize the message handler (LLM bridge)
+            await _messageHandler.InitializeAsync();
 
             // Log in and start the Discord client
             await _discordClient.LoginAsync(TokenType.Bot, _discordOptions.Token);

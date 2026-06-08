@@ -61,6 +61,13 @@ public interface IServerInstanceService
     Task<Result> RestartAsync(string instanceName);
 
     /// <summary>
+    /// Updates a server instance to the latest available version
+    /// </summary>
+    /// <param name="instanceName">Name of the instance to update</param>
+    /// <returns>Result of the operation</returns>
+    Task<Result> UpdateAsync(string instanceName);
+
+    /// <summary>
     /// Gets information about a server instance
     /// </summary>
     /// <param name="instanceName">Name of the instance</param>

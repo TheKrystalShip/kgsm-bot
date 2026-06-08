@@ -14,17 +14,20 @@ public class ServerEventCoordinatorService
     private readonly IServerEventHandler _eventHandler;
     private readonly IDiscordNotificationService _notificationService;
     private readonly IDiscordChannelRegistry _channelRegistry;
+    private readonly IKgsmStateCache _stateCache;
     private readonly ILogger<ServerEventCoordinatorService> _logger;
 
     public ServerEventCoordinatorService(
         IServerEventHandler eventHandler,
         IDiscordNotificationService notificationService,
         IDiscordChannelRegistry channelRegistry,
+        IKgsmStateCache stateCache,
         ILogger<ServerEventCoordinatorService> logger)
     {
         _eventHandler = eventHandler;
         _notificationService = notificationService;
         _channelRegistry = channelRegistry;
+        _stateCache = stateCache;
         _logger = logger;
     }
 
@@ -37,6 +40,9 @@ public class ServerEventCoordinatorService
         {
             _logger.LogInformation("Server instance {InstanceName} installed using blueprint {BlueprintName}",
                 instanceName, blueprintName);
+
+            // Inventory changed — drop the cached instance list.
+            _stateCache.InvalidateInstances();
 
             var result = await _channelRegistry.AddOrUpdateChannelAsync(guildId, blueprintName, instanceName);
             if (result.IsFailure)
@@ -63,6 +69,9 @@ public class ServerEventCoordinatorService
         _eventHandler.RegisterInstanceUninstalledHandler(async (instanceName) =>
         {
             _logger.LogInformation("Server instance {InstanceName} uninstalled", instanceName);
+
+            // Inventory changed — drop the cached instance list.
+            _stateCache.InvalidateInstances();
 
             // Uninstalled is essentially offline
             await _notificationService.NotifyRunningStatusUpdatedAsync(instanceName, InstanceStatus.Inactive);

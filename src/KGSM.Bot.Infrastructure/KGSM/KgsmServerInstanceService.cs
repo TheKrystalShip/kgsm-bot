@@ -132,7 +132,13 @@ public class KgsmServerInstanceService : IServerInstanceService
             }
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Instances.Start(instanceName));
+            var result = await Task.Run(() => _kgsmClient.Instances.Start(instanceName));
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to start server instance {InstanceName}: {Error}",
+                    instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
 
             _logger.LogInformation("Successfully started server instance {InstanceName}", instanceName);
             return Result.Success();
@@ -160,7 +166,13 @@ public class KgsmServerInstanceService : IServerInstanceService
             }
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Instances.Stop(instanceName));
+            var result = await Task.Run(() => _kgsmClient.Instances.Stop(instanceName));
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to stop server instance {InstanceName}: {Error}",
+                    instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
 
             _logger.LogInformation("Successfully stopped server instance {InstanceName}", instanceName);
             return Result.Success();
@@ -180,7 +192,13 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Restarting server instance {InstanceName}", instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Instances.Restart(instanceName));
+            var result = await Task.Run(() => _kgsmClient.Instances.Restart(instanceName));
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to restart server instance {InstanceName}: {Error}",
+                    instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
 
             _logger.LogInformation("Successfully restarted server instance {InstanceName}", instanceName);
             return Result.Success();
@@ -188,6 +206,33 @@ public class KgsmServerInstanceService : IServerInstanceService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error restarting server instance {InstanceName}", instanceName);
+            return Result.Failure(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Result> UpdateAsync(string instanceName)
+    {
+        try
+        {
+            _logger.LogInformation("Updating server instance {InstanceName}", instanceName);
+
+            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
+            var result = await Task.Run(() => _kgsmClient.Instances.Update(instanceName));
+
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Error updating server instance {InstanceName}: {Error}",
+                    instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
+
+            _logger.LogInformation("Successfully updated server instance {InstanceName}", instanceName);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating server instance {InstanceName}", instanceName);
             return Result.Failure(ex.Message);
         }
     }
@@ -248,7 +293,13 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Creating backup for server instance {InstanceName}", instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Instances.CreateBackup(instanceName));
+            var result = await Task.Run(() => _kgsmClient.Instances.CreateBackup(instanceName));
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to create backup for server instance {InstanceName}: {Error}",
+                    instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
 
             _logger.LogInformation("Successfully created backup for server instance {InstanceName}", instanceName);
             return Result.Success();

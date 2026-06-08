@@ -37,6 +37,11 @@ public record UninstallServerCommand(string InstanceName) : IRequest<OperationRe
 public record CreateBackupCommand(string InstanceName) : IRequest<OperationResult>;
 
 /// <summary>
+/// Command to update a server instance to the latest version
+/// </summary>
+public record UpdateServerCommand(string InstanceName) : IRequest<OperationResult>;
+
+/// <summary>
 /// Result for commands that perform operations but don't return specific data
 /// </summary>
 public record OperationResult

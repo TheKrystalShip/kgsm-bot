@@ -11,6 +11,7 @@ using Discord.WebSocket;
 using Discord.Interactions;
 
 using TheKrystalShip.KGSM.Extensions;
+using TheKrystalShip.Llm.Extensions;
 
 namespace KGSM.Bot.Infrastructure;
 
@@ -30,8 +31,16 @@ public static class DependencyInjection
         services.Configure<Internal.KgsmOptions>(
             configuration.GetSection(Internal.KgsmOptions.Section));
 
+        services.Configure<KgsmCacheOptions>(
+            configuration.GetSection(KgsmCacheOptions.Section));
+
         // Register Discord services
         services.AddDiscordServices();
+
+        // Register the reusable local-LLM stack (Ollama client, conversation store,
+        // agent loop). Binds the "Ollama", "Conversation", and "LlmAgent" config
+        // sections. The kgsm-specific IToolDispatcher is registered in Program.
+        services.AddLocalLlm(configuration);
 
         // Register KGSM services
         services.AddKgsmServices(configuration);
@@ -44,7 +53,7 @@ public static class DependencyInjection
         // Discord.Net services
         services.AddSingleton<DiscordSocketConfig>(sp => new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages,
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent,
             LogLevel = LogSeverity.Info
         });
 
@@ -84,6 +93,9 @@ public static class DependencyInjection
         services.AddSingleton<IServerEventHandler, KgsmServerEventHandler>();
         services.AddSingleton<IBlueprintService, KgsmBlueprintService>();
         services.AddSingleton<IServerInstanceService, KgsmServerInstanceService>();
+
+        // Cached inventory (avoids spawning kgsm per message)
+        services.AddSingleton<IKgsmStateCache, KgsmStateCache>();
 
         return services;
     }

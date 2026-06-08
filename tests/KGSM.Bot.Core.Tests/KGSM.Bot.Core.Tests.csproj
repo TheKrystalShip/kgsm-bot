@@ -16,5 +16,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
+    <ProjectReference Include="..\..\src\KGSM.Bot.Application\KGSM.Bot.Application.csproj" />
+    <ProjectReference Include="..\..\src\KGSM.Bot.Infrastructure\KGSM.Bot.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\KGSM.Bot.Discord\KGSM.Bot.Discord.csproj" />
   </ItemGroup>
 </Project>
