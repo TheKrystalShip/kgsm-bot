@@ -1,6 +1,9 @@
 using KGSM.Bot.Infrastructure;
 using KGSM.Bot.Application;
 
+using TheKrystalShip.Kgsm.Assistant.Extensions;
+using TheKrystalShip.Kgsm.Assistant.Ports;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -61,15 +64,14 @@ public class Program
                 // Register the interaction handler
                 services.AddSingleton<InteractionHandler>();
 
-                // Register the kgsm-specific LLM pieces. The reusable agent loop,
-                // Ollama client, and conversation store are registered by
-                // AddLocalLlm (inside AddInfrastructureServices). Here we supply
-                // the application's tool dispatcher, prompt builder, and the
-                // policy-bearing assistant that drives a turn.
-                services.AddSingleton<Llm.IConfirmationContext, Llm.ConfirmationContext>();
-                services.AddSingleton<TheKrystalShip.Llm.Interfaces.IToolDispatcher, Llm.ToolDispatcher>();
-                services.AddSingleton<Llm.ISystemPromptBuilder, Llm.SystemPromptBuilder>();
-                services.AddSingleton<Llm.IServerAssistant, Llm.ServerAssistant>();
+                // The reusable agent loop, Ollama client, and conversation store are
+                // registered by AddLocalLlm (inside AddInfrastructureServices). Here we
+                // add the extracted kgsm assistant (prompt builder, tool dispatcher,
+                // policy) and the bot's adapters that satisfy its IServerOperations /
+                // IServerInventory ports over the existing MediatR + state cache.
+                services.AddKgsmAssistant();
+                services.AddSingleton<IServerOperations, Llm.MediatorServerOperations>();
+                services.AddSingleton<IServerInventory, Llm.StateCacheInventory>();
 
                 // Register the message handler (LLM bridge)
                 services.AddSingleton<MessageHandler>();

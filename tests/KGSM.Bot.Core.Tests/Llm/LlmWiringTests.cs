@@ -1,12 +1,18 @@
 using FluentAssertions;
 
+using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Llm;
+
+using MediatR;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
 
+using TheKrystalShip.Kgsm.Assistant;
+using TheKrystalShip.Kgsm.Assistant.Extensions;
+using TheKrystalShip.Kgsm.Assistant.Ports;
 using TheKrystalShip.Llm.Extensions;
 using TheKrystalShip.Llm.Interfaces;
 
@@ -15,17 +21,16 @@ using Xunit;
 namespace KGSM.Bot.Tests.Llm;
 
 /// <summary>
-/// Verifies the LLM dependency-injection seam: the library's
-/// <c>AddLocalLlm</c> plus the bot's <see cref="ServerAssistant"/> compose into a
-/// resolvable graph. Unit tests elsewhere mock the agent, so they bypass the real
-/// container; this exercises it. The kgsm-specific dependencies
-/// (<see cref="IToolDispatcher"/>, <see cref="ISystemPromptBuilder"/>) are stubbed
-/// so this isolates the new wiring rather than the full kgsm stack.
+/// Verifies the LLM dependency-injection seam end to end: the library's
+/// <c>AddLocalLlm</c> + the assistant's <c>AddKgsmAssistant</c> + the bot's two
+/// port adapters (<see cref="MediatorServerOperations"/>, <see cref="StateCacheInventory"/>)
+/// compose into a resolvable graph. The adapters' own dependencies (MediatR, the
+/// state cache) are stubbed so this isolates the wiring rather than the full kgsm stack.
 /// </summary>
 public class LlmWiringTests
 {
     [Fact]
-    public void AddLocalLlm_PlusServerAssistant_ResolvesTheAgentGraph()
+    public void AddLocalLlm_PlusKgsmAssistant_ResolvesTheAgentGraph()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -37,13 +42,17 @@ public class LlmWiringTests
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddLocalLlm(configuration);
+        services.AddKgsmAssistant();
 
-        // Stub the kgsm-specific collaborators so only the LLM seam is under test.
-        services.AddSingleton(Substitute.For<IToolDispatcher>());
-        services.AddSingleton(Substitute.For<ISystemPromptBuilder>());
-        services.AddSingleton<IConfirmationContext, ConfirmationContext>();
-        services.AddSingleton<IServerAssistant, ServerAssistant>();
+        // The bot's adapters that satisfy the assistant's host ports...
+        services.AddSingleton<IServerOperations, MediatorServerOperations>();
+        services.AddSingleton<IServerInventory, StateCacheInventory>();
+
+        // ...and stubs for what those adapters depend on, so only the wiring is under test.
+        services.AddSingleton(Substitute.For<IMediator>());
+        services.AddSingleton(Substitute.For<IKgsmStateCache>());
 
         using var provider = services.BuildServiceProvider(validateScopes: true);
 
@@ -52,5 +61,8 @@ public class LlmWiringTests
         provider.GetRequiredService<ILlmAgent>().Should().NotBeNull();
         provider.GetRequiredService<ILlmClient>().Should().NotBeNull();
         provider.GetRequiredService<IConversationStore>().Should().NotBeNull();
+        provider.GetRequiredService<IToolDispatcher>().Should().NotBeNull();
+        provider.GetRequiredService<IServerOperations>().Should().NotBeNull();
+        provider.GetRequiredService<IServerInventory>().Should().NotBeNull();
     }
 }

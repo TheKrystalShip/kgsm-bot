@@ -9,6 +9,8 @@ using KGSM.Bot.Infrastructure.Configuration;
 
 using MediatR;
 
+using TheKrystalShip.Kgsm.Assistant;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

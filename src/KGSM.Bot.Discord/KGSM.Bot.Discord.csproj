@@ -15,11 +15,19 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
     <PackageReference Include="Discord.Net" Version="3.13.0" />
     <PackageReference Include="MediatR" Version="12.2.0" />
-    <PackageReference Include="TheKrystalShip.Llm" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\KGSM.Bot.Infrastructure\KGSM.Bot.Infrastructure.csproj" />
+    <!-- Cross-repo project references to the sibling TheKrystalShip.Llm solution:
+         the generic LLM lib + the kgsm assistant extracted out of this bot. -->
+    <ProjectReference Include="..\..\..\TheKrystalShip.Llm\TheKrystalShip.Llm\TheKrystalShip.Llm.csproj" />
+    <ProjectReference Include="..\..\..\TheKrystalShip.Llm\TheKrystalShip.Kgsm.Assistant\TheKrystalShip.Kgsm.Assistant.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The kgsm port adapters are internal glue; let the test project wire them. -->
+    <InternalsVisibleTo Include="KGSM.Bot.Core.Tests" />
   </ItemGroup>
 
   <ItemGroup>

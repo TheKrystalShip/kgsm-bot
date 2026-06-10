@@ -9,6 +9,8 @@ using KGSM.Bot.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using TheKrystalShip.Kgsm.Assistant;
+
 namespace KGSM.Bot.Discord;
 
 /// <summary>
@@ -92,8 +94,10 @@ public class MessageHandler
             AssistantResult result;
             using (message.Channel.EnterTypingState())
             {
+                // Conversation key for memory: per (user, channel). The assistant
+                // treats this as an opaque id (a web client would supply its own).
                 result = await _assistant.RunAsync(
-                    message.Author.Id, message.Channel.Id, prompt, canPerformActions);
+                    $"{message.Author.Id}:{message.Channel.Id}", prompt, canPerformActions);
             }
 
             if (result.IsFailure)
