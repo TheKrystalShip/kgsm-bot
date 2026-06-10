@@ -16,13 +16,6 @@ public interface IBlueprintService
     Task<Result<IReadOnlyDictionary<string, Blueprint>>> GetAllAsync();
 
     /// <summary>
-    /// Gets a blueprint by name
-    /// </summary>
-    /// <param name="blueprintName">Name of the blueprint</param>
-    /// <returns>The blueprint, if found</returns>
-    Task<Result<Blueprint>> GetByNameAsync(string blueprintName);
-
-    /// <summary>
     /// Creates a new blueprint
     /// </summary>
     /// <param name="blueprint">The blueprint to create</param>

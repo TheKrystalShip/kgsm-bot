@@ -201,8 +201,14 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                 .WithColor(Color.Blue)
                 .WithCurrentTimestamp();
 
-            foreach (var (name, instance) in result.Instances)
+            // Each instance needs a live status check (IsServerActiveQuery spawns a
+            // kgsm subprocess). Run them concurrently rather than sequentially so /list
+            // scales with the slowest single check instead of their sum. Fields are
+            // added afterwards in the original order — Discord renders by add order.
+            var fields = await Task.WhenAll(result.Instances.Select(async pair =>
             {
+                var (name, instance) = pair;
+
                 var isActive = await _mediator.Send(new IsServerActiveQuery(name));
                 string status = isActive.IsSuccess && isActive.IsActive ? "🟢 Online" : "🔴 Offline";
 
@@ -210,14 +216,17 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                 string channelInfo = channelIdResult.IsSuccess && channelIdResult.ChannelId.HasValue ?
                     $"<#{channelIdResult.ChannelId}>" : "No channel";
 
-                embedBuilder.AddField(
-                    name: name,
-                    value: $"Blueprint: {instance.Blueprint}\n" +
-                           $"Status: {status}\n" +
-                           $"Channel: {channelInfo}\n" +
-                           $"Directory: {instance.Directory}",
-                    inline: true);
-            }
+                return new EmbedFieldBuilder()
+                    .WithName(name)
+                    .WithValue($"Blueprint: {instance.Blueprint}\n" +
+                               $"Status: {status}\n" +
+                               $"Channel: {channelInfo}\n" +
+                               $"Directory: {instance.Directory}")
+                    .WithIsInline(true);
+            }));
+
+            foreach (var field in fields)
+                embedBuilder.AddField(field);
 
             await RespondAsync(embed: embedBuilder.Build());
         }

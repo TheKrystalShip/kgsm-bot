@@ -16,13 +16,6 @@ public interface IServerInstanceService
     Task<Result<IReadOnlyDictionary<string, Instance>>> GetAllAsync();
 
     /// <summary>
-    /// Gets a server instance by name
-    /// </summary>
-    /// <param name="instanceName">Name of the instance</param>
-    /// <returns>The server instance, if found</returns>
-    Task<Result<Instance>> GetByNameAsync(string instanceName);
-
-    /// <summary>
     /// Installs a new server instance from a blueprint
     /// </summary>
     /// <param name="blueprintName">Name of the blueprint to use</param>

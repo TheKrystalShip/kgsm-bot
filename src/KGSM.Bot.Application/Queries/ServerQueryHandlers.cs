@@ -12,14 +12,14 @@ namespace KGSM.Bot.Application.Handlers;
 /// </summary>
 public class GetAllInstancesQueryHandler : IRequestHandler<GetAllInstancesQuery, ServerInstancesResult>
 {
-    private readonly IServerInstanceService _serverInstanceService;
+    private readonly IKgsmStateCache _stateCache;
     private readonly ILogger<GetAllInstancesQueryHandler> _logger;
 
     public GetAllInstancesQueryHandler(
-        IServerInstanceService serverInstanceService,
+        IKgsmStateCache stateCache,
         ILogger<GetAllInstancesQueryHandler> logger)
     {
-        _serverInstanceService = serverInstanceService;
+        _stateCache = stateCache;
         _logger = logger;
     }
 
@@ -29,16 +29,14 @@ public class GetAllInstancesQueryHandler : IRequestHandler<GetAllInstancesQuery,
         {
             _logger.LogInformation("Getting all server instances");
 
-            var result = await _serverInstanceService.GetAllAsync();
+            // Inventory read — served from the cache (TTL + event invalidation) so the
+            // hot path (autocomplete fires per keystroke, /list) doesn't spawn a kgsm
+            // subprocess every time. The cache never fails hard; it serves a stale or
+            // empty snapshot and logs internally.
+            var instances = await _stateCache.GetInstancesAsync(cancellationToken);
 
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Failed to get all server instances: {Error}", result.Error);
-                return ServerInstancesResult.Failure(result.Error ?? "Unknown error");
-            }
-
-            _logger.LogInformation("Successfully retrieved {Count} server instances", result.Value?.Count ?? 0);
-            return ServerInstancesResult.Success(result.Value!);
+            _logger.LogInformation("Successfully retrieved {Count} server instances", instances.Count);
+            return ServerInstancesResult.Success(instances);
         }
         catch (Exception ex)
         {
@@ -53,14 +51,14 @@ public class GetAllInstancesQueryHandler : IRequestHandler<GetAllInstancesQuery,
 /// </summary>
 public class GetAllBlueprintsQueryHandler : IRequestHandler<GetAllBlueprintsQuery, BlueprintsResult>
 {
-    private readonly IBlueprintService _blueprintService;
+    private readonly IKgsmStateCache _stateCache;
     private readonly ILogger<GetAllBlueprintsQueryHandler> _logger;
 
     public GetAllBlueprintsQueryHandler(
-        IBlueprintService blueprintService,
+        IKgsmStateCache stateCache,
         ILogger<GetAllBlueprintsQueryHandler> logger)
     {
-        _blueprintService = blueprintService;
+        _stateCache = stateCache;
         _logger = logger;
     }
 
@@ -70,16 +68,12 @@ public class GetAllBlueprintsQueryHandler : IRequestHandler<GetAllBlueprintsQuer
         {
             _logger.LogInformation("Getting all blueprints");
 
-            var result = await _blueprintService.GetAllAsync();
+            // Inventory read — served from the cache (see GetAllInstancesQueryHandler).
+            // Blueprints rarely change, so this is almost always a memory hit.
+            var blueprints = await _stateCache.GetBlueprintsAsync(cancellationToken);
 
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Failed to get all blueprints: {Error}", result.Error);
-                return BlueprintsResult.Failure(result.Error ?? "Unknown error");
-            }
-
-            _logger.LogInformation("Successfully retrieved {Count} blueprints", result.Value?.Count ?? 0);
-            return BlueprintsResult.Success(result.Value!);
+            _logger.LogInformation("Successfully retrieved {Count} blueprints", blueprints.Count);
+            return BlueprintsResult.Success(blueprints);
         }
         catch (Exception ex)
         {

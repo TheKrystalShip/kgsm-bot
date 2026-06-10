@@ -71,48 +71,6 @@ public class KgsmBlueprintService : Core.Interfaces.IBlueprintService
     }
 
     /// <inheritdoc />
-    public async Task<Result<Blueprint>> GetByNameAsync(string blueprintName)
-    {
-        try
-        {
-            _logger.LogInformation("Getting blueprint {BlueprintName}", blueprintName);
-
-            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var allBlueprints = await Task.Run(() => _kgsmClient.Blueprints.GetAll());
-
-            if (!allBlueprints.TryGetValue(blueprintName, out var kgsmBlueprint))
-            {
-                _logger.LogWarning("Blueprint {BlueprintName} not found", blueprintName);
-                return Result.Failure<Blueprint>($"Blueprint '{blueprintName}' not found");
-            }
-
-            string? onlineTrigger = null;
-
-            if (_options.Blueprints.TryGetValue(blueprintName, out var blueprintConfig))
-            {
-                onlineTrigger = blueprintConfig.OnlineTrigger;
-            }
-
-            var blueprint = new Blueprint
-            {
-                Name = blueprintName,
-                Ports = kgsmBlueprint.Ports,
-                ExecutableFile = kgsmBlueprint.ExecutableFile,
-                SteamAppId = kgsmBlueprint.SteamAppId,
-                IsSteamAccountRequired = kgsmBlueprint.IsSteamAccountRequired,
-            };
-
-            _logger.LogInformation("Retrieved blueprint {BlueprintName}", blueprintName);
-            return Result.Success(blueprint);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting blueprint {BlueprintName}", blueprintName);
-            return Result.Failure<Blueprint>(ex.Message);
-        }
-    }
-
-    /// <inheritdoc />
     public async Task<Result> CreateAsync(Blueprint blueprint)
     {
         try

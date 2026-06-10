@@ -51,6 +51,18 @@ public class KgsmStateCache : IKgsmStateCache
     public void InvalidateInstances() => _instancesDirty = true;
     public void InvalidateBlueprints() => _blueprintsDirty = true;
 
+    public async Task<Instance?> GetInstanceAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var instances = await GetInstancesAsync(cancellationToken);
+        return instances.TryGetValue(name, out var instance) ? instance : null;
+    }
+
+    public async Task<Blueprint?> GetBlueprintAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var blueprints = await GetBlueprintsAsync(cancellationToken);
+        return blueprints.TryGetValue(name, out var blueprint) ? blueprint : null;
+    }
+
     public async Task<IReadOnlyDictionary<string, Instance>> GetInstancesAsync(
         CancellationToken cancellationToken = default)
     {

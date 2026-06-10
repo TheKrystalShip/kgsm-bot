@@ -45,30 +45,6 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogError(ex, "Error getting server instances");
             return Result.Failure<IReadOnlyDictionary<string, Instance>>(ex.Message);
         }
-    }    /// <inheritdoc />
-    public async Task<Result<Instance>> GetByNameAsync(string instanceName)
-    {
-        try
-        {
-            _logger.LogInformation("Getting server instance {InstanceName}", instanceName);
-
-            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var allInstances = await Task.Run(() => _kgsmClient.Instances.GetAll());
-
-            if (!allInstances.TryGetValue(instanceName, out var kgsmInstance))
-            {
-                _logger.LogWarning("Server instance {InstanceName} not found", instanceName);
-                return Result.Failure<Instance>($"Instance '{instanceName}' not found");
-            }
-
-            _logger.LogInformation("Retrieved server instance {InstanceName}", instanceName);
-            return Result.Success(kgsmInstance);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting server instance {InstanceName}", instanceName);
-            return Result.Failure<Instance>(ex.Message);
-        }
     }
 
     /// <inheritdoc />
@@ -318,14 +294,10 @@ public class KgsmServerInstanceService : IServerInstanceService
         {
             _logger.LogInformation("Getting channel ID for instance {InstanceName}", instanceName);
 
-            // Check if the instance exists
-            var allInstances = await Task.Run(() => _kgsmClient.Instances.GetAll());
-            if (!allInstances.ContainsKey(instanceName))
-            {
-                _logger.LogWarning("Server instance {InstanceName} not found", instanceName);
-                return Result.Failure<ulong?>($"Instance '{instanceName}' not found");
-            }
-
+            // The channel id comes purely from local bot config — no kgsm involvement.
+            // We deliberately do NOT spawn a full `GetAll()` enumeration just to existence-
+            // check the instance: an unknown/unconfigured instance simply has no channel,
+            // and the only caller (/list) already iterates instances it knows exist.
             ulong? channelId = null;
 
             if (_options.Instances.TryGetValue(instanceName, out var instanceConfig) &&
@@ -336,7 +308,7 @@ public class KgsmServerInstanceService : IServerInstanceService
 
             _logger.LogInformation("Retrieved channel ID for instance {InstanceName}: {ChannelId}",
                 instanceName, channelId?.ToString() ?? "null");
-            return Result.Success(channelId);
+            return await Task.FromResult(Result.Success(channelId));
         }
         catch (Exception ex)
         {

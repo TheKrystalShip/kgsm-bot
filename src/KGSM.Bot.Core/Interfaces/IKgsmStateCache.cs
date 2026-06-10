@@ -19,6 +19,19 @@ public interface IKgsmStateCache
     /// <summary>Returns the installable blueprints, served from cache when fresh.</summary>
     Task<IReadOnlyDictionary<string, Blueprint>> GetBlueprintsAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Looks up a single instance by exact name from the cached inventory, or
+    /// <c>null</c> if no such instance exists. Avoids spawning a kgsm subprocess
+    /// per lookup.
+    /// </summary>
+    Task<Instance?> GetInstanceAsync(string name, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Looks up a single blueprint by exact name from the cached inventory, or
+    /// <c>null</c> if no such blueprint exists.
+    /// </summary>
+    Task<Blueprint?> GetBlueprintAsync(string name, CancellationToken cancellationToken = default);
+
     /// <summary>Marks the instance inventory stale (e.g. after install/uninstall).</summary>
     void InvalidateInstances();
 
