@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Discord;
 using Discord.WebSocket;
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 
 namespace KGSM.Bot.Infrastructure.Discord;
 

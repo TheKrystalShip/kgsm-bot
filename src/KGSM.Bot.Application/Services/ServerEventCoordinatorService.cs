@@ -3,6 +3,7 @@ using KGSM.Bot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 
 namespace KGSM.Bot.Application.Services;
 

@@ -1,6 +1,7 @@
 using KGSM.Bot.Core.Common;
 
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 
 namespace KGSM.Bot.Core.Interfaces;
 

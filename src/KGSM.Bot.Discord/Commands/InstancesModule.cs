@@ -221,7 +221,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                     .WithValue($"Blueprint: {instance.Blueprint}\n" +
                                $"Status: {status}\n" +
                                $"Channel: {channelInfo}\n" +
-                               $"Directory: {instance.Directory}")
+                               $"Directory: {instance.WorkingDir}")
                     .WithIsInline(true);
             }));
 

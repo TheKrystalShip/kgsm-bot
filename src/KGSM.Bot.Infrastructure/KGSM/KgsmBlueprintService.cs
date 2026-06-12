@@ -8,6 +8,10 @@ using Microsoft.Extensions.Options;
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
 
+// KGSM.Lib 1.1.0 added TheKrystalShip.KGSM.Core.Models.KgsmOptions, which collides with
+// the bot's own config type; pin the unqualified name to the bot's.
+using KgsmOptions = KGSM.Bot.Infrastructure.Configuration.KgsmOptions;
+
 namespace KGSM.Bot.Infrastructure.KGSM;
 
 /// <summary>
@@ -37,7 +41,7 @@ public class KgsmBlueprintService : Core.Interfaces.IBlueprintService
             _logger.LogInformation("Getting all blueprints");
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var blueprints = await Task.Run(() => _kgsmClient.Blueprints.GetAll());
+            var blueprints = await Task.Run(() => _kgsmClient.Blueprints.ListDetailed());
 
             var result = new Dictionary<string, Blueprint>();
 
@@ -67,36 +71,6 @@ public class KgsmBlueprintService : Core.Interfaces.IBlueprintService
         {
             _logger.LogError(ex, "Error getting blueprints");
             return Result.Failure<IReadOnlyDictionary<string, Blueprint>>(ex.Message);
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task<Result> CreateAsync(Blueprint blueprint)
-    {
-        try
-        {
-            _logger.LogInformation("Creating blueprint {BlueprintName}", blueprint.Name);
-
-            // Convert to KGSM Blueprint
-            var kgsmBlueprint = new Blueprint
-            {
-                Name = blueprint.Name,
-                Ports = blueprint.Ports,
-                ExecutableFile = blueprint.ExecutableFile,
-                SteamAppId = blueprint.SteamAppId,
-                IsSteamAccountRequired = blueprint.IsSteamAccountRequired
-            };
-
-            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Blueprints.Create(kgsmBlueprint));
-
-            _logger.LogInformation("Created blueprint {BlueprintName}", blueprint.Name);
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating blueprint {BlueprintName}", blueprint.Name);
-            return Result.Failure(ex.Message);
         }
     }
 }

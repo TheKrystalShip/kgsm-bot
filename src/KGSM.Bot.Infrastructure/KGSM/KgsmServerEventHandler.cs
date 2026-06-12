@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 using TheKrystalShip.KGSM.Events;
 
 namespace KGSM.Bot.Infrastructure.KGSM;

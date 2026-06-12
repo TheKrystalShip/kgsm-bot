@@ -8,6 +8,10 @@ using Microsoft.Extensions.Options;
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
 
+// KGSM.Lib 1.1.0 added TheKrystalShip.KGSM.Core.Models.KgsmOptions, which collides with
+// the bot's own config type; pin the unqualified name to the bot's.
+using KgsmOptions = KGSM.Bot.Infrastructure.Configuration.KgsmOptions;
+
 namespace KGSM.Bot.Infrastructure.KGSM;
 
 /// <summary>
