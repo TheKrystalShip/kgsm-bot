@@ -9,6 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="1.1.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="1.2.0" />
   </ItemGroup>
 </Project>

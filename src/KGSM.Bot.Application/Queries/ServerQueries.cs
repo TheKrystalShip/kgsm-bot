@@ -1,3 +1,5 @@
+using KGSM.Bot.Core.Interfaces;
+
 using MediatR;
 
 using TheKrystalShip.KGSM.Core.Models;
@@ -133,4 +135,33 @@ public record InstanceChannelIdResult
 
     public static InstanceChannelIdResult Success(ulong? channelId) => new(true, channelId, null);
     public static InstanceChannelIdResult Failure(string errorMessage) => new(false, null, errorMessage);
+}
+
+/// <summary>
+/// Query for the kgsm-watchdog supervision state of an instance (desired vs. actual
+/// liveness, phase, restart streak) — the observability surface the plain lifecycle
+/// path can't express.
+/// </summary>
+public record GetWatchdogStatusQuery(string InstanceName) : IRequest<WatchdogStatusResult>;
+
+/// <summary>
+/// Result for the <see cref="GetWatchdogStatusQuery"/>. <see cref="Status"/> carries
+/// the supervised-vs-not-supervised distinction; a failure means the daemon was
+/// unreachable.
+/// </summary>
+public record WatchdogStatusResult
+{
+    public bool IsSuccess { get; }
+    public WatchdogStatus? Status { get; }
+    public string? ErrorMessage { get; }
+
+    private WatchdogStatusResult(bool isSuccess, WatchdogStatus? status, string? errorMessage)
+    {
+        IsSuccess = isSuccess;
+        Status = status;
+        ErrorMessage = errorMessage;
+    }
+
+    public static WatchdogStatusResult Success(WatchdogStatus status) => new(true, status, null);
+    public static WatchdogStatusResult Failure(string errorMessage) => new(false, null, errorMessage);
 }

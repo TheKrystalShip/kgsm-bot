@@ -144,6 +144,60 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         }
     }
 
+    [SlashCommand("supervision", "Show the watchdog supervision state of a game server")]
+    public async Task SupervisionAsync(
+        [Summary(description: SUMMARY)]
+        [Autocomplete(typeof(InstancesAutocompleteHandler))]
+        string instance)
+    {
+        try
+        {
+            _logger.LogInformation("Handling supervision command for instance {InstanceName}", instance);
+
+            var result = await _mediator.Send(new GetWatchdogStatusQuery(instance));
+
+            if (!result.IsSuccess)
+            {
+                // The only failure here is an unreachable daemon — report it plainly
+                // rather than as a server error; native lifecycle still works without it.
+                _logger.LogWarning("Failed to get supervision state for instance {InstanceName}: {Error}",
+                    instance, result.ErrorMessage);
+                await RespondAsync($"⚠️ {result.ErrorMessage} Native start/stop still works; only live supervision details are unavailable.");
+                return;
+            }
+
+            var status = result.Status!;
+            if (!status.IsSupervised || status.State is null)
+            {
+                await RespondAsync($"{instance} is not currently supervised by the watchdog " +
+                    "(it was started outside the daemon, or is not a native standalone instance).");
+                return;
+            }
+
+            var state = status.State;
+            var liveness = state.Populated ? "🟢 Online" : "🔴 Offline";
+            var embed = new EmbedBuilder()
+                .WithTitle($"Watchdog supervision — {state.Name}")
+                .WithColor(state.Phase == "failed" ? Color.Red : Color.Green)
+                .AddField("Liveness", liveness, inline: true)
+                .AddField("Desired", string.IsNullOrEmpty(state.Desired) ? "—" : state.Desired, inline: true)
+                .AddField("Phase", string.IsNullOrEmpty(state.Phase) ? "—" : state.Phase, inline: true)
+                .AddField("Restarts", state.Restarts.ToString(), inline: true)
+                .AddField("PID", state.Pid?.ToString() ?? "—", inline: true)
+                .WithCurrentTimestamp();
+
+            if (!string.IsNullOrWhiteSpace(state.Reason))
+                embed.AddField("Reason", state.Reason);
+
+            await RespondAsync(embed: embed.Build());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling supervision command for instance {InstanceName}", instance);
+            await RespondAsync($"An error occurred: {ex.Message}");
+        }
+    }
+
     [SlashCommand("is-active", "Check if an instance is currently running")]
     public async Task IsActiveAsync(
         [Summary(description: SUMMARY)]

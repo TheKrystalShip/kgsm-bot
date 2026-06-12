@@ -213,3 +213,44 @@ public class GetInstanceChannelIdQueryHandler : IRequestHandler<GetInstanceChann
         }
     }
 }
+
+/// <summary>
+/// Query handler for the kgsm-watchdog supervision state of an instance.
+/// </summary>
+public class GetWatchdogStatusQueryHandler : IRequestHandler<GetWatchdogStatusQuery, WatchdogStatusResult>
+{
+    private readonly IWatchdogService _watchdogService;
+    private readonly ILogger<GetWatchdogStatusQueryHandler> _logger;
+
+    public GetWatchdogStatusQueryHandler(
+        IWatchdogService watchdogService,
+        ILogger<GetWatchdogStatusQueryHandler> logger)
+    {
+        _watchdogService = watchdogService;
+        _logger = logger;
+    }
+
+    public async Task<WatchdogStatusResult> Handle(GetWatchdogStatusQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Getting watchdog supervision state for instance {InstanceName}", request.InstanceName);
+
+            var result = await _watchdogService.GetStatusAsync(request.InstanceName);
+
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to get watchdog state for instance {InstanceName}: {Error}",
+                    request.InstanceName, result.Error);
+                return WatchdogStatusResult.Failure(result.Error ?? "Unknown error");
+            }
+
+            return WatchdogStatusResult.Success(result.Value!);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting watchdog state for instance {InstanceName}", request.InstanceName);
+            return WatchdogStatusResult.Failure($"An error occurred: {ex.Message}");
+        }
+    }
+}

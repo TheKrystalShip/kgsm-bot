@@ -89,10 +89,17 @@ public static class DependencyInjection
         // Add KGSM-Lib services
         services.AddKgsmServices(kgsmOptions.Path, kgsmOptions.SocketPath);
 
+        // Typed client for the kgsm-watchdog control socket (read-only supervision
+        // surface). Registration always succeeds — the socket path defaults to the
+        // daemon's own default — and an absent/unreachable daemon is handled at call
+        // time, so this is safe even on hosts where the watchdog isn't deployed.
+        services.AddKgsmWatchdogClient(kgsmOptions.WatchdogSocketPath);
+
         // Application service implementations
         services.AddSingleton<IServerEventHandler, KgsmServerEventHandler>();
         services.AddSingleton<IBlueprintService, KgsmBlueprintService>();
         services.AddSingleton<IServerInstanceService, KgsmServerInstanceService>();
+        services.AddSingleton<IWatchdogService, WatchdogService>();
 
         // Cached inventory (avoids spawning kgsm per message)
         services.AddSingleton<IKgsmStateCache, KgsmStateCache>();
