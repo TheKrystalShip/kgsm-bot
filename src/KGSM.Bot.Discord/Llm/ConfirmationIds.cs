@@ -22,12 +22,30 @@ public static class ConfirmationIds
 
     private const char Sep = '~';
 
-    public static string Confirm(PendingConfirmation c) => c.Kind switch
-    {
-        ConfirmationKind.Uninstall => $"{ConfirmPrefix}U{Sep}{c.Target}",
-        ConfirmationKind.Install => $"{ConfirmPrefix}I{Sep}{c.Target}{Sep}{c.InstanceName}",
-        _ => throw new ArgumentOutOfRangeException(nameof(c))
-    };
+    /// <summary>
+    /// Stable one-char code per kind. APPEND-ONLY: never reuse or reassign a letter — a
+    /// posted button carries the old code until clicked. Every instance-targeted command
+    /// encodes as <c>&lt;code&gt;~&lt;target&gt;</c>; <see cref="ConfirmationKind.Install"/>
+    /// is special-cased (it carries an extra instance-name segment).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<ConfirmationKind, char> Codes =
+        new Dictionary<ConfirmationKind, char>
+        {
+            [ConfirmationKind.Uninstall] = 'U',
+            [ConfirmationKind.Install] = 'I',
+            [ConfirmationKind.Start] = 'S',
+            [ConfirmationKind.Stop] = 'T',
+            [ConfirmationKind.Restart] = 'R',
+            [ConfirmationKind.Update] = 'P',
+            [ConfirmationKind.Backup] = 'B',
+        };
+
+    private static readonly IReadOnlyDictionary<char, ConfirmationKind> ByCode =
+        Codes.ToDictionary(kv => kv.Value, kv => kv.Key);
+
+    public static string Confirm(PendingConfirmation c) => c.Kind == ConfirmationKind.Install
+        ? $"{ConfirmPrefix}I{Sep}{c.Target}{Sep}{c.InstanceName}"
+        : $"{ConfirmPrefix}{Codes[c.Kind]}{Sep}{c.Target}";
 
     /// <summary>
     /// Parses the wildcard remainder (everything after <see cref="ConfirmPrefix"/>)
@@ -40,17 +58,24 @@ public static class ConfirmationIds
             return false;
 
         var parts = data.Split(Sep);
-        switch (parts[0])
+
+        // Install (create): I~target~name (name segment may be empty → null).
+        if (parts[0] == "I" && parts.Length == 3 && parts[1].Length > 0)
         {
-            case "U" when parts.Length == 2 && parts[1].Length > 0:
-                confirmation = new PendingConfirmation(ConfirmationKind.Uninstall, parts[1]);
-                return true;
-            case "I" when parts.Length == 3 && parts[1].Length > 0:
-                var name = parts[2].Length == 0 ? null : parts[2];
-                confirmation = new PendingConfirmation(ConfirmationKind.Install, parts[1], name);
-                return true;
-            default:
-                return false;
+            var name = parts[2].Length == 0 ? null : parts[2];
+            confirmation = new PendingConfirmation(ConfirmationKind.Install, parts[1], name);
+            return true;
         }
+
+        // Every instance-targeted command: <code>~target.
+        if (parts.Length == 2 && parts[0].Length == 1
+            && ByCode.TryGetValue(parts[0][0], out var kind) && kind != ConfirmationKind.Install
+            && parts[1].Length > 0)
+        {
+            confirmation = new PendingConfirmation(kind, parts[1]);
+            return true;
+        }
+
+        return false;
     }
 }

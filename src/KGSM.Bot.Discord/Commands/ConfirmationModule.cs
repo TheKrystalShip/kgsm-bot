@@ -73,6 +73,9 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         {
             ConfirmationKind.Uninstall => await RunUninstallAsync(confirmation.Target),
             ConfirmationKind.Install => await RunInstallAsync(confirmation.Target, confirmation.InstanceName),
+            ConfirmationKind.Start or ConfirmationKind.Stop or ConfirmationKind.Restart
+                or ConfirmationKind.Update or ConfirmationKind.Backup
+                => await RunCommandAsync(confirmation.Kind, confirmation.Target),
             _ => "⚠️ Unknown action."
         };
 
@@ -89,6 +92,38 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
             m.Components = new ComponentBuilder().Build();
         });
     }
+
+    /// <summary>
+    /// Runs a confirmed single-instance command (start/stop/restart/update/backup) on the
+    /// exact same MediatR path as the Discord slash commands. Re-validates the target still
+    /// exists (it was resolved at staging time); the click is already re-authorized above.
+    /// </summary>
+    private async Task<string> RunCommandAsync(ConfirmationKind kind, string instanceName)
+    {
+        var instances = await _stateCache.GetInstancesAsync();
+        var match = instances.Keys.FirstOrDefault(
+            k => string.Equals(k, instanceName, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+            return $"⚠️ `{instanceName}` no longer exists — nothing to {ConfirmationKinds.Verb(kind)}.";
+
+        _logger.LogInformation(
+            "Confirmed {Verb} of {Instance} by {User}", ConfirmationKinds.Verb(kind), match, Context.User.Username);
+
+        var result = await SendCommandAsync(kind, match);
+        return result.IsSuccess
+            ? $"✅ **{match}** has been {ConfirmationKinds.PastTense(kind)}."
+            : $"⚠️ Could not {ConfirmationKinds.Verb(kind)} **{match}**: {result.ErrorMessage ?? "unknown error"}.";
+    }
+
+    private Task<OperationResult> SendCommandAsync(ConfirmationKind kind, string instance) => kind switch
+    {
+        ConfirmationKind.Start => _mediator.Send(new StartServerCommand(instance)),
+        ConfirmationKind.Stop => _mediator.Send(new StopServerCommand(instance)),
+        ConfirmationKind.Restart => _mediator.Send(new RestartServerCommand(instance)),
+        ConfirmationKind.Update => _mediator.Send(new UpdateServerCommand(instance)),
+        ConfirmationKind.Backup => _mediator.Send(new CreateBackupCommand(instance)),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "not a single-instance command"),
+    };
 
     private async Task<string> RunUninstallAsync(string instanceName)
     {

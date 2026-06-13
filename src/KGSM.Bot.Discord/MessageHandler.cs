@@ -139,8 +139,13 @@ public class MessageHandler
             return;
         }
 
+        // Destructive ops get the alarming red button; ordinary commands a neutral one.
+        var confirmStyle = ConfirmationKinds.IsDestructive(confirmation.Kind)
+            ? ButtonStyle.Danger
+            : ButtonStyle.Primary;
+
         var components = new ComponentBuilder()
-            .WithButton("Confirm", confirmId, ButtonStyle.Danger)
+            .WithButton("Confirm", confirmId, confirmStyle)
             .WithButton("Cancel", ConfirmationIds.Cancel, ButtonStyle.Secondary)
             .Build();
 
@@ -155,6 +160,11 @@ public class MessageHandler
             $"⚙️ This will install a new **{c.Target}** server" +
             (c.InstanceName is null ? "" : $" named `{c.InstanceName}`") +
             ". It can take a while.",
+        ConfirmationKind.Start => $"▶️ Start **{c.Target}**?",
+        ConfirmationKind.Stop => $"⏹️ Stop **{c.Target}**?",
+        ConfirmationKind.Restart => $"🔄 Restart **{c.Target}**?",
+        ConfirmationKind.Update => $"⬆️ Update **{c.Target}** to its latest version? It can take a while.",
+        ConfirmationKind.Backup => $"💾 Back up **{c.Target}**?",
         _ => "Please confirm this action."
     };
 
