@@ -62,6 +62,43 @@ internal sealed class MediatorServerOperations : IServerOperations
             : Result.Failure<bool>(result.ErrorMessage ?? "unknown error");
     }
 
+    /// <summary>
+    /// Fleet status for the shared <c>get_status</c> (no instance) tool. The fan-out
+    /// over instances happens here in C# — it is ONE model-facing tool call, so it
+    /// doesn't hit the agent-loop iteration cap the way a per-instance tool loop did.
+    /// A per-instance liveness failure becomes an <see cref="FleetStatusAvailability.Unavailable"/>
+    /// entry, never a fabricated "stopped". (A future bulk MediatR query could replace
+    /// the loop; reused the existing per-instance query here to avoid new bot handlers.)
+    /// </summary>
+    public async Task<Result<IReadOnlyList<FleetStatusEntry>>> GetFleetStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var all = await _mediator.Send(new GetAllInstancesQuery(), cancellationToken);
+        if (!all.IsSuccess || all.Instances is null)
+            return Result.Failure<IReadOnlyList<FleetStatusEntry>>(all.ErrorMessage ?? "could not list instances");
+
+        var entries = new List<FleetStatusEntry>(all.Instances.Count);
+        foreach (var name in all.Instances.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))
+        {
+            var active = await _mediator.Send(new IsServerActiveQuery(name), cancellationToken);
+            entries.Add(active.IsSuccess
+                ? new FleetStatusEntry(name, FleetStatusAvailability.Read, active.IsActive, Reason: null)
+                : new FleetStatusEntry(name, FleetStatusAvailability.Unavailable, Running: null,
+                    active.ErrorMessage ?? "status could not be read"));
+        }
+
+        return Result.Success<IReadOnlyList<FleetStatusEntry>>(entries);
+    }
+
+    /// <summary>
+    /// Config-file viewing (the assistant's authorized-only <c>view_config_file</c>) is
+    /// not wired on the Discord surface yet — degrade gracefully rather than break the
+    /// shared port. Wire a MediatR query when Discord config-view is wanted.
+    /// </summary>
+    public Task<Result<string>> ReadInstanceFileAsync(
+        string instance, string relativePath, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure<string>(
+            "Viewing configuration files isn't available on the Discord surface yet."));
+
     private static Result Map(OperationResult result) =>
         result.IsSuccess ? Result.Success() : Result.Failure(result.ErrorMessage ?? "unknown error");
 }
