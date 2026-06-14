@@ -73,6 +73,11 @@ public class Program
                 services.AddSingleton<IServerOperations, Llm.MediatorServerOperations>();
                 services.AddSingleton<IServerInventory, Llm.StateCacheInventory>();
 
+                // Single-use store for confirmation payloads too long for a Discord customId
+                // (long SetConfig values). Singleton so MessageHandler (stash) and
+                // ConfirmationModule (take) share one instance.
+                services.AddSingleton<Llm.PendingEditStore>();
+
                 // Register the message handler (LLM bridge)
                 services.AddSingleton<MessageHandler>();
 

@@ -26,17 +26,20 @@ public class MessageHandler
     private readonly DiscordSocketClient _client;
     private readonly IServerAssistant _assistant;
     private readonly DiscordOptions _discordOptions;
+    private readonly PendingEditStore _pendingEdits;
     private readonly ILogger<MessageHandler> _logger;
 
     public MessageHandler(
         DiscordSocketClient client,
         IServerAssistant assistant,
         IOptions<DiscordOptions> discordOptions,
+        PendingEditStore pendingEdits,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
         _discordOptions = discordOptions.Value;
+        _pendingEdits = pendingEdits;
         _logger = logger;
     }
 
@@ -134,9 +137,20 @@ public class MessageHandler
         var confirmId = ConfirmationIds.Confirm(confirmation);
         if (confirmId.Length > ConfirmationIds.MaxCustomIdLength)
         {
-            await message.ReplyAsync(
-                "⚠️ That name is too long for me to build a confirmation button — please use the slash command instead.");
-            return;
+            // A SetConfig value can legitimately be long (e.g. executable_arguments), which
+            // overflows Discord's 100-char customId. Stash the resolved op server-side and
+            // ride a short id instead, so the button still works. Other kinds can only
+            // overflow on an absurd instance name → keep the existing guidance.
+            if (confirmation.Kind == ConfirmationKind.SetConfig)
+            {
+                confirmId = ConfirmationIds.ConfirmStored(_pendingEdits.Stash(confirmation));
+            }
+            else
+            {
+                await message.ReplyAsync(
+                    "⚠️ That name is too long for me to build a confirmation button — please use the slash command instead.");
+                return;
+            }
         }
 
         // Destructive ops get the alarming red button; ordinary commands a neutral one.
@@ -165,6 +179,9 @@ public class MessageHandler
         ConfirmationKind.Restart => $"🔄 Restart **{c.Target}**?",
         ConfirmationKind.Update => $"⬆️ Update **{c.Target}** to its latest version? It can take a while.",
         ConfirmationKind.Backup => $"💾 Back up **{c.Target}**?",
+        ConfirmationKind.SetConfig =>
+            $"⚙️ Set `{c.ConfigKey}` = `{(string.IsNullOrEmpty(c.ConfigValue) ? "(empty)" : c.ConfigValue)}` " +
+            $"on **{c.Target}**?",
         _ => "Please confirm this action."
     };
 

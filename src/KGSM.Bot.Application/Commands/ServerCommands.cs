@@ -42,6 +42,11 @@ public record CreateBackupCommand(string InstanceName) : IRequest<OperationResul
 public record UpdateServerCommand(string InstanceName) : IRequest<OperationResult>;
 
 /// <summary>
+/// Command to set a single key=value in a server instance's .config.ini
+/// </summary>
+public record SetInstanceConfigCommand(string InstanceName, string Key, string Value) : IRequest<OperationResult>;
+
+/// <summary>
 /// Result for commands that perform operations but don't return specific data
 /// </summary>
 public record OperationResult

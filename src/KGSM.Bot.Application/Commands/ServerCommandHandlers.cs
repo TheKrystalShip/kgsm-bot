@@ -314,3 +314,48 @@ public class UpdateServerCommandHandler : IRequestHandler<UpdateServerCommand, O
         }
     }
 }
+
+/// <summary>
+/// Command handler for setting a single config key=value on a server instance
+/// </summary>
+public class SetInstanceConfigCommandHandler : IRequestHandler<SetInstanceConfigCommand, OperationResult>
+{
+    private readonly IServerInstanceService _serverInstanceService;
+    private readonly ILogger<SetInstanceConfigCommandHandler> _logger;
+
+    public SetInstanceConfigCommandHandler(
+        IServerInstanceService serverInstanceService,
+        ILogger<SetInstanceConfigCommandHandler> logger)
+    {
+        _serverInstanceService = serverInstanceService;
+        _logger = logger;
+    }
+
+    public async Task<OperationResult> Handle(SetInstanceConfigCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Setting config '{Key}' on server instance {InstanceName}",
+                request.Key, request.InstanceName);
+
+            var result = await _serverInstanceService.SetConfigValueAsync(request.InstanceName, request.Key, request.Value);
+
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to set config '{Key}' on server instance {InstanceName}: {Error}",
+                    request.Key, request.InstanceName, result.Error);
+                return OperationResult.Failure(result.Error ?? "Unknown error");
+            }
+
+            _logger.LogInformation("Successfully set config '{Key}' on server instance {InstanceName}",
+                request.Key, request.InstanceName);
+            return OperationResult.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting config '{Key}' on server instance {InstanceName}",
+                request.Key, request.InstanceName);
+            return OperationResult.Failure($"An error occurred: {ex.Message}");
+        }
+    }
+}

@@ -320,4 +320,31 @@ public class KgsmServerInstanceService : IServerInstanceService
             return Result.Failure<ulong?>(ex.Message);
         }
     }
+
+    /// <inheritdoc />
+    public async Task<Result> SetConfigValueAsync(string instanceName, string key, string value)
+    {
+        try
+        {
+            _logger.LogInformation("Setting config '{Key}' on server instance {InstanceName}", key, instanceName);
+
+            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
+            var result = await Task.Run(() => _kgsmClient.Instances.SetInstanceConfigValue(instanceName, key, value));
+            if (result.IsFailure)
+            {
+                // kgsm refuses denylisted/invalid keys with a clear stderr message — surface it.
+                _logger.LogWarning("Failed to set config '{Key}' on server instance {InstanceName}: {Error}",
+                    key, instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
+
+            _logger.LogInformation("Successfully set config '{Key}' on server instance {InstanceName}", key, instanceName);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting config '{Key}' on server instance {InstanceName}", key, instanceName);
+            return Result.Failure(ex.Message);
+        }
+    }
 }

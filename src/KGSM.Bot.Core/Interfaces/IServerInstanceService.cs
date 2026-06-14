@@ -87,4 +87,15 @@ public interface IServerInstanceService
     /// <param name="instanceName">Name of the instance</param>
     /// <returns>Channel ID, if configured</returns>
     Task<Result<ulong?>> GetChannelIdAsync(string instanceName);
+
+    /// <summary>
+    /// Sets a single key=value in an instance's .config.ini. kgsm owns the safety
+    /// policy and refuses identity/path/structural/toggle keys, surfacing that as a
+    /// failed <see cref="Result"/> (the refusal text in <c>Error</c>).
+    /// </summary>
+    /// <param name="instanceName">Name of the instance</param>
+    /// <param name="key">The config key to set</param>
+    /// <param name="value">The new value (may be the empty string)</param>
+    /// <returns>Result of the operation</returns>
+    Task<Result> SetConfigValueAsync(string instanceName, string key, string value);
 }

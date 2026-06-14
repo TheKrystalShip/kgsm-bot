@@ -27,17 +27,20 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
 {
     private readonly IMediator _mediator;
     private readonly IKgsmStateCache _stateCache;
+    private readonly PendingEditStore _pendingEdits;
     private readonly DiscordOptions _options;
     private readonly ILogger<ConfirmationModule> _logger;
 
     public ConfirmationModule(
         IMediator mediator,
         IKgsmStateCache stateCache,
+        PendingEditStore pendingEdits,
         IOptions<DiscordOptions> options,
         ILogger<ConfirmationModule> logger)
     {
         _mediator = mediator;
         _stateCache = stateCache;
+        _pendingEdits = pendingEdits;
         _options = options.Value;
         _logger = logger;
     }
@@ -53,9 +56,10 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
             return;
         }
 
-        if (!ConfirmationIds.TryParse(data, out var confirmation))
+        if (!TryResolve(data, out var confirmation))
         {
-            await RespondAsync("⚠️ That confirmation is malformed and can't be processed.", ephemeral: true);
+            await RespondAsync(
+                "⚠️ That confirmation is malformed or has expired and can't be processed.", ephemeral: true);
             return;
         }
 
@@ -73,6 +77,8 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         {
             ConfirmationKind.Uninstall => await RunUninstallAsync(confirmation.Target),
             ConfirmationKind.Install => await RunInstallAsync(confirmation.Target, confirmation.InstanceName),
+            ConfirmationKind.SetConfig => await RunSetConfigAsync(
+                confirmation.Target, confirmation.ConfigKey, confirmation.ConfigValue),
             ConfirmationKind.Start or ConfirmationKind.Stop or ConfirmationKind.Restart
                 or ConfirmationKind.Update or ConfirmationKind.Backup
                 => await RunCommandAsync(confirmation.Kind, confirmation.Target),
@@ -80,6 +86,18 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         };
 
         await component.ModifyOriginalResponseAsync(m => m.Content = outcome);
+    }
+
+    /// <summary>
+    /// Resolves the clicked customId remainder into a staged op. Store-backed (overflow)
+    /// confirmations carry only a single-use lookup id (a long SetConfig value didn't fit
+    /// the customId); every other kind is self-describing in the id.
+    /// </summary>
+    private bool TryResolve(string data, out PendingConfirmation confirmation)
+    {
+        if (ConfirmationIds.TryParseStored(data, out var storeId))
+            return _pendingEdits.TryTake(storeId, out confirmation);
+        return ConfirmationIds.TryParse(data, out confirmation);
     }
 
     [ComponentInteraction(ConfirmationIds.Cancel)]
@@ -167,6 +185,34 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         return result.IsSuccess
             ? $"📦 Installed a new **{match}** server{(instanceName is null ? "" : $" (`{instanceName}`)")}."
             : $"⚠️ Could not install **{match}**: {result.ErrorMessage ?? "unknown error"}.";
+    }
+
+    /// <summary>
+    /// Runs a confirmed config edit on the same MediatR path as everything else. Re-validates
+    /// the target still exists; kgsm owns the key-safety policy, so a refused (denylisted/
+    /// invalid) key comes back as a failed result reported to the user.
+    /// </summary>
+    private async Task<string> RunSetConfigAsync(string instanceName, string? key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return "⚠️ No configuration key was given — nothing to set.";
+
+        var instances = await _stateCache.GetInstancesAsync();
+        var match = instances.Keys.FirstOrDefault(
+            k => string.Equals(k, instanceName, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+            return $"⚠️ `{instanceName}` no longer exists — nothing to configure.";
+
+        var newValue = value ?? string.Empty;
+
+        _logger.LogInformation(
+            "Confirmed set-config of {Instance} ({Key}) by {User}", match, key, Context.User.Username);
+
+        var result = await _mediator.Send(new SetInstanceConfigCommand(match, key, newValue));
+        var shown = newValue.Length == 0 ? "(empty)" : newValue;
+        return result.IsSuccess
+            ? $"⚙️ Set `{key}` = `{shown}` on **{match}**."
+            : $"⚠️ Could not set `{key}` on **{match}**: {result.ErrorMessage ?? "unknown error"}.";
     }
 
     private bool IsAuthorized(SocketUser user) =>

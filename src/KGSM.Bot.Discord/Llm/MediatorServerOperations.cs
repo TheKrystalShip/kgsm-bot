@@ -46,6 +46,12 @@ internal sealed class MediatorServerOperations : IServerOperations
     public async Task<Result> UninstallAsync(string instance, CancellationToken cancellationToken = default) =>
         Map(await _mediator.Send(new UninstallServerCommand(instance), cancellationToken));
 
+    // Like install/uninstall above, inert on the bot today (ConfirmationModule executes the
+    // confirmed edit directly via the same SetInstanceConfigCommand); present to satisfy the port.
+    public async Task<Result> SetInstanceConfigValueAsync(
+        string instance, string key, string value, CancellationToken cancellationToken = default) =>
+        Map(await _mediator.Send(new SetInstanceConfigCommand(instance, key, value), cancellationToken));
+
     public async Task<Result<string>> GetStatusAsync(string instance, CancellationToken cancellationToken = default)
     {
         var result = await _mediator.Send(new GetServerStatusQuery(instance), cancellationToken);

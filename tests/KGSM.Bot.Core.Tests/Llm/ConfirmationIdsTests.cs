@@ -56,10 +56,50 @@ public class ConfirmationIdsTests
     }
 
     [Theory]
-    [InlineData("")]            // empty
-    [InlineData("Z~factorio")]  // unknown code
-    [InlineData("S")]           // missing target
-    [InlineData("S~")]          // empty target
+    [InlineData("true")]            // simple value
+    [InlineData("--foo=bar baz")]   // spaces and '='
+    [InlineData("a~b~c")]           // the separator inside the value (value is last → kept whole)
+    [InlineData("")]                // empty value clears the setting
+    public void RoundTrips_SetConfig_PreservingValue(string value)
+    {
+        var original = new PendingConfirmation(
+            ConfirmationKind.SetConfig, "factorio-pvp",
+            InstanceName: null, ConfigKey: "executable_arguments", ConfigValue: value);
+
+        var id = ConfirmationIds.Confirm(original);
+        id.Should().StartWith(ConfirmationIds.ConfirmPrefix);
+
+        var data = id[ConfirmationIds.ConfirmPrefix.Length..];
+        ConfirmationIds.TryParse(data, out var parsed).Should().BeTrue();
+        parsed.Should().BeEquivalentTo(original);
+    }
+
+    [Fact]
+    public void StoredConfirmation_RoundTripsViaId()
+    {
+        const string storeId = "DEADBEEF1234";
+        var id = ConfirmationIds.ConfirmStored(storeId);
+
+        id.Should().StartWith(ConfirmationIds.ConfirmPrefix);
+        (id.Length <= ConfirmationIds.MaxCustomIdLength).Should().BeTrue();
+
+        var data = id[ConfirmationIds.ConfirmPrefix.Length..];
+        ConfirmationIds.TryParseStored(data, out var parsedId).Should().BeTrue();
+        parsedId.Should().Be(storeId);
+
+        // A store-backed id is not a self-describing confirmation.
+        ConfirmationIds.TryParse(data, out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("")]                // empty
+    [InlineData("Z~factorio")]      // unknown code
+    [InlineData("S")]               // missing target
+    [InlineData("S~")]              // empty target
+    [InlineData("C")]               // setconfig, no segments
+    [InlineData("C~factorio~key")]  // setconfig, missing value segment
+    [InlineData("C~~key~val")]      // setconfig, empty target
+    [InlineData("C~factorio~~val")] // setconfig, empty key
     public void TryParse_Malformed_ReturnsFalse(string data)
     {
         ConfirmationIds.TryParse(data, out _).Should().BeFalse();
