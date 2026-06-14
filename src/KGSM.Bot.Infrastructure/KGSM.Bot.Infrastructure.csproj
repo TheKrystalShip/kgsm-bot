@@ -11,7 +11,6 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="1.2.0" />
     <PackageReference Include="Discord.Net" Version="3.13.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
   </ItemGroup>
@@ -22,5 +21,7 @@
     <!-- The reusable LLM lib now lives in the sibling TheKrystalShip.Llm solution
          (consumed as a project reference instead of the local-feed NuGet). -->
     <ProjectReference Include="..\..\..\kgsm-llm\TheKrystalShip.Llm\TheKrystalShip.Llm.csproj" />
+    <!-- kgsm-lib consumed as a local project reference (was NuGet TheKrystalShip.KGSM.Lib 1.2.0). -->
+    <ProjectReference Include="..\..\..\kgsm-lib\kgsm-lib\kgsm-lib.csproj" />
   </ItemGroup>
 </Project>

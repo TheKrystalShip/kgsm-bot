@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- kgsm-lib consumed as a local project reference (was NuGet TheKrystalShip.KGSM.Lib 1.2.0). -->
+    <ProjectReference Include="..\..\..\kgsm-lib\kgsm-lib\kgsm-lib.csproj" />
   </ItemGroup>
 </Project>

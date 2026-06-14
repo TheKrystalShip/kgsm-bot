@@ -12,10 +12,11 @@
     <PackageReference Include="FluentValidation" Version="11.8.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="1.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
+    <!-- kgsm-lib consumed as a local project reference (was NuGet TheKrystalShip.KGSM.Lib 1.2.0). -->
+    <ProjectReference Include="..\..\..\kgsm-lib\kgsm-lib\kgsm-lib.csproj" />
   </ItemGroup>
 </Project>
