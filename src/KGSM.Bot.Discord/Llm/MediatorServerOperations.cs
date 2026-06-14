@@ -96,6 +96,21 @@ internal sealed class MediatorServerOperations : IServerOperations
     }
 
     /// <summary>
+    /// Health snapshot for the assistant's <c>run_health_check</c> aggregator — routed
+    /// through MediatR like every other read, so Discord narrates real health. The
+    /// neutral mapping happens in the query handler; the aggregator's synthesis runs in
+    /// the assistant library.
+    /// </summary>
+    public async Task<Result<InstanceHealthSnapshot>> GetHealthSnapshotAsync(
+        string instance, CancellationToken cancellationToken = default)
+    {
+        var result = await _mediator.Send(new GetHealthSnapshotQuery(instance), cancellationToken);
+        return result.IsSuccess && result.Snapshot is not null
+            ? Result.Success(result.Snapshot)
+            : Result.Failure<InstanceHealthSnapshot>(result.ErrorMessage ?? "could not read health snapshot");
+    }
+
+    /// <summary>
     /// Config-file viewing (the assistant's authorized-only <c>view_config_file</c>) is
     /// not wired on the Discord surface yet — degrade gracefully rather than break the
     /// shared port. Wire a MediatR query when Discord config-view is wanted.

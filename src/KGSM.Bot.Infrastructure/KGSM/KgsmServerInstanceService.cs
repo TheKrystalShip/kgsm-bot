@@ -266,6 +266,45 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    public async Task<Result<InstanceRuntimeStatus>> GetRuntimeStatusAsync(string instanceName)
+    {
+        try
+        {
+            _logger.LogDebug("Getting runtime status for server instance {InstanceName}", instanceName);
+
+            // Non-fast: performs the per-instance update check, so the version block is real.
+            var status = await Task.Run(() => _kgsmClient.Instances.GetInstanceStatus(instanceName));
+            if (status is null)
+                return Result.Failure<InstanceRuntimeStatus>(
+                    $"'{instanceName}' did not return a status (it may need its management file regenerated).");
+
+            return Result.Success(status);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting runtime status for server instance {InstanceName}", instanceName);
+            return Result.Failure<InstanceRuntimeStatus>(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<SystemInfo>> GetSystemInfoAsync()
+    {
+        try
+        {
+            var info = await Task.Run(() => _kgsmClient.System.GetSystemInfo());
+            return info is null
+                ? Result.Failure<SystemInfo>("host system info was unavailable")
+                : Result.Success(info);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting host system info");
+            return Result.Failure<SystemInfo>(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<Result> CreateBackupAsync(string instanceName)
     {
         try

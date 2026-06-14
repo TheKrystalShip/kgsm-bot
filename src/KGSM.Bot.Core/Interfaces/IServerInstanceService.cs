@@ -75,6 +75,22 @@ public interface IServerInstanceService
     Task<Result<bool>> IsActiveAsync(string instanceName);
 
     /// <summary>
+    /// Gets the structured runtime status (running-state, recent logs, version) for an
+    /// instance — the typed object behind <see cref="GetInfoAsync"/>'s text. Backs the
+    /// assistant's <c>run_health_check</c> aggregator.
+    /// </summary>
+    /// <param name="instanceName">Name of the instance</param>
+    /// <returns>The runtime status, or a failure if it could not be read.</returns>
+    Task<Result<InstanceRuntimeStatus>> GetRuntimeStatusAsync(string instanceName);
+
+    /// <summary>
+    /// Gets host system information (disk / memory / load) for the health check's disk
+    /// headroom check. Not instance-specific.
+    /// </summary>
+    /// <returns>The host system info, or a failure if it could not be read.</returns>
+    Task<Result<SystemInfo>> GetSystemInfoAsync();
+
+    /// <summary>
     /// Creates a backup of the instance
     /// </summary>
     /// <param name="instanceName">Name of the instance</param>

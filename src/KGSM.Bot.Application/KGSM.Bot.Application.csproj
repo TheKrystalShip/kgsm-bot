@@ -18,5 +18,7 @@
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
     <!-- kgsm-lib consumed as a local project reference (was NuGet TheKrystalShip.KGSM.Lib 1.2.0). -->
     <ProjectReference Include="..\..\..\kgsm-lib\kgsm-lib\kgsm-lib.csproj" />
+    <!-- Assistant toolbox: the neutral InstanceHealthSnapshot the run_health_check query maps into. -->
+    <ProjectReference Include="..\..\..\kgsm-llm\TheKrystalShip.Kgsm.Assistant\TheKrystalShip.Kgsm.Assistant.csproj" />
   </ItemGroup>
 </Project>

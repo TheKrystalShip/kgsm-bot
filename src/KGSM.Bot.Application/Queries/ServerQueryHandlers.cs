@@ -5,6 +5,8 @@ using MediatR;
 
 using Microsoft.Extensions.Logging;
 
+using TheKrystalShip.Kgsm.Assistant.Ports;
+
 namespace KGSM.Bot.Application.Handlers;
 
 /// <summary>
@@ -169,6 +171,83 @@ public class IsServerActiveQueryHandler : IRequestHandler<IsServerActiveQuery, S
             return ServerActiveResult.Failure($"An error occurred: {ex.Message}");
         }
     }
+}
+
+/// <summary>
+/// Query handler for the assistant's <c>run_health_check</c> aggregator. Fetches the
+/// structured status + host disk and maps them into the neutral
+/// <see cref="InstanceHealthSnapshot"/> (fetch + map only — the health judgment lives in
+/// the assistant library's aggregator). A failed status read fails the query; a failed
+/// host-disk read is carried as a null disk + reason, never a fabricated value.
+/// </summary>
+public class GetHealthSnapshotQueryHandler : IRequestHandler<GetHealthSnapshotQuery, HealthSnapshotResult>
+{
+    private readonly IServerInstanceService _serverInstanceService;
+    private readonly ILogger<GetHealthSnapshotQueryHandler> _logger;
+
+    public GetHealthSnapshotQueryHandler(
+        IServerInstanceService serverInstanceService,
+        ILogger<GetHealthSnapshotQueryHandler> logger)
+    {
+        _serverInstanceService = serverInstanceService;
+        _logger = logger;
+    }
+
+    public async Task<HealthSnapshotResult> Handle(GetHealthSnapshotQuery request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Building health snapshot for instance {InstanceName}", request.InstanceName);
+
+            var status = await _serverInstanceService.GetRuntimeStatusAsync(request.InstanceName);
+            if (status.IsFailure || status.Value is null)
+                return HealthSnapshotResult.Failure(status.Error ?? "could not read status");
+
+            var s = status.Value;
+
+            // Host disk is best-effort: its absence skips the disk check, never fails the read.
+            HostDisk? hostDisk = null;
+            string? diskReason = null;
+            var disk = await _serverInstanceService.GetSystemInfoAsync();
+            if (disk.IsSuccess && disk.Value is not null)
+                hostDisk = new HostDisk(
+                    ParsePercent(disk.Value.Disk.UsePercent), disk.Value.Disk.Size, disk.Value.Disk.Available);
+            else
+                diskReason = disk.Error ?? "the host disk usage could not be read";
+
+            var snapshot = new InstanceHealthSnapshot(
+                Running: s.Status,
+                RecentLogLines: SplitLogLines(s.RecentLogs),
+                UpdatesAvailable: s.Version.UpdatesAvailable,
+                CurrentVersion: NullIfEmpty(s.Version.Current),
+                LatestVersion: s.Version.Latest,
+                HostDisk: hostDisk,
+                HostDiskUnavailableReason: diskReason);
+
+            return HealthSnapshotResult.Success(snapshot);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error building health snapshot for instance {InstanceName}", request.InstanceName);
+            return HealthSnapshotResult.Failure($"An error occurred: {ex.Message}");
+        }
+    }
+
+    private static IReadOnlyList<string> SplitLogLines(string? recentLogs) =>
+        string.IsNullOrEmpty(recentLogs)
+            ? Array.Empty<string>()
+            : recentLogs.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static int? ParsePercent(string? usePercent)
+    {
+        if (string.IsNullOrWhiteSpace(usePercent))
+            return null;
+        var digits = new string(usePercent.TrimStart().TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var pct) ? pct : null;
+    }
+
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 }
 
 /// <summary>

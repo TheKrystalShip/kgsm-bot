@@ -2,6 +2,7 @@ using KGSM.Bot.Core.Interfaces;
 
 using MediatR;
 
+using TheKrystalShip.Kgsm.Assistant.Ports;
 using TheKrystalShip.KGSM.Core.Models;
 
 namespace KGSM.Bot.Application.Queries;
@@ -110,6 +111,37 @@ public record ServerActiveResult
 
     public static ServerActiveResult Success(bool isActive) => new(true, isActive, null);
     public static ServerActiveResult Failure(string errorMessage) => new(false, false, errorMessage);
+}
+
+/// <summary>
+/// Query for the assistant's <c>run_health_check</c> aggregator: fetches the neutral
+/// <see cref="InstanceHealthSnapshot"/> (running-state, recent logs, update availability,
+/// host disk) for one instance. The deterministic synthesis over it lives in the
+/// assistant library's HealthCheckAggregator — this query only fetches + maps.
+/// </summary>
+public record GetHealthSnapshotQuery(string InstanceName) : IRequest<HealthSnapshotResult>;
+
+/// <summary>
+/// Result for the <see cref="GetHealthSnapshotQuery"/>. A failure means the instance
+/// status itself could not be read; an unreadable <em>host disk</em> is not a failure —
+/// it is carried inside the snapshot as a null disk + reason (the aggregator then skips
+/// the disk check), never a fabricated value.
+/// </summary>
+public record HealthSnapshotResult
+{
+    public bool IsSuccess { get; }
+    public InstanceHealthSnapshot? Snapshot { get; }
+    public string? ErrorMessage { get; }
+
+    private HealthSnapshotResult(bool isSuccess, InstanceHealthSnapshot? snapshot, string? errorMessage)
+    {
+        IsSuccess = isSuccess;
+        Snapshot = snapshot;
+        ErrorMessage = errorMessage;
+    }
+
+    public static HealthSnapshotResult Success(InstanceHealthSnapshot snapshot) => new(true, snapshot, null);
+    public static HealthSnapshotResult Failure(string errorMessage) => new(false, null, errorMessage);
 }
 
 /// <summary>
