@@ -1,6 +1,7 @@
 using Discord.Interactions;
 
 using KGSM.Bot.Application.Commands;
+using KGSM.Bot.Core.Common;
 using KGSM.Bot.Discord.Autocomplete;
 
 using MediatR;
@@ -15,11 +16,13 @@ namespace KGSM.Bot.Discord.Commands;
 public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IMediator _mediator;
+    private readonly IInvocationContext _invocation;
     private readonly ILogger<BlueprintsModule> _logger;
 
-    public BlueprintsModule(IMediator mediator, ILogger<BlueprintsModule> logger)
+    public BlueprintsModule(IMediator mediator, IInvocationContext invocation, ILogger<BlueprintsModule> logger)
     {
         _mediator = mediator;
+        _invocation = invocation;
         _logger = logger;
     }
 
@@ -38,6 +41,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
         [Summary(description: "Custom name for the instance (optional)")]
         string? name = null)
     {
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
         try
         {
             _logger.LogInformation("Handling install command for blueprint {BlueprintName} at {Path} with version {Version} and name {Name}",
@@ -72,6 +76,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
         string instance)
     {
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
         try
         {
             _logger.LogInformation("Handling uninstall command for instance {InstanceName}", instance);

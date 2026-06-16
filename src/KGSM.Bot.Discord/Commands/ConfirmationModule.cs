@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 
 using KGSM.Bot.Application.Commands;
+using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
@@ -29,6 +30,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
     private readonly IKgsmStateCache _stateCache;
     private readonly PendingEditStore _pendingEdits;
     private readonly DiscordOptions _options;
+    private readonly IInvocationContext _invocation;
     private readonly ILogger<ConfirmationModule> _logger;
 
     public ConfirmationModule(
@@ -36,12 +38,14 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         IKgsmStateCache stateCache,
         PendingEditStore pendingEdits,
         IOptions<DiscordOptions> options,
+        IInvocationContext invocation,
         ILogger<ConfirmationModule> logger)
     {
         _mediator = mediator;
         _stateCache = stateCache;
         _pendingEdits = pendingEdits;
         _options = options.Value;
+        _invocation = invocation;
         _logger = logger;
     }
 
@@ -72,6 +76,10 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
             m.Content = "⏳ Working on it…";
             m.Components = new ComponentBuilder().Build();
         });
+
+        // The clicker is the authority for the action they just confirmed (origin=discord); flows to the
+        // kgsm chokepoint through the awaited Run* dispatches below.
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
 
         var outcome = confirmation.Kind switch
         {

@@ -21,16 +21,27 @@ public class KgsmServerInstanceService : IServerInstanceService
 {
     private readonly IKgsmClient _kgsmClient;
     private readonly KgsmOptions _options;
+    private readonly IInvocationContext _invocation;
     private readonly ILogger<KgsmServerInstanceService> _logger;
 
     public KgsmServerInstanceService(
         IKgsmClient kgsmClient,
         IOptions<KgsmOptions> options,
+        IInvocationContext invocation,
         ILogger<KgsmServerInstanceService> logger)
     {
         _kgsmClient = kgsmClient;
         _options = options.Value;
+        _invocation = invocation;
         _logger = logger;
+    }
+
+    // The provenance of the action being performed (set at the entry point), or (null, null) for a
+    // non-attributed/background path — KGSM then applies its honest fallback, never a fabricated actor.
+    private (string? Actor, string? Origin) Provenance()
+    {
+        Invocation? inv = _invocation.Current;
+        return (inv?.Actor, inv?.Origin);
     }    /// <inheritdoc />
     public async Task<Result<IReadOnlyDictionary<string, Instance>>> GetAllAsync()
     {
@@ -60,7 +71,8 @@ public class KgsmServerInstanceService : IServerInstanceService
                 blueprintName, instancePath, version, name);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Instances.Install(blueprintName, instancePath, version, name));
+            var (actor, origin) = Provenance();
+            await Task.Run(() => _kgsmClient.Instances.Install(blueprintName, instancePath, version, name, actor, origin));
 
             _logger.LogInformation("Successfully installed server instance from blueprint {BlueprintName}",
                 blueprintName);
@@ -82,7 +94,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Uninstalling server instance {InstanceName}", instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            await Task.Run(() => _kgsmClient.Instances.Uninstall(instanceName));
+            var (actor, origin) = Provenance();
+            await Task.Run(() => _kgsmClient.Instances.Uninstall(instanceName, actor, origin));
 
             _logger.LogInformation("Successfully uninstalled server instance {InstanceName}",
                 instanceName);
@@ -112,7 +125,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             }
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var result = await Task.Run(() => _kgsmClient.Instances.Start(instanceName));
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.Start(instanceName, actor, origin));
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to start server instance {InstanceName}: {Error}",
@@ -146,7 +160,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             }
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var result = await Task.Run(() => _kgsmClient.Instances.Stop(instanceName));
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.Stop(instanceName, actor, origin));
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to stop server instance {InstanceName}: {Error}",
@@ -172,7 +187,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Restarting server instance {InstanceName}", instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var result = await Task.Run(() => _kgsmClient.Instances.Restart(instanceName));
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.Restart(instanceName, actor, origin));
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to restart server instance {InstanceName}: {Error}",
@@ -198,7 +214,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Updating server instance {InstanceName}", instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var result = await Task.Run(() => _kgsmClient.Instances.Update(instanceName));
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.Update(instanceName, actor, origin));
 
             if (result.IsFailure)
             {
@@ -312,7 +329,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Creating backup for server instance {InstanceName}", instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var result = await Task.Run(() => _kgsmClient.Instances.CreateBackup(instanceName));
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.CreateBackup(instanceName, actor, origin));
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to create backup for server instance {InstanceName}: {Error}",
@@ -368,7 +386,8 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogInformation("Setting config '{Key}' on server instance {InstanceName}", key, instanceName);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var result = await Task.Run(() => _kgsmClient.Instances.SetInstanceConfigValue(instanceName, key, value));
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.SetInstanceConfigValue(instanceName, key, value, actor, origin));
             if (result.IsFailure)
             {
                 // kgsm refuses denylisted/invalid keys with a clear stderr message — surface it.

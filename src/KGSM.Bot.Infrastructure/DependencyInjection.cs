@@ -95,6 +95,11 @@ public static class DependencyInjection
         // time, so this is safe even on hosts where the watchdog isn't deployed.
         services.AddKgsmWatchdogClient(kgsmOptions.WatchdogSocketPath);
 
+        // Ambient provenance (who/through-what) for the current action — set at an entry point (a slash
+        // command, the LLM message handler), read at the kgsm chokepoint so every mutation is attributable.
+        // Singleton: the AsyncLocal inside isolates the value per request flow.
+        services.AddSingleton<global::KGSM.Bot.Core.Common.IInvocationContext, global::KGSM.Bot.Core.Common.AsyncLocalInvocationContext>();
+
         // Application service implementations
         services.AddSingleton<IServerEventHandler, KgsmServerEventHandler>();
         services.AddSingleton<IBlueprintService, KgsmBlueprintService>();

@@ -3,6 +3,7 @@ using Discord.Interactions;
 
 using KGSM.Bot.Application.Commands;
 using KGSM.Bot.Application.Queries;
+using KGSM.Bot.Core.Common;
 using KGSM.Bot.Discord.Autocomplete;
 
 using MediatR;
@@ -17,12 +18,14 @@ namespace KGSM.Bot.Discord.Commands;
 public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IMediator _mediator;
+    private readonly IInvocationContext _invocation;
     private readonly ILogger<InstancesModule> _logger;
     private const string SUMMARY = "Game server instance";
 
-    public InstancesModule(IMediator mediator, ILogger<InstancesModule> logger)
+    public InstancesModule(IMediator mediator, IInvocationContext invocation, ILogger<InstancesModule> logger)
     {
         _mediator = mediator;
+        _invocation = invocation;
         _logger = logger;
     }
 
@@ -32,6 +35,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
         string instance)
     {
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
         try
         {
             _logger.LogInformation("Handling start command for instance {InstanceName}", instance);
@@ -67,6 +71,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
         string instance)
     {
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
         try
         {
             _logger.LogInformation("Handling stop command for instance {InstanceName}", instance);
@@ -94,6 +99,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
         string instance)
     {
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
         try
         {
             _logger.LogInformation("Handling restart command for instance {InstanceName}", instance);

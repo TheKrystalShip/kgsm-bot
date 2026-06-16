@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Discord;
 using Discord.WebSocket;
 
+using KGSM.Bot.Core.Common;
 using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
 
@@ -27,6 +28,7 @@ public class MessageHandler
     private readonly IServerAssistant _assistant;
     private readonly DiscordOptions _discordOptions;
     private readonly PendingEditStore _pendingEdits;
+    private readonly IInvocationContext _invocation;
     private readonly ILogger<MessageHandler> _logger;
 
     public MessageHandler(
@@ -34,12 +36,14 @@ public class MessageHandler
         IServerAssistant assistant,
         IOptions<DiscordOptions> discordOptions,
         PendingEditStore pendingEdits,
+        IInvocationContext invocation,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
         _discordOptions = discordOptions.Value;
         _pendingEdits = pendingEdits;
+        _invocation = invocation;
         _logger = logger;
     }
 
@@ -95,6 +99,11 @@ public class MessageHandler
                 message.Author.Username, message.Author.Id, canPerformActions, prompt);
 
             AssistantResult result;
+            // Attribute any server mutation the LLM runs this turn to the asking Discord user
+            // (origin=discord). Flows down the awaited RunAsync → tool dispatch → kgsm chokepoint.
+            // (Destructive ops are usually staged for a confirmation click — re-attributed there — but
+            // wrapping the turn covers any inline execution too.)
+            using var provenance = _invocation.Begin(Invocation.ForDiscordUser(message.Author.Username));
             using (message.Channel.EnterTypingState())
             {
                 // Conversation key for memory: per (user, channel). The assistant
