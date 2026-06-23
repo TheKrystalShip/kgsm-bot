@@ -120,6 +120,15 @@ internal sealed class MediatorServerOperations : IServerOperations
         Task.FromResult(Result.Failure<string>(
             "Viewing configuration files isn't available on the Discord surface yet."));
 
+    /// <summary>
+    /// File listing (the assistant's authorized-only <c>list_files</c>) is not wired on the
+    /// Discord surface yet — degrade gracefully, like <see cref="ReadInstanceFileAsync"/>.
+    /// </summary>
+    public Task<Result<IReadOnlyList<InstanceDirEntry>>> ListInstanceDirectoryAsync(
+        string instance, string? relativeSubdir = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure<IReadOnlyList<InstanceDirEntry>>(
+            "Browsing server files isn't available on the Discord surface yet."));
+
     private static Result Map(OperationResult result) =>
         result.IsSuccess ? Result.Success() : Result.Failure(result.ErrorMessage ?? "unknown error");
 }
