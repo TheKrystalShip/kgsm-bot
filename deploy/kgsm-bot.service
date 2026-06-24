@@ -1,0 +1,52 @@
+[Unit]
+Description=KGSM Discord bot
+Documentation=https://github.com/TheKrystalShip
+# The bot shells kgsm.sh (via kgsm-lib) and listens for kgsm lifecycle events, but those deps are
+# LAZY (not needed at startup) so it boots fine without them. Order after the network (and the
+# engine, if kgsm-watchdog runs as a unit on this host).
+After=network-online.target
+Wants=network-online.target
+# After=kgsm-watchdog.service
+
+[Service]
+Type=simple
+# Runs as the user that owns the kgsm instance registry (~/.local/share/kgsm) so kgsm-lib sees the
+# same instances that user does. deploy/deploy.sh rewrites User=/Group= to the invoking user at
+# install time (this host has no dedicated 'kgsm' user — everything runs as the login user).
+User=heisen
+Group=heisen
+
+WorkingDirectory=/opt/kgsm-bot
+# Framework-dependent single-file binary — REQUIRES the .NET 10 runtime on the host (deploy.sh
+# checks). Publish: dotnet publish src/KGSM.Bot.Discord -c Release -r linux-x64 --no-self-contained.
+ExecStart=/opt/kgsm-bot/KGSM.Bot.Discord
+
+Environment=DOTNET_ENVIRONMENT=Production
+# Path to the host's kgsm.sh (the canonical dev checkout — matches the kgsm-api/kgsm-monitor units)
+# and the bot's OWN dedicated kgsm event-listen socket. The bot binds this socket; kgsm dials OUT
+# to it (socat), so add this path to kgsm's event_socket_filenames for the bot to receive events.
+Environment=KGSM__Path=/home/heisen/tks/kgsm/kgsm.sh
+Environment=KGSM__SocketPath=/run/kgsm-bot/kgsm-events.sock
+
+# REQUIRED: the Discord bot token (Discord__Token) lives here, NOT in the committed appsettings.json.
+# A SECRET — keep this file chmod 600. The deploy script creates it from kgsm-bot.env.example.
+EnvironmentFile=/etc/kgsm-bot/kgsm-bot.env
+
+Restart=on-failure
+RestartSec=5
+
+# Journald with the ecosystem's <N> priority prefixes.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kgsm-bot
+
+# systemd creates /run/kgsm-bot owned by the service user (mode 0750); the event socket lives in it.
+RuntimeDirectory=kgsm-bot
+RuntimeDirectoryMode=0750
+
+# Light hardening only: the bot shells kgsm.sh (which touches the kgsm data dir under /home and the
+# game-server processes), so do NOT add aggressive ProtectHome/ProtectSystem without testing.
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -6,6 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
+
+    <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
+         so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
+         the RID is supplied at publish time (deploy/deploy.sh passes -r linux-x64). -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
