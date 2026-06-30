@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
+    <Version>1.1.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -45,4 +46,16 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <Target Name="SetSourceRevisionId" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;CoreCompile"
+          Condition="'$(SourceRevisionId)' == ''">
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-parse --short=12 HEAD"
+          ConsoleToMSBuild="true" ContinueOnError="true" StandardErrorImportance="low" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitShortSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitExitCode" />
+    </Exec>
+    <PropertyGroup Condition="'$(_GitExitCode)' == '0' and '$(_GitShortSha)' != ''">
+      <SourceRevisionId>$(_GitShortSha)</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
 </Project>
