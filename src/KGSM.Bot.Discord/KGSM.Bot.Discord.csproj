@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
+    <AssemblyName>kgsm-bot</AssemblyName>
     <Version>1.1.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,

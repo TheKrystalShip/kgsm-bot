@@ -19,7 +19,7 @@ Group=heisen
 WorkingDirectory=/opt/kgsm-bot
 # Framework-dependent single-file binary — REQUIRES the .NET 10 runtime on the host (deploy.sh
 # checks). Publish: dotnet publish src/KGSM.Bot.Discord -c Release -r linux-x64 --no-self-contained.
-ExecStart=/opt/kgsm-bot/KGSM.Bot.Discord
+ExecStart=/opt/kgsm-bot/kgsm-bot
 
 Environment=DOTNET_ENVIRONMENT=Production
 # Path to the host's kgsm.sh (the canonical dev checkout — matches the kgsm-api/kgsm-monitor units)
