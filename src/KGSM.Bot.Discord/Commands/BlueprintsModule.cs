@@ -1,10 +1,8 @@
 using Discord.Interactions;
 
-using KGSM.Bot.Application.Commands;
+using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Discord.Autocomplete;
-
-using MediatR;
 
 using Microsoft.Extensions.Logging;
 
@@ -15,13 +13,13 @@ namespace KGSM.Bot.Discord.Commands;
 /// </summary>
 public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
 {
-    private readonly IMediator _mediator;
+    private readonly IServerService _server;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<BlueprintsModule> _logger;
 
-    public BlueprintsModule(IMediator mediator, IInvocationContext invocation, ILogger<BlueprintsModule> logger)
+    public BlueprintsModule(IServerService server, IInvocationContext invocation, ILogger<BlueprintsModule> logger)
     {
-        _mediator = mediator;
+        _server = server;
         _invocation = invocation;
         _logger = logger;
     }
@@ -55,7 +53,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync(installMessage);
 
-            var result = await _mediator.Send(new InstallServerCommand(blueprint, path, version, name));
+            var result = await _server.InstallAsync(blueprint, path, version, name);
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to install blueprint {BlueprintName}: {Error}",
@@ -83,7 +81,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync($"Uninstalling {instance}...");
 
-            var result = await _mediator.Send(new UninstallServerCommand(instance));
+            var result = await _server.UninstallAsync(instance);
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to uninstall instance {InstanceName}: {Error}",

@@ -1,9 +1,7 @@
 using Discord;
 using Discord.Interactions;
 
-using KGSM.Bot.Application.Queries;
-
-using MediatR;
+using KGSM.Bot.Application;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,14 +12,14 @@ namespace KGSM.Bot.Discord.Autocomplete;
 /// </summary>
 public class BlueprintAutocompleteHandler : AutocompleteHandler
 {
-    private readonly IMediator _mediator;
+    private readonly IServerService _server;
     private readonly ILogger<BlueprintAutocompleteHandler> _logger;
 
     public BlueprintAutocompleteHandler(
-        IMediator mediator,
+        IServerService server,
         ILogger<BlueprintAutocompleteHandler> logger)
     {
-        _mediator = mediator;
+        _server = server;
         _logger = logger;
     }
 
@@ -39,7 +37,7 @@ public class BlueprintAutocompleteHandler : AutocompleteHandler
             string currentValue = autocompleteInteraction.Data.Current.Value.ToString() ?? string.Empty;
 
             // Get all blueprints
-            var result = await _mediator.Send(new GetAllBlueprintsQuery());
+            var result = await _server.GetAllBlueprintsAsync();
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to get blueprints for autocomplete: {Error}", result.ErrorMessage);

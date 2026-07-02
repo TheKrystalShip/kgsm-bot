@@ -11,11 +11,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // Register MediatR handlers from this assembly
-        services.AddMediatR(cfg =>
-        {
-            cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly);
-        });
+        // Register the consolidated server operations service (replaces MediatR dispatcher)
+        services.AddSingleton<IServerService, ServerService>();
 
         // Register application services
         services.AddTransient<ServerEventCoordinatorService>();

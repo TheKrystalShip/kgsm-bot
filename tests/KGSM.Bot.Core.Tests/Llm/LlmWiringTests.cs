@@ -1,9 +1,8 @@
 using FluentAssertions;
 
+using KGSM.Bot.Application;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Llm;
-
-using MediatR;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,8 +22,8 @@ namespace KGSM.Bot.Tests.Llm;
 /// <summary>
 /// Verifies the LLM dependency-injection seam end to end: the library's
 /// <c>AddLocalLlm</c> + the assistant's <c>AddKgsmAssistant</c> + the bot's two
-/// port adapters (<see cref="MediatorServerOperations"/>, <see cref="StateCacheInventory"/>)
-/// compose into a resolvable graph. The adapters' own dependencies (MediatR, the
+/// port adapters (<see cref="ServerOperations"/>, <see cref="StateCacheInventory"/>)
+/// compose into a resolvable graph. The adapters' own dependencies (IServerService, the
 /// state cache) are stubbed so this isolates the wiring rather than the full kgsm stack.
 /// </summary>
 public class LlmWiringTests
@@ -47,11 +46,11 @@ public class LlmWiringTests
         services.AddKgsmAssistant();
 
         // The bot's adapters that satisfy the assistant's host ports...
-        services.AddSingleton<IServerOperations, MediatorServerOperations>();
+        services.AddSingleton<IServerOperations, ServerOperations>();
         services.AddSingleton<IServerInventory, StateCacheInventory>();
 
         // ...and stubs for what those adapters depend on, so only the wiring is under test.
-        services.AddSingleton(Substitute.For<IMediator>());
+        services.AddSingleton(Substitute.For<IServerService>());
         services.AddSingleton(Substitute.For<IKgsmStateCache>());
 
         using var provider = services.BuildServiceProvider(validateScopes: true);

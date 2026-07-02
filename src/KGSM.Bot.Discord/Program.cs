@@ -68,9 +68,9 @@ public class Program
                 // registered by AddLocalLlm (inside AddInfrastructureServices). Here we
                 // add the extracted kgsm assistant (prompt builder, tool dispatcher,
                 // policy) and the bot's adapters that satisfy its IServerOperations /
-                // IServerInventory ports over the existing MediatR + state cache.
+                // IServerInventory ports over the consolidated server service + state cache.
                 services.AddKgsmAssistant();
-                services.AddSingleton<IServerOperations, Llm.MediatorServerOperations>();
+                services.AddSingleton<IServerOperations, Llm.ServerOperations>();
                 services.AddSingleton<IServerInventory, Llm.StateCacheInventory>();
 
                 // Single-use store for confirmation payloads too long for a Discord customId

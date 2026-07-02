@@ -1,9 +1,7 @@
 using Discord;
 using Discord.Interactions;
 
-using KGSM.Bot.Application.Queries;
-
-using MediatR;
+using KGSM.Bot.Application;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,14 +12,14 @@ namespace KGSM.Bot.Discord.Autocomplete;
 /// </summary>
 public class InstancesAutocompleteHandler : AutocompleteHandler
 {
-    private readonly IMediator _mediator;
+    private readonly IServerService _server;
     private readonly ILogger<InstancesAutocompleteHandler> _logger;
 
     public InstancesAutocompleteHandler(
-        IMediator mediator,
+        IServerService server,
         ILogger<InstancesAutocompleteHandler> logger)
     {
-        _mediator = mediator;
+        _server = server;
         _logger = logger;
     }
 
@@ -39,7 +37,7 @@ public class InstancesAutocompleteHandler : AutocompleteHandler
             string currentValue = autocompleteInteraction.Data.Current.Value.ToString() ?? string.Empty;
 
             // Get all instances
-            var result = await _mediator.Send(new GetAllInstancesQuery());
+            var result = await _server.GetAllInstancesAsync();
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to get instances for autocomplete: {Error}", result.ErrorMessage);

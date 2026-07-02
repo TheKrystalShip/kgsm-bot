@@ -2,13 +2,11 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 
-using KGSM.Bot.Application.Commands;
+using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
-
-using MediatR;
 
 using TheKrystalShip.Kgsm.Assistant;
 
@@ -26,7 +24,7 @@ namespace KGSM.Bot.Discord.Commands;
 /// </summary>
 public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext>
 {
-    private readonly IMediator _mediator;
+    private readonly IServerService _server;
     private readonly IKgsmStateCache _stateCache;
     private readonly PendingEditStore _pendingEdits;
     private readonly DiscordOptions _options;
@@ -34,14 +32,14 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
     private readonly ILogger<ConfirmationModule> _logger;
 
     public ConfirmationModule(
-        IMediator mediator,
+        IServerService server,
         IKgsmStateCache stateCache,
         PendingEditStore pendingEdits,
         IOptions<DiscordOptions> options,
         IInvocationContext invocation,
         ILogger<ConfirmationModule> logger)
     {
-        _mediator = mediator;
+        _server = server;
         _stateCache = stateCache;
         _pendingEdits = pendingEdits;
         _options = options.Value;
@@ -121,7 +119,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
 
     /// <summary>
     /// Runs a confirmed single-instance command (start/stop/restart/update/backup) on the
-    /// exact same MediatR path as the Discord slash commands. Re-validates the target still
+    /// exact same path as the Discord slash commands. Re-validates the target still
     /// exists (it was resolved at staging time); the click is already re-authorized above.
     /// </summary>
     private async Task<string> RunCommandAsync(ConfirmationKind kind, string instanceName)
@@ -135,19 +133,19 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         _logger.LogInformation(
             "Confirmed {Verb} of {Instance} by {User}", ConfirmationKinds.Verb(kind), match, Context.User.Username);
 
-        var result = await SendCommandAsync(kind, match);
+        var result = await RunCommandDirectAsync(kind, match);
         return result.IsSuccess
             ? $"✅ **{match}** has been {ConfirmationKinds.PastTense(kind)}."
             : $"⚠️ Could not {ConfirmationKinds.Verb(kind)} **{match}**: {result.ErrorMessage ?? "unknown error"}.";
     }
 
-    private Task<OperationResult> SendCommandAsync(ConfirmationKind kind, string instance) => kind switch
+    private Task<OperationResult> RunCommandDirectAsync(ConfirmationKind kind, string instance) => kind switch
     {
-        ConfirmationKind.Start => _mediator.Send(new StartServerCommand(instance)),
-        ConfirmationKind.Stop => _mediator.Send(new StopServerCommand(instance)),
-        ConfirmationKind.Restart => _mediator.Send(new RestartServerCommand(instance)),
-        ConfirmationKind.Update => _mediator.Send(new UpdateServerCommand(instance)),
-        ConfirmationKind.Backup => _mediator.Send(new CreateBackupCommand(instance)),
+        ConfirmationKind.Start => _server.StartAsync(instance),
+        ConfirmationKind.Stop => _server.StopAsync(instance),
+        ConfirmationKind.Restart => _server.RestartAsync(instance),
+        ConfirmationKind.Update => _server.UpdateAsync(instance),
+        ConfirmationKind.Backup => _server.CreateBackupAsync(instance),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "not a single-instance command"),
     };
 
@@ -162,7 +160,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
 
         _logger.LogInformation("Confirmed uninstall of {Instance} by {User}", match, Context.User.Username);
 
-        var result = await _mediator.Send(new UninstallServerCommand(match));
+        var result = await _server.UninstallAsync(match);
         return result.IsSuccess
             ? $"🗑️ Uninstalled **{match}**."
             : $"⚠️ Could not uninstall **{match}**: {result.ErrorMessage ?? "unknown error"}.";
@@ -189,14 +187,14 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
             "Confirmed install of {Blueprint} (name={Name}) by {User}",
             match, instanceName ?? "(default)", Context.User.Username);
 
-        var result = await _mediator.Send(new InstallServerCommand(match, null, null, instanceName));
+        var result = await _server.InstallAsync(match, null, null, instanceName);
         return result.IsSuccess
             ? $"📦 Installed a new **{match}** server{(instanceName is null ? "" : $" (`{instanceName}`)")}."
             : $"⚠️ Could not install **{match}**: {result.ErrorMessage ?? "unknown error"}.";
     }
 
     /// <summary>
-    /// Runs a confirmed config edit on the same MediatR path as everything else. Re-validates
+    /// Runs a confirmed config edit on the same path as everything else. Re-validates
     /// the target still exists; kgsm owns the key-safety policy, so a refused (denylisted/
     /// invalid) key comes back as a failed result reported to the user.
     /// </summary>
@@ -216,7 +214,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         _logger.LogInformation(
             "Confirmed set-config of {Instance} ({Key}) by {User}", match, key, Context.User.Username);
 
-        var result = await _mediator.Send(new SetInstanceConfigCommand(match, key, newValue));
+        var result = await _server.SetConfigAsync(match, key, newValue);
         var shown = newValue.Length == 0 ? "(empty)" : newValue;
         return result.IsSuccess
             ? $"⚙️ Set `{key}` = `{shown}` on **{match}**."

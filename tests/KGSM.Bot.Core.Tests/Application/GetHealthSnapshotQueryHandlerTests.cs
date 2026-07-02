@@ -1,10 +1,11 @@
 using FluentAssertions;
 
-using KGSM.Bot.Application.Handlers;
-using KGSM.Bot.Application.Queries;
+using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -16,17 +17,19 @@ using Xunit;
 namespace KGSM.Bot.Tests.Application;
 
 /// <summary>
-/// The bot's half of run_health_check: this handler fetches the structured status + host
-/// disk and maps them into the neutral <c>InstanceHealthSnapshot</c> the assistant
-/// aggregator consumes (fetch + map only — no health judgment here). Covers the mapping,
-/// the honest host-disk-unavailable path (no fabricated value), and status failure.
+/// The bot's half of run_health_check: ServerService fetches the structured status + host
+/// disk and maps them into the neutral InstanceHealthSnapshot the assistant aggregator
+/// consumes (fetch + map only — no health judgment here). Covers the mapping, the honest
+/// host-disk-unavailable path (no fabricated value), and status failure.
 /// </summary>
 public class GetHealthSnapshotQueryHandlerTests
 {
     private readonly IServerInstanceService _service = Substitute.For<IServerInstanceService>();
+    private readonly IKgsmStateCache _stateCache = Substitute.For<IKgsmStateCache>();
+    private readonly IWatchdogService _watchdogService = Substitute.For<IWatchdogService>();
 
-    private GetHealthSnapshotQueryHandler Create() =>
-        new(_service, NullLogger<GetHealthSnapshotQueryHandler>.Instance);
+    private IServerService Create() =>
+        new ServerService(_service, _stateCache, _watchdogService, NullLogger<ServerService>.Instance);
 
     [Fact]
     public async Task Handle_MapsStatusLogsVersionAndDisk()
@@ -50,7 +53,7 @@ public class GetHealthSnapshotQueryHandlerTests
             Disk = new DiskInfo { UsePercent = "26%", Size = "916G", Available = "649G" },
         })));
 
-        var result = await Create().Handle(new GetHealthSnapshotQuery("minecraft"), CancellationToken.None);
+        var result = await Create().GetHealthSnapshotAsync("minecraft");
 
         result.IsSuccess.Should().BeTrue();
         var s = result.Snapshot!;
@@ -77,7 +80,7 @@ public class GetHealthSnapshotQueryHandlerTests
         _service.GetSystemInfoAsync()
             .Returns(Task.FromResult(Result.Failure<SystemInfo>("host system info was unavailable")));
 
-        var result = await Create().Handle(new GetHealthSnapshotQuery("minecraft"), CancellationToken.None);
+        var result = await Create().GetHealthSnapshotAsync("minecraft");
 
         result.IsSuccess.Should().BeTrue();
         var s = result.Snapshot!;
@@ -92,7 +95,7 @@ public class GetHealthSnapshotQueryHandlerTests
         _service.GetRuntimeStatusAsync("ghost")
             .Returns(Task.FromResult(Result.Failure<InstanceRuntimeStatus>("not found")));
 
-        var result = await Create().Handle(new GetHealthSnapshotQuery("ghost"), CancellationToken.None);
+        var result = await Create().GetHealthSnapshotAsync("ghost");
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorMessage.Should().Contain("not found");

@@ -1,12 +1,9 @@
 using Discord;
 using Discord.Interactions;
 
-using KGSM.Bot.Application.Commands;
-using KGSM.Bot.Application.Queries;
+using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Discord.Autocomplete;
-
-using MediatR;
 
 using Microsoft.Extensions.Logging;
 
@@ -17,14 +14,14 @@ namespace KGSM.Bot.Discord.Commands;
 /// </summary>
 public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 {
-    private readonly IMediator _mediator;
+    private readonly IServerService _server;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<InstancesModule> _logger;
     private const string SUMMARY = "Game server instance";
 
-    public InstancesModule(IMediator mediator, IInvocationContext invocation, ILogger<InstancesModule> logger)
+    public InstancesModule(IServerService server, IInvocationContext invocation, ILogger<InstancesModule> logger)
     {
-        _mediator = mediator;
+        _server = server;
         _invocation = invocation;
         _logger = logger;
     }
@@ -41,7 +38,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             _logger.LogInformation("Handling start command for instance {InstanceName}", instance);
 
             // Check if the instance is already running
-            var statusResult = await _mediator.Send(new IsServerActiveQuery(instance));
+            var statusResult = await _server.IsActiveAsync(instance);
             if (statusResult.IsSuccess && statusResult.IsActive)
             {
                 await RespondAsync($"Instance {instance} is already running");
@@ -50,7 +47,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync($"Starting {instance}...");
 
-            var result = await _mediator.Send(new StartServerCommand(instance));
+            var result = await _server.StartAsync(instance);
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to start instance {InstanceName}: {Error}",
@@ -78,7 +75,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync($"Stopping {instance}...");
 
-            var result = await _mediator.Send(new StopServerCommand(instance));
+            var result = await _server.StopAsync(instance);
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to stop instance {InstanceName}: {Error}",
@@ -106,7 +103,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync($"Restarting {instance}...");
 
-            var result = await _mediator.Send(new RestartServerCommand(instance));
+            var result = await _server.RestartAsync(instance);
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to restart instance {InstanceName}: {Error}",
@@ -131,7 +128,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogInformation("Handling status command for instance {InstanceName}", instance);
 
-            var result = await _mediator.Send(new GetServerStatusQuery(instance));
+            var result = await _server.GetStatusAsync(instance);
 
             if (!result.IsSuccess)
             {
@@ -160,7 +157,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogInformation("Handling supervision command for instance {InstanceName}", instance);
 
-            var result = await _mediator.Send(new GetWatchdogStatusQuery(instance));
+            var result = await _server.GetWatchdogStatusAsync(instance);
 
             if (!result.IsSuccess)
             {
@@ -214,7 +211,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogInformation("Handling is-active command for instance {InstanceName}", instance);
 
-            var result = await _mediator.Send(new IsServerActiveQuery(instance));
+            var result = await _server.IsActiveAsync(instance);
 
             if (!result.IsSuccess)
             {
@@ -241,7 +238,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogInformation("Handling list command for instances");
 
-            var result = await _mediator.Send(new GetAllInstancesQuery());
+            var result = await _server.GetAllInstancesAsync();
 
             if (!result.IsSuccess || result.Instances == null)
             {
@@ -261,7 +258,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                 .WithColor(Color.Blue)
                 .WithCurrentTimestamp();
 
-            // Each instance needs a live status check (IsServerActiveQuery spawns a
+            // Each instance needs a live status check (IsActiveAsync spawns a
             // kgsm subprocess). Run them concurrently rather than sequentially so /list
             // scales with the slowest single check instead of their sum. Fields are
             // added afterwards in the original order — Discord renders by add order.
@@ -269,10 +266,10 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             {
                 var (name, instance) = pair;
 
-                var isActive = await _mediator.Send(new IsServerActiveQuery(name));
+                var isActive = await _server.IsActiveAsync(name);
                 string status = isActive.IsSuccess && isActive.IsActive ? "🟢 Online" : "🔴 Offline";
 
-                var channelIdResult = await _mediator.Send(new GetInstanceChannelIdQuery(name));
+                var channelIdResult = await _server.GetChannelIdAsync(name);
                 string channelInfo = channelIdResult.IsSuccess && channelIdResult.ChannelId.HasValue ?
                     $"<#{channelIdResult.ChannelId}>" : "No channel";
 
