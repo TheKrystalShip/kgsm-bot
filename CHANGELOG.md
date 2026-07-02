@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-02
+
+### Changed
+- Replace Discord.Net meta-package with individual sub-packages (drop unused Commands + Webhook assemblies).
+- Remove unused FluentValidation dependency.
+
 ## [1.1.0] - 2026-06-30
 
 ### Added
