@@ -25,7 +25,7 @@ Environment=DOTNET_ENVIRONMENT=Production
 # Path to the host's kgsm.sh (the canonical dev checkout — matches the kgsm-api/kgsm-monitor units)
 # and the bot's OWN dedicated kgsm event-listen socket. The bot binds this socket; kgsm dials OUT
 # to it (socat), so add this path to kgsm's event_socket_filenames for the bot to receive events.
-Environment=KGSM__Path=/home/heisen/tks/kgsm/kgsm.sh
+Environment=KGSM__Path=/usr/local/bin/kgsm
 Environment=KGSM__SocketPath=/run/kgsm-bot/kgsm-events.sock
 
 # REQUIRED: the Discord bot token (Discord__Token) lives here, NOT in the committed appsettings.json.
