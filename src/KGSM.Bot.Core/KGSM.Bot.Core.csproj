@@ -12,7 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- kgsm-lib consumed as a local project reference (was NuGet TheKrystalShip.KGSM.Lib 1.2.0). -->
-    <ProjectReference Include="..\..\..\kgsm-lib\kgsm-lib\kgsm-lib.csproj" />
+    <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
+         /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="1.37.0" />
   </ItemGroup>
 </Project>
