@@ -103,6 +103,25 @@ internal sealed class ServerOperations : IServerOperations
         Task.FromResult(Result.Failure<IReadOnlyList<InstanceDirEntry>>(
             "Browsing server files isn't available on the Discord surface yet."));
 
+    /// <summary>Not wired on the Discord surface — the <c>open_ports</c> tool reads the
+    /// configured port spec through here on the assistant/Service surfaces, but the bot has no
+    /// equivalent Discord path. Honest degrade (a failed <see cref="Result"/>, never a fabricated
+    /// spec) is the contract <see cref="IServerOperations.GetConfiguredPortsAsync"/> requires, and
+    /// matches the <see cref="ReadInstanceFileAsync"/>/<see cref="ListInstanceDirectoryAsync"/>
+    /// stubs above for the other assistant-only capabilities.</summary>
+    public Task<Result<string>> GetConfiguredPortsAsync(string instance, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure<string>(
+            "Reading configured ports isn't available on the Discord surface yet."));
+
+    /// <summary>Not wired on the Discord surface — the assistant's <c>write_file</c> tool routes
+    /// instance-config edits through here on the Service surface; the bot has its own
+    /// <c>SetInstanceConfigValueAsync</c> path above instead. Honest degrade, never throws — same
+    /// contract as <see cref="IServerOperations.WriteInstanceFileAsync"/>.</summary>
+    public Task<Result> WriteInstanceFileAsync(
+        string instance, string relativePath, string content, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result.Failure(
+            "Editing server files isn't available on the Discord surface yet."));
+
     private static Result Map(OperationResult result) =>
         result.IsSuccess ? Result.Success() : Result.Failure(result.ErrorMessage ?? "unknown error");
 }
