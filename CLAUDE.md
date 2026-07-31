@@ -40,10 +40,22 @@ cd src/KGSM.Bot.Discord && dotnet run        # run locally (needs appsettings.js
 `deploy/deploy.sh` publishes a **framework-dependent single-file** binary (the host
 must have the .NET 10 runtime; it is not bundled), syncs it into `/opt/kgsm-bot`, and
 manages the `kgsm-bot.service` unit. It builds **as the invoking user** and needs **no
-privilege at all** — `deploy/setup.sh` provisions the host once (prefix ownership, the
-unit symlink out of `/etc/kgsm-bot/systemd/`, a scoped polkit grant). It never touches
-the live env file, so the Discord token survives every redeploy. Tests/local-run ignore
-the publish-only props. Full contract: `../scripts/deploy-template/README.md`.
+privilege at all**: `/opt/kgsm-bot` is yours so the sync is a plain file write, the real
+unit lives in **user-owned** `/etc/kgsm-bot/systemd/` with `/etc/systemd/system/kgsm-bot.service`
+symlinked to it so a unit change is also a plain file write, and the `systemctl` verbs go
+through a polkit rule scoped to this project's units. It refuses **before building**, with
+*"run `deploy/setup.sh`"*, on an unprovisioned host.
+
+`deploy/setup.sh` is the one that asks for sudo, once per host: it provisions all of the
+above (prefix ownership, env file, unit symlink, polkit grant, enable) and then verifies the
+grant using the same unprivileged calls `deploy.sh` makes. It is idempotent. Neither script
+overwrites the live env file, so the Discord token survives provisioning and every redeploy.
+Tests/local-run ignore the publish-only props.
+
+The three files in `deploy/` (`deploy-common.sh` + the two entry points) are self-contained —
+a standalone clone deploys with no other repo checked out. Every `kgsm-*` repo carries this
+same pattern. If some *other* operation seems to need root, stop and ask; don't reintroduce
+`sudo` into `deploy.sh`.
 
 ## Configuration
 
