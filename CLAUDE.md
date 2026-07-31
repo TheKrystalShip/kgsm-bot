@@ -33,14 +33,17 @@ dotnet test  kgsm-bot.sln --filter "FullyQualifiedName~ConfirmationIds"   # one 
 
 cd src/KGSM.Bot.Discord && dotnet run        # run locally (needs appsettings.json — see below)
 
-./deploy/deploy.sh                            # build + deploy to systemd on this host
+./deploy/setup.sh                             # ONCE per host — asks for sudo; provisions the headless deploy grant
+./deploy/deploy.sh                            # build + deploy to systemd on this host (no sudo, no prompts)
 ```
 
 `deploy/deploy.sh` publishes a **framework-dependent single-file** binary (the host
 must have the .NET 10 runtime; it is not bundled), syncs it into `/opt/kgsm-bot`, and
-manages the `kgsm-bot.service` unit. It builds **as the invoking user** and only
-`sudo`s the systemd/root-path steps; it never overwrites the live env file (the
-Discord token survives a redeploy). Tests/local-run ignore the publish-only props.
+manages the `kgsm-bot.service` unit. It builds **as the invoking user** and needs **no
+privilege at all** — `deploy/setup.sh` provisions the host once (prefix ownership, the
+unit symlink out of `/etc/kgsm-bot/systemd/`, a scoped polkit grant). It never touches
+the live env file, so the Discord token survives every redeploy. Tests/local-run ignore
+the publish-only props. Full contract: `../scripts/deploy-template/README.md`.
 
 ## Configuration
 

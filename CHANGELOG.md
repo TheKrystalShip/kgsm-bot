@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — headless deploys (`setup.sh` once, `deploy.sh` forever after)
+- **`deploy/setup.sh` provisions the host once** (asks for sudo; idempotent): chowns `/opt/kgsm-bot`
+  to the deploying user, seeds `/etc/kgsm-bot/kgsm-bot.env`, puts the real unit in
+  `/etc/kgsm-bot/systemd/` with `/etc/systemd/system/kgsm-bot.service` symlinked to it, installs a
+  polkit grant scoped to this project's units, enables the unit, and verifies the grant with the same
+  unprivileged `systemctl` calls `deploy.sh` makes.
+- **`deploy/deploy.sh` runs with no `sudo` and no prompts**, and refuses up-front (before building)
+  with "run `deploy/setup.sh`" when the host is not provisioned. It still never touches the live env
+  file, so the Discord token survives a redeploy.
+- `deploy/deploy-common.sh` carries the project block plus the shared helpers, sourced by both entry
+  points so they cannot drift. Canonical template and contract:
+  `tks/scripts/deploy-template/README.md`.
+
 ## [1.1.2] - 2026-07-28
 
 ### Added
