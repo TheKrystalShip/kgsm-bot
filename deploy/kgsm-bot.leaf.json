@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "id": "bot",
+  "displayName": "Discord bot",
+  "unit": "kgsm-bot.service",
+  "role": "The Discord surface onto KGSM — a channel per server, live status, and authorized commands from chat.",
+  "onDemand": false,
+  "applyMode": "restart",
+  "floorSources": [
+    { "kind": "systemd-unit", "path": "/etc/kgsm-bot/systemd/kgsm-bot.service" },
+    { "kind": "env-file", "path": "/etc/kgsm-bot/kgsm-bot.env" },
+    { "kind": "appsettings", "path": "/opt/kgsm-bot/appsettings.json" }
+  ],
+  "groups": [
+    { "id": "general", "label": "General", "order": 1 },
+    { "id": "discord", "label": "Discord", "order": 2 },
+    { "id": "channels", "label": "Server channels", "order": 3 },
+    { "id": "kgsm", "label": "KGSM connection", "order": 4 },
+    { "id": "cache", "label": "Inventory cache", "order": 5 },
+    { "id": "model", "label": "Model", "order": 6 },
+    { "id": "agent", "label": "Agent loop", "order": 7 }
+  ],
+  "fields": [
+    {
+      "key": "logLevel",
+      "env": "Logging__LogLevel__Default",
+      "label": "Log level",
+      "description": "Minimum severity this leaf logs.",
+      "group": "general",
+      "type": "enum",
+      "values": ["Trace", "Debug", "Information", "Warning", "Error", "Critical"],
+      "default": "Information",
+      "risk": "safe"
+    },
+
+    {
+      "key": "discordToken",
+      "env": "Discord__Token",
+      "label": "Bot token",
+      "description": "Token the bot signs in to Discord with. Without a valid one it cannot connect at all.",
+      "group": "discord",
+      "type": "secret",
+      "risk": "wiring"
+    },
+    {
+      "key": "discordGuildId",
+      "env": "Discord__GuildId",
+      "label": "Discord server id",
+      "description": "The Discord server this bot operates in. Pointing it at another server abandons the channels it made in this one.",
+      "group": "discord",
+      "type": "int",
+      "default": "0",
+      "min": 0,
+      "risk": "wiring"
+    },
+    {
+      "key": "discordActionRoleId",
+      "env": "Discord__ActionRoleId",
+      "label": "Action role id",
+      "description": "Role whose holders may start, stop and otherwise act on servers from Discord — the same role the assistant checks. Zero means no one is authorized.",
+      "group": "discord",
+      "type": "int",
+      "default": "0",
+      "min": 0,
+      "risk": "wiring"
+    },
+
+    {
+      "key": "instancesCategoryId",
+      "env": "Discord__InstancesCategoryId",
+      "label": "Channel category id",
+      "description": "Category the bot creates each server's channel under. Zero leaves new channels uncategorised.",
+      "group": "channels",
+      "type": "int",
+      "default": "0",
+      "min": 0,
+      "risk": "safe"
+    },
+    {
+      "key": "removeChannelOnUninstall",
+      "env": "Discord__RemoveChannelOnInstanceDeletion",
+      "label": "Delete channel with the server",
+      "description": "Whether uninstalling a server also deletes its Discord channel, taking that channel's history with it. Off, the channel is left behind.",
+      "group": "channels",
+      "type": "bool",
+      "default": "false",
+      "risk": "destructive"
+    },
+    {
+      "key": "statusOnline",
+      "env": "Discord__Status__Online",
+      "label": "Running marker",
+      "description": "Shown beside a server that is running.",
+      "group": "channels",
+      "type": "string",
+      "risk": "safe"
+    },
+    {
+      "key": "statusOffline",
+      "env": "Discord__Status__Offline",
+      "label": "Stopped marker",
+      "description": "Shown beside a server that is stopped.",
+      "group": "channels",
+      "type": "string",
+      "risk": "safe"
+    },
+    {
+      "key": "statusUninstalled",
+      "env": "Discord__Status__Uninstalled",
+      "label": "Uninstalled marker",
+      "description": "Shown beside a server that is no longer installed.",
+      "group": "channels",
+      "type": "string",
+      "risk": "safe"
+    },
+    {
+      "key": "deleteStatusMessages",
+      "env": "Discord__DeleteStatusMessageAfterDelay",
+      "label": "Clean up status messages",
+      "description": "Whether status messages are removed after a while, so a busy channel does not fill with them.",
+      "group": "channels",
+      "type": "bool",
+      "default": "false",
+      "risk": "safe"
+    },
+    {
+      "key": "deleteStatusMessagesAfterSec",
+      "env": "Discord__DeleteStatusMessageDelaySeconds",
+      "label": "Status message lifetime",
+      "description": "How long a status message stays before it is removed.",
+      "group": "channels",
+      "type": "int",
+      "default": "10",
+      "min": 1,
+      "unit": "s",
+      "risk": "safe",
+      "dependsOn": "deleteStatusMessages"
+    },
+
+    {
+      "key": "kgsmPath",
+      "env": "KGSM__Path",
+      "label": "KGSM executable",
+      "description": "Path to the KGSM executable. Everything the bot knows about this host's servers is read through it.",
+      "group": "kgsm",
+      "type": "path",
+      "risk": "wiring"
+    },
+    {
+      "key": "kgsmSocketPath",
+      "env": "KGSM__SocketPath",
+      "label": "KGSM event socket",
+      "description": "Socket the engine delivers events on, which is how a channel's status updates the moment a server starts or stops. It must be listed in the engine's own event socket configuration, and belong to no other consumer.",
+      "group": "kgsm",
+      "type": "path",
+      "risk": "wiring"
+    },
+    {
+      "key": "watchdogSocketPath",
+      "env": "KGSM__WatchdogSocketPath",
+      "label": "Watchdog socket",
+      "description": "The supervisor's control socket, which the bot starts and stops servers through.",
+      "group": "kgsm",
+      "type": "path",
+      "default": "/run/kgsm-watchdog/control.sock",
+      "risk": "wiring"
+    },
+
+    {
+      "key": "cacheInstancesTtlSec",
+      "env": "KgsmCache__InstancesTtlSeconds",
+      "label": "Server list cache",
+      "description": "How long the list of servers is reused before being re-read from KGSM.",
+      "group": "cache",
+      "type": "int",
+      "default": "300",
+      "min": 0,
+      "unit": "s",
+      "risk": "safe"
+    },
+    {
+      "key": "cacheBlueprintsTtlSec",
+      "env": "KgsmCache__BlueprintsTtlSeconds",
+      "label": "Blueprint cache",
+      "description": "How long the blueprint catalog is reused before being re-read from KGSM.",
+      "group": "cache",
+      "type": "int",
+      "default": "600",
+      "min": 0,
+      "unit": "s",
+      "risk": "safe"
+    },
+
+    {
+      "key": "ollamaEndpoint",
+      "env": "Ollama__Endpoint",
+      "label": "Ollama endpoint",
+      "description": "Where the language model is served from. Unreachable, the bot still reports status and runs commands but cannot answer questions.",
+      "group": "model",
+      "type": "string",
+      "default": "http://localhost:11434",
+      "risk": "wiring"
+    },
+    {
+      "key": "ollamaModel",
+      "env": "Ollama__Model",
+      "label": "Model",
+      "description": "Name of the model to run, as Ollama knows it. It has to be pulled on the endpoint above and has to support tool calling.",
+      "group": "model",
+      "type": "string",
+      "default": "gemma4:12b",
+      "risk": "wiring"
+    },
+    {
+      "key": "ollamaNumCtx",
+      "env": "Ollama__NumCtx",
+      "label": "Context window",
+      "description": "How many tokens of context the model is given. Larger holds more conversation at once and costs more memory on the machine serving the model.",
+      "group": "model",
+      "type": "int",
+      "default": "32768",
+      "min": 512,
+      "unit": "tokens",
+      "risk": "safe"
+    },
+    {
+      "key": "ollamaTimeoutSec",
+      "env": "Ollama__TimeoutSeconds",
+      "label": "Model timeout",
+      "description": "How long to wait for the model to finish a response before giving up on it.",
+      "group": "model",
+      "type": "int",
+      "default": "300",
+      "min": 1,
+      "unit": "s",
+      "risk": "safe"
+    },
+    {
+      "key": "ollamaTemperature",
+      "env": "Ollama__Temperature",
+      "label": "Temperature",
+      "description": "How much the model varies its wording. Low keeps answers consistent and literal, which is what tool calling wants; high makes them more inventive.",
+      "group": "model",
+      "type": "float",
+      "default": "0.3",
+      "min": 0,
+      "max": 2,
+      "risk": "safe"
+    },
+    {
+      "key": "ollamaSeed",
+      "env": "Ollama__Seed",
+      "label": "Sampling seed",
+      "description": "Fixes the model's randomness so the same question gives the same answer. Leave it unset for normal use.",
+      "group": "model",
+      "type": "int",
+      "risk": "safe"
+    },
+    {
+      "key": "ollamaThink",
+      "env": "Ollama__Think",
+      "label": "Thinking mode",
+      "description": "Asks the model to reason before answering, on models that support it. Slower, and only worth it for a model trained for it.",
+      "group": "model",
+      "type": "bool",
+      "default": "false",
+      "risk": "safe"
+    },
+
+    {
+      "key": "conversationDbPath",
+      "env": "Conversation__DatabasePath",
+      "label": "Conversation database",
+      "description": "File holding past conversations, which is the bot's memory between messages. Pointing it elsewhere starts an empty history and leaves the old one behind.",
+      "group": "agent",
+      "type": "path",
+      "risk": "destructive"
+    },
+    {
+      "key": "agentMaxIterations",
+      "env": "LlmAgent__MaxIterations",
+      "label": "Maximum tool steps",
+      "description": "How many times the bot may call a tool while working on one message before it has to answer with what it has.",
+      "group": "agent",
+      "type": "int",
+      "default": "8",
+      "min": 1,
+      "risk": "safe"
+    },
+    {
+      "key": "agentMaxToolOutputChars",
+      "env": "LlmAgent__MaxToolOutputChars",
+      "label": "Tool output limit",
+      "description": "How much of a tool's output the model is shown. Truncating keeps a long listing from crowding out the conversation.",
+      "group": "agent",
+      "type": "int",
+      "default": "1500",
+      "min": 100,
+      "unit": "chars",
+      "risk": "safe"
+    },
+    {
+      "key": "agentIterationLimitReply",
+      "env": "LlmAgent__IterationLimitReply",
+      "label": "Step-limit reply",
+      "description": "What the bot says when it hits the tool-step limit without reaching an answer.",
+      "group": "agent",
+      "type": "string",
+      "risk": "safe"
+    }
+  ]
+}

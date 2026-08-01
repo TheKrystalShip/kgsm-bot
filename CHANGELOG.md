@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the Control Panel can configure the bot
+- **`deploy/kgsm-bot.leaf.json` declares every setting the bot binds** — all 27, across Discord
+  identity and channel behaviour, the KGSM connection, the inventory cache, the model and the agent
+  loop, each with its type, coded default, bounds, unit and risk. `deploy.sh` installs it into
+  `/var/lib/kgsm/leaves/`, where kgsm-api scans for it and renders the bot's configuration page.
+  This makes the bot configurable from the Control Panel for the first time; editing also needs
+  kgsm-api's `deploy/setup-leaf-config.sh` re-run to wire the restart channel, and until then the
+  panel shows the values read-only and says why.
+- **A coverage test fails the build if the descriptor and the code disagree.** It walks the options
+  types the bot actually binds, in both directions. It also caught that the two per-name maps
+  (`KGSM:Blueprints`, `KGSM:Instances`) cannot be delivered as one environment variable, so they are
+  named as a pinned exclusion rather than promised on the panel.
+- The Discord token is write-only; the token, both ids and all three socket paths are marked
+  `wiring`. Deleting a server's channel along with the server, and the conversation database path,
+  are `destructive` — each loses history that is not recoverable from elsewhere.
+
 ### Changed — headless deploys (`setup.sh` once, `deploy.sh` forever after)
 - **`deploy/setup.sh` provisions the host once** (asks for sudo; idempotent): chowns `/opt/kgsm-bot`
   to the deploying user, seeds `/etc/kgsm-bot/kgsm-bot.env`, puts the real unit in

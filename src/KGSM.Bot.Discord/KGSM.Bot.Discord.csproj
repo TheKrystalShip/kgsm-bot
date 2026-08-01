@@ -8,7 +8,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>1.1.2</Version>
+    <Version>1.2.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
