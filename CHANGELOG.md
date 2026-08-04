@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — kgsm-lib 2.0.0 (the socket event transport is gone)
+- **Pinned to `TheKrystalShip.KGSM.Lib` 2.0.0**, which removes `UnixSocketClient`,
+  `KgsmEventTransport` and `KgsmOptions.SocketPath`/`EventTransport`. This service already read the
+  journal, so the only change here is dropping the now-nonexistent `EventTransport = Journal` line —
+  there is no transport left to select. No behaviour change.
+
 ### Fixed — a lifecycle event announced once, not once per gateway reconnect
 
 - **`Initialize` is now idempotent, and the event coordinator is a singleton.** Discord's gateway

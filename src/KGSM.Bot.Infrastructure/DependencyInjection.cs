@@ -93,7 +93,6 @@ public static class DependencyInjection
         services.AddKgsmServices(new TheKrystalShip.KGSM.Core.Models.KgsmOptions
         {
             KgsmPath = kgsmOptions.Path,
-            EventTransport = TheKrystalShip.KGSM.Core.Models.KgsmEventTransport.Journal,
             EventJournalDirectory = kgsmOptions.JournalDir,
             EventStartPosition = TheKrystalShip.KGSM.Core.Models.EventStartPosition.Tail
         });
