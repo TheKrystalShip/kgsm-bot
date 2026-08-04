@@ -8,7 +8,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>1.3.1</Version>
+    <Version>1.4.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -55,11 +55,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="appsettings.json">
+    <Content Include="kgsm-bot.settings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="appsettings.*.json">
-      <DependentUpon>appsettings.json</DependentUpon>
+    <Content Include="kgsm-bot.settings.*.json">
+      <DependentUpon>kgsm-bot.settings.json</DependentUpon>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -68,7 +68,7 @@
        kgsm-bot.runtimeconfig.json by filename convention, independent of any Content item), so
        it must NOT ship in the publish tree. The SDK globs **/*.json into Content by default,
        which would otherwise copy it to /opt/kgsm-bot on deploy — drop it so the artifact stays
-       exactly the binary + appsettings.json. Removing it from Content does not affect the merge. -->
+       exactly the binary + kgsm-bot.settings.json. Removing it from Content does not affect the merge. -->
   <ItemGroup>
     <Content Remove="runtimeconfig.template.json" />
     <None Include="runtimeconfig.template.json" />

@@ -28,6 +28,9 @@ public class Program
         await host.RunAsync();
     }
 
+    /// <summary>The file declaring the bot's whole configurable surface, shipped beside the binary.</summary>
+    private const string SettingsFile = "kgsm-bot.settings.json";
+
     /// <summary>
     /// Creates and configures the host builder
     /// </summary>
@@ -35,10 +38,20 @@ public class Program
         Host.CreateDefaultBuilder(args)
             .ConfigureAppConfiguration((context, config) =>
             {
-                config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-                config.AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json",
+                // Resolved against the binary's own directory, not the process working directory:
+                // under systemd those are not the same place, and a relative path would make the
+                // bot start with none of its configuration rather than fail.
+                config.AddJsonFile(Path.Combine(AppContext.BaseDirectory, SettingsFile),
+                    optional: false,
+                    reloadOnChange: true);
+                config.AddJsonFile(
+                    Path.Combine(AppContext.BaseDirectory,
+                        $"kgsm-bot.settings.{context.HostingEnvironment.EnvironmentName}.json"),
                     optional: true,
                     reloadOnChange: true);
+
+                // Last of the two, so the env file and the unit still override the file above:
+                // a source added later wins, and CreateDefaultBuilder already added this one.
                 config.AddEnvironmentVariables();
 
                 if (args != null)

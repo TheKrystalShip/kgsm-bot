@@ -27,21 +27,23 @@ with Windows, try at your own risk.
 
 ### Configuration
 
-Copy the contents of `appsettings.example.json` into a new file, 
-`appsettings.json` and fill in the configuration.
+`src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's whole configurable surface with
+its defaults, and ships beside the binary. It holds no secret: the token and this host's Discord
+server, category and role belong in the environment file, which overrides one key of that file at a
+time by spelling the key's path with `__`. (The per-server channel map stays in the settings file —
+systemd refuses an environment variable whose name contains a hyphen, and a server may be called
+`minecraft-homestead`.)
 
-```json
-{
-    "Discord": {
-        "Token": "YOUR_DISCORD_TOKEN_HERE_DO_NOT_SHARE",
-        ...
-    },
-    "KGSM": {
-        "Path": "path/to/kgsm.sh",
-        "JournalDir": "/var/lib/kgsm/events"
-    }
-}
+Copy `deploy/kgsm-bot.env.example` to `/etc/kgsm-bot/kgsm-bot.env` (chmod 600) and fill it in:
+
+```sh
+Discord__Token=YOUR_DISCORD_TOKEN_HERE_DO_NOT_SHARE
+Discord__GuildId=385730677141929985
+KGSM__Path=/usr/local/bin/kgsm
 ```
+
+A variable naming a key the settings file does not declare binds to nothing, so check the spelling
+against that file — a test fails the build if the template ever names one that is not declared.
 
 ### Project Architecture
 

@@ -29,7 +29,8 @@ Environment=DOTNET_ENVIRONMENT=Production
 Environment=KGSM__Path=/usr/local/bin/kgsm
 Environment=KGSM__JournalDir=/var/lib/kgsm/events
 
-# REQUIRED: the Discord bot token (Discord__Token) lives here, NOT in the committed appsettings.json.
+# REQUIRED: the Discord bot token (Discord__Token) and this host's Discord identity live here, NOT
+# in the committed settings file, which ships in the /opt artifact.
 # A SECRET — keep this file chmod 600. The deploy script creates it from kgsm-bot.env.example.
 EnvironmentFile=/etc/kgsm-bot/kgsm-bot.env
 

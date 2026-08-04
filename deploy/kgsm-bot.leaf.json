@@ -7,9 +7,9 @@
   "onDemand": false,
   "applyMode": "restart",
   "floorSources": [
+    { "kind": "appsettings", "path": "/opt/kgsm-bot/kgsm-bot.settings.json" },
     { "kind": "systemd-unit", "path": "/etc/kgsm-bot/systemd/kgsm-bot.service" },
-    { "kind": "env-file", "path": "/etc/kgsm-bot/kgsm-bot.env" },
-    { "kind": "appsettings", "path": "/opt/kgsm-bot/appsettings.json" }
+    { "kind": "env-file", "path": "/etc/kgsm-bot/kgsm-bot.env" }
   ],
   "groups": [
     { "id": "general", "label": "General", "order": 1 },
@@ -92,6 +92,7 @@
       "label": "Running marker",
       "description": "Shown beside a server that is running.",
       "group": "channels",
+      "default": "\ud83d\udfe2",
       "type": "string",
       "risk": "safe"
     },
@@ -101,6 +102,7 @@
       "label": "Stopped marker",
       "description": "Shown beside a server that is stopped.",
       "group": "channels",
+      "default": "\ud83d\udd34",
       "type": "string",
       "risk": "safe"
     },
@@ -110,6 +112,7 @@
       "label": "Uninstalled marker",
       "description": "Shown beside a server that is no longer installed.",
       "group": "channels",
+      "default": "\u26ab",
       "type": "string",
       "risk": "safe"
     },
@@ -120,7 +123,7 @@
       "description": "Whether status messages are removed after a while, so a busy channel does not fill with them.",
       "group": "channels",
       "type": "bool",
-      "default": "false",
+      "default": "true",
       "risk": "safe"
     },
     {
@@ -130,7 +133,7 @@
       "description": "How long a status message stays before it is removed.",
       "group": "channels",
       "type": "int",
-      "default": "10",
+      "default": "2",
       "min": 1,
       "unit": "s",
       "risk": "safe",
@@ -143,6 +146,7 @@
       "label": "KGSM executable",
       "description": "Path to the KGSM executable. Everything the bot knows about this host's servers is read through it.",
       "group": "kgsm",
+      "default": "/usr/local/bin/kgsm",
       "type": "path",
       "risk": "wiring"
     },
@@ -306,6 +310,7 @@
       "label": "Step-limit reply",
       "description": "What the bot says when it hits the tool-step limit without reaching an answer.",
       "group": "agent",
+      "default": "I wasn't able to finish that after a few steps \u2014 could you rephrase or break it down?",
       "type": "string",
       "risk": "safe"
     }

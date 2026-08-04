@@ -31,7 +31,7 @@ dotnet build kgsm-bot.sln
 dotnet test  kgsm-bot.sln
 dotnet test  kgsm-bot.sln --filter "FullyQualifiedName~ConfirmationIds"   # one class/test
 
-cd src/KGSM.Bot.Discord && dotnet run        # run locally (needs appsettings.json — see below)
+cd src/KGSM.Bot.Discord && dotnet run        # run locally (reads kgsm-bot.settings.json — see below)
 
 ./deploy/setup.sh                             # ONCE per host — asks for sudo; provisions the headless deploy grant
 ./deploy/deploy.sh                            # build + deploy to systemd on this host (no sudo, no prompts)
@@ -59,12 +59,24 @@ same pattern. If some *other* operation seems to need root, stop and ask; don't 
 
 ## Configuration
 
-`src/KGSM.Bot.Discord/appsettings.json` is the live config (gitignored secrets);
-copy `appsettings.example.json`. In production the **Discord token comes from the env
-file** (`/etc/kgsm-bot/kgsm-bot.env` → `Discord__Token`), never the committed JSON.
-Key sections: `Discord` (token, `GuildId`, `ActionRoleId`), `KGSM`
-(`Path` to `kgsm.sh`, `SocketPath` for the bot's own event socket, `WatchdogSocketPath`),
-`Ollama`/`Conversation`/`Llm` (the assistant), `KgsmCache` (inventory TTLs).
+`src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's **whole** configurable
+surface with its defaults, and is committed — it holds no secret and no host identity.
+Key sections: `Discord` (token, `GuildId`, `InstancesCategoryId`, `ActionRoleId`, status
+markers), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
+`Blueprints`/`Instances` maps), `Ollama`/`Conversation`/`LlmAgent`/`Llm` (the assistant),
+`KgsmCache` (inventory TTLs).
+
+An environment variable **overrides one key** of that file by spelling the key's path with
+`__` (`Discord__GuildId`), and a variable naming a key the file does not declare binds to
+nothing. That is where the token and this host's own scalars live
+(`/etc/kgsm-bot/kgsm-bot.env`). Four tests fail the build if the settings file, the bound
+options classes, the leaf descriptor, and `deploy/kgsm-bot.env.example` ever disagree.
+
+**The `KGSM:Instances` channel map is the one host-specific thing that stays in the settings
+file**, because systemd refuses an environment variable whose name contains a hyphen — an
+instance called `minecraft-homestead` is dropped with *"Ignoring invalid environment
+assignment"* and given a new channel on its next event. Nothing else persists that map, so a
+server missing from it loses its channel history.
 
 ## Architecture
 

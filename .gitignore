@@ -12,7 +12,9 @@
 *.user
 *.userosscache
 *.sln.docstates
-appsettings.json
+# kgsm-bot.settings.json IS committed — it declares the whole configurable surface with its
+# defaults, and holds no secret or host identity. Only a local development overlay is ignored.
+kgsm-bot.settings.Development.json
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

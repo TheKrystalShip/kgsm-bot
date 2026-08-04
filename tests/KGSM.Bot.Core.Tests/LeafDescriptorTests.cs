@@ -50,6 +50,22 @@ public class LeafDescriptorTests
     };
 
     /// <summary>
+    /// Key prefixes in the settings file that belong to something other than a bound options class, each
+    /// for a stated reason. A prefix rather than a key because what sits under one is an open set: a log
+    /// category can be any namespace, and a prompt segment is addressed by name.
+    /// </summary>
+    private static readonly (string Prefix, string Why)[] NotBoundToOptions =
+    [
+        // Bound by the logging provider itself (logging.AddConfiguration), one entry per log category —
+        // there is no options class to check these against, and the set of categories is open.
+        ("Logging__", "the logging provider binds these, one per log category"),
+
+        // The assistant library reads its prompt segments straight from configuration by key. They are
+        // prose, not settings, and have their own editing channel (the assistant's prompt files).
+        ("Llm__", "the assistant library reads these prompt segments by key"),
+    ];
+
+    /// <summary>
     /// Properties on a bound options class that are <strong>not</strong> configuration, each for a stated
     /// reason. Describing one would put a control on the panel that changes nothing. Nothing qualifies
     /// here yet — the set exists so a computed property added later has a documented home.
@@ -66,7 +82,10 @@ public class LeafDescriptorTests
     private static readonly HashSet<string> NotDeliverableAsOneVariable = new(StringComparer.Ordinal)
     {
         // Per-blueprint and per-server overrides, keyed by name. A map binds from a key per entry
-        // (Section__Blueprints__factorio__OnlineTrigger), which one variable cannot express.
+        // (Section__Blueprints__factorio__OnlineTrigger), which one variable cannot express — and
+        // systemd refuses a variable name containing a hyphen, so a server named
+        // "minecraft-homestead" cannot be addressed through the environment at all. These stay a
+        // settings-file edit, and the file is the only source that can hold every name.
         "KGSM__Blueprints",
         "KGSM__Instances",
     };
@@ -96,6 +115,74 @@ public class LeafDescriptorTests
     }
 
     private static List<JsonElement> Fields() => [.. Descriptor().GetProperty("fields").EnumerateArray()];
+
+    private static string SettingsPath() =>
+        Path.Combine(RepoRoot(), "src", "KGSM.Bot.Discord", "kgsm-bot.settings.json");
+
+    private static JsonElement Settings()
+    {
+        string path = SettingsPath();
+        Assert.True(File.Exists(path), $"the settings file is missing: {path}");
+        return JsonDocument.Parse(File.ReadAllText(path),
+            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true })
+            .RootElement.Clone();
+    }
+
+    /// <summary>
+    /// Every key the settings file declares, spelled the way an environment variable overrides it, mapped
+    /// to the value it declares. A map's entries collapse to the map itself: they are this host's data,
+    /// not part of the surface, and the map is already named as undeliverable through one variable.
+    /// </summary>
+    private static Dictionary<string, JsonElement> DeclaredInSettingsFile()
+    {
+        var found = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+        WalkJson(Settings(), prefix: null, found);
+        Assert.NotEmpty(found);
+        return found;
+    }
+
+    private static void WalkJson(JsonElement node, string? prefix, Dictionary<string, JsonElement> into)
+    {
+        foreach (JsonProperty p in node.EnumerateObject())
+        {
+            string key = prefix is null ? p.Name : $"{prefix}__{p.Name}";
+
+            // A map declared as configuration data, not as more surface — stop and record the map.
+            if (NotDeliverableAsOneVariable.Contains(key))
+            {
+                into[key] = p.Value;
+                continue;
+            }
+
+            if (p.Value.ValueKind == JsonValueKind.Object)
+                WalkJson(p.Value, key, into);
+            else
+                into[key] = p.Value;
+        }
+    }
+
+    private static bool IsFrameworkOwned(string key) =>
+        NotBoundToOptions.Any(x => key.StartsWith(x.Prefix, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Whether two spellings of a default mean the same thing. Numbers are compared by value: 0 and 0.0
+    /// are one floor written two ways, and failing that difference would train the reader to ignore this.
+    /// </summary>
+    private static bool SameValue(string described, string declared) =>
+        string.Equals(described, declared, StringComparison.Ordinal)
+        || (double.TryParse(described, NumberStyles.Float, CultureInfo.InvariantCulture, out double a)
+            && double.TryParse(declared, NumberStyles.Float, CultureInfo.InvariantCulture, out double b)
+            && a == b);
+
+    /// <summary>The settings file's value for a key, as the descriptor would spell it: a string.</summary>
+    private static string? DeclaredDefault(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.Null => null,
+        JsonValueKind.String => v.GetString(),
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        _ => v.GetRawText(),
+    };
 
     private static string Str(JsonElement field, string name) => field.GetProperty(name).GetString()!;
 
@@ -169,6 +256,138 @@ public class LeafDescriptorTests
             "would be reported as applied while changing nothing:\n  " + string.Join("\n  ", fabricated));
     }
 
+    // ── Coverage: the settings file and the bound options agree, both ways ───
+
+    /// <summary>
+    /// The settings file is the floor every other source overrides, so a key in it that binds to nothing
+    /// is a value someone set and the bot never read — the failure mode that made this file drift in the
+    /// first place. Keys belonging to the logging provider or the assistant's prompt segments have no
+    /// options class of their own and are exempted by prefix, each with its reason stated above.
+    /// </summary>
+    [Fact]
+    public void Every_key_in_the_settings_file_binds_to_something()
+    {
+        var bound = SettingsInBoundOptions();
+        bound.UnionWith(NotDeliverableAsOneVariable);
+
+        var orphaned = DeclaredInSettingsFile().Keys
+            .Where(k => !bound.Contains(k) && !FrameworkKeys.Contains(k) && !IsFrameworkOwned(k))
+            .OrderBy(k => k, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(orphaned.Count == 0,
+            "these keys are declared in kgsm-bot.settings.json but no options class binds them, so setting " +
+            "one changes nothing:\n  " + string.Join("\n  ", orphaned));
+    }
+
+    /// <summary>
+    /// The other direction: a setting the bot binds but the file never declares is invisible — nobody
+    /// reading the file learns the knob exists, and the Control Panel has no floor to show for it.
+    /// </summary>
+    [Fact]
+    public void Every_setting_the_bot_binds_is_declared_in_the_settings_file()
+    {
+        var declared = DeclaredInSettingsFile().Keys.ToHashSet(StringComparer.Ordinal);
+        var missing = SettingsInBoundOptions()
+            .Where(k => !declared.Contains(k))
+            .OrderBy(k => k, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            "the bot binds these settings but kgsm-bot.settings.json does not declare them, so the file " +
+            "no longer describes the bot's whole surface:\n  " + string.Join("\n  ", missing));
+    }
+
+    /// <summary>
+    /// The panel shows a descriptor default as "what this leaf falls back to". That claim is only true if
+    /// it is the value the settings file actually declares — otherwise the panel reports a floor the bot
+    /// has never used, on the one screen whose job is saying where a value came from.
+    /// </summary>
+    [Fact]
+    public void Every_described_default_is_the_declared_one()
+    {
+        var declared = DeclaredInSettingsFile();
+        var wrong = new List<string>();
+
+        foreach (JsonElement f in Fields())
+        {
+            string env = Str(f, "env");
+            if (Str(f, "type") == "secret" || !declared.TryGetValue(env, out JsonElement value))
+                continue;
+
+            string? actual = DeclaredDefault(value);
+            string? described = OptionalStr(f, "default");
+
+            // Blank or null declares "unset", which has no meaningful default to show.
+            if (string.IsNullOrEmpty(actual))
+            {
+                if (described is not null)
+                    wrong.Add($"{env}: described as '{described}', but the file leaves it unset");
+                continue;
+            }
+
+            if (described is null)
+                wrong.Add($"{env}: the file declares '{actual}', but the descriptor shows no default");
+            else if (!SameValue(described, actual))
+                wrong.Add($"{env}: described as '{described}', but the file declares '{actual}'");
+        }
+
+        Assert.True(wrong.Count == 0,
+            "these descriptor defaults disagree with kgsm-bot.settings.json, so the Control Panel would " +
+            "show a floor the bot never used:\n  " + string.Join("\n  ", wrong));
+    }
+
+    /// <summary>
+    /// The env file overrides the settings file one key at a time, so a variable naming a key the file does
+    /// not declare binds to nothing — it looks like configuration and is inert. The template is the one
+    /// copy of that file in version control, so it is the copy that can be checked.
+    /// </summary>
+    [Fact]
+    public void The_env_example_sets_no_key_the_settings_file_does_not_declare()
+    {
+        string path = Path.Combine(RepoRoot(), "deploy", "kgsm-bot.env.example");
+        Assert.True(File.Exists(path), $"the env template is missing: {path}");
+
+        var declared = DeclaredInSettingsFile().Keys.ToHashSet(StringComparer.Ordinal);
+        var unknown = new List<string>();
+
+        foreach (string raw in File.ReadAllLines(path))
+        {
+            // Both live lines and the commented-out examples: a commented key is what someone uncomments.
+            bool commented = raw.TrimStart().StartsWith('#');
+            string line = raw.TrimStart().TrimStart('#').Trim();
+            int eq = line.IndexOf('=');
+            if (eq <= 0)
+                continue;
+
+            string key = line[..eq];
+            // Prose, not an assignment — a sentence that happens to contain '='.
+            if (key.Any(char.IsWhiteSpace))
+                continue;
+
+            // A commented line counts only when it is spelled like an override (Section__Key). These
+            // templates also quote systemd's own directives in their prose — "EnvironmentFile=...",
+            // "Delegate=yes" — and those configure the unit, not the leaf.
+            if (commented && !key.Contains("__", StringComparison.Ordinal))
+                continue;
+
+            // The framework's own variables are real settings reached by their environment-variable
+            // name rather than through the settings file, so the file is not expected to declare them.
+            if (FrameworkKeys.Contains(key) || key.StartsWith("DOTNET_", StringComparison.Ordinal)
+                || key.StartsWith("ASPNETCORE_", StringComparison.Ordinal))
+                continue;
+
+            if (declared.Contains(key))
+                continue;
+
+            unknown.Add(key);
+        }
+
+        Assert.True(unknown.Count == 0,
+            "deploy/kgsm-bot.env.example sets these, and kgsm-bot.settings.json declares no such key, so " +
+            "they bind to nothing:\n  " + string.Join("\n  ", unknown.Distinct()));
+    }
+
     /// <summary>
     /// The list-valued settings stay excluded deliberately, and stay excluded for the stated reason. If one
     /// ever stops being a list, this fails and it has to be described rather than silently staying hidden.
@@ -217,6 +436,12 @@ public class LeafDescriptorTests
             Assert.Contains(Str(s, "kind"), kinds);
             Assert.StartsWith("/", Str(s, "path"));
         }
+
+        // floorSources is lowest-precedence-first, and the settings file is the base every other
+        // source overrides. Listed anywhere else, the Control Panel resolves a knob to the file's
+        // default and reports it as the deployed value — showing a blank where the unit sets a real
+        // path. That is wrong on a screen whose whole job is saying where a value came from.
+        Assert.Equal("appsettings", Str(sources[0], "kind"));
     }
 
     [Fact]

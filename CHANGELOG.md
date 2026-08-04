@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the bot could not resolve its own Discord server
+
+- **`Discord__GuildId` binds.** The config file spelled the key `Discord:Guild`, which matches no
+  property on `DiscordOptions`, so the guild id was **0** on every run — visible in the journal as
+  *"Initializing server event coordinator for guild 0"*. With a guild of 0 the bot signs in and
+  reports status normally, but it cannot resolve the server it belongs to: creating a channel for a
+  newly installed game server fails with *"Could not find guild with ID 0"*, and removing one on
+  uninstall fails the same way. Both work again.
+
+### Changed — one settings file, and it declares the whole surface
+
+- **`appsettings.json` is now `kgsm-bot.settings.json`**, matching the ecosystem's
+  `kgsm-<leaf>.settings.json` naming — and it is **committed**, because it holds no secret. It
+  declares the bot's whole configurable surface with its defaults, and `Program.cs` loads it by
+  absolute path from the binary's own directory rather than the process working directory.
+  `appsettings.example.json` is gone: with the real file committed, it was a second copy of the same
+  declarations, and it had already drifted from both the code and the live file.
+- **The token and this host's Discord identity moved to `/etc/kgsm-bot/kgsm-bot.env`** — the guild,
+  the channel category and the action role, which are this host's and not the product's.
+- **Nine settings the bot binds but the file never declared are now declared**, with the value the
+  code already used: `KGSM__JournalDir`, `KGSM__WatchdogSocketPath`, `Ollama__Temperature`/`Seed`/
+  `Think`, `Conversation__DatabasePath`, and the three `LlmAgent` knobs.
+- **Four dead keys are gone**: `KGSM__SocketPath` (the engine moved to the event journal) and
+  `Conversation__MaxMessages`/`IdleTimeoutMinutes` (the history is append-only canon, bounded by
+  checkpoints rather than trimmed), plus the misspelled `Discord__Guild` above.
+- **`floorSources` lists the settings file first.** The list is lowest-precedence-first, so with the
+  file listed last the Control Panel resolved a knob to the file's value and reported it as the
+  deployed one — showing a blank where the unit sets a real path.
+
+### Added
+- **Four tests hold the settings file, the bound options classes and the leaf descriptor together**:
+  a key in the file that binds to nothing, a bound setting the file never declares, a descriptor
+  default that disagrees with the file, and an env template naming a key the file does not declare
+  each fail the build. The first two are what would have caught the guild id.
+
 ### Changed — kgsm-lib 2.0.0 (the socket event transport is gone)
 - **Pinned to `TheKrystalShip.KGSM.Lib` 2.0.0**, which removes `UnixSocketClient`,
   `KgsmEventTransport` and `KgsmOptions.SocketPath`/`EventTransport`. This service already read the

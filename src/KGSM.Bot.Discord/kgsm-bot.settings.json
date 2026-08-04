@@ -1,0 +1,208 @@
+{
+  // === KGSM Discord bot — configuration ===
+  //
+  // This file declares the bot's WHOLE configurable surface, each key with its default. It is the
+  // floor; an environment variable overrides one key of it by spelling that key's path with "__" —
+  // Discord__GuildId, KGSM__Path, Logging__LogLevel__Default. A variable naming a key that is not
+  // declared here binds to nothing.
+  //
+  // Every key here maps onto a property of the options class the bot binds that section into, and a
+  // test fails the build if the two ever disagree, in either direction, or if the leaf descriptor
+  // (deploy/kgsm-bot.leaf.json — what the Control Panel renders) drifts from either.
+  //
+  // SECRETS AND HOST IDENTITY ARE DECLARED HERE, NEVER SET HERE. The Discord token, the guild, and
+  // the category and role ids are this host's own — they are declared blank or zero so the Control
+  // Panel can see they exist, and their real values belong in the root-owned
+  // /etc/kgsm-bot/kgsm-bot.env, which is not in version control.
+  //
+  // The "Instances" map below is the one exception, and it is a hard one: systemd refuses an
+  // environment variable whose name contains a hyphen, and a server may legitimately be named
+  // "minecraft-homestead". Delivered through the env file, those entries are dropped with an
+  // "Ignoring invalid environment assignment" in the journal and the server is given a new channel
+  // on its next event. This file is the only source that can express every name, so the map lives here.
+  "Discord": {
+    "Token": "",
+    "GuildId": 0,
+    "InstancesCategoryId": 0,
+    "ActionRoleId": 0,
+    "RemoveChannelOnInstanceDeletion": false,
+    "Status": {
+      "Online": "🟢",
+      "Offline": "🔴",
+      "Uninstalled": "⚫"
+    },
+    "DeleteStatusMessageAfterDelay": true,
+    "DeleteStatusMessageDelaySeconds": 2
+  },
+
+  // Where the engine is and where its event journal lives. "Blueprints" gives the per-game log line
+  // that means "the server finished starting", and "Instances" maps a server to the Discord channel
+  // it reports in. Both are maps keyed by name: an entry binds from its own key
+  // (KGSM__Instances__factorio__ChannelId), so a single variable cannot express one, and the
+  // Control Panel does not render them. A name with a hyphen in it cannot be spelled as an
+  // environment variable at all, so this file is where these entries have to live.
+  "KGSM": {
+    "Path": "/usr/local/bin/kgsm",
+    "JournalDir": "/var/lib/kgsm/events",
+    "WatchdogSocketPath": "/run/kgsm-watchdog/control.sock",
+    "Blueprints": {
+      "7dtd": {
+        "OnlineTrigger": "INF StartGame done"
+      },
+      "barotrauma": {
+        "OnlineTrigger": "Server started"
+      },
+      "corekeeper": {
+        "OnlineTrigger": "Game ID"
+      },
+      "dontstarvetogether": {
+        "OnlineTrigger": "Server registered via geo DNS in"
+      },
+      "empyrion": {
+        "OnlineTrigger": "Server started listening on port"
+      },
+      "factorio": {
+        "OnlineTrigger": "Hosting game at IP ADDR"
+      },
+      "minecraft": {
+        "OnlineTrigger": "For help, type \"help\""
+      },
+      "necesse": {
+        "OnlineTrigger": "Started server using port"
+      },
+      "projectzomboid": {
+        "OnlineTrigger": "SERVER STARTED"
+      },
+      "starbound": {
+        "OnlineTrigger": "UniverseServer: listening for incoming TCP connections"
+      },
+      "starmade": {
+        "OnlineTrigger": "SERVER INIT FINISHED"
+      },
+      "terraria": {
+        "OnlineTrigger": "Server started"
+      },
+      "valheim": {
+        "OnlineTrigger": "Opened Steam server"
+      },
+      "veloren": {
+        "OnlineTrigger": "Server is ready to accept connections"
+      },
+      "vrising": {
+        "OnlineTrigger": "Startup Completed - Disabling Scene Loading Systems"
+      }
+    },
+    "Instances": {
+      "barotrauma": {
+        "ChannelId": "1277668743601717378",
+        "Blueprint": "barotrauma"
+      },
+      "corekeeper": {
+        "ChannelId": "1179580060571807775",
+        "Blueprint": "corekeeper"
+      },
+      "dontstarvetogether": {
+        "ChannelId": "1295485803949985812",
+        "Blueprint": "dontstarvetogether"
+      },
+      "empyrion": {
+        "ChannelId": "1384460784557621278",
+        "Blueprint": "empyrion"
+      },
+      "factorio": {
+        "ChannelId": "1176992508237070376",
+        "Blueprint": "factorio"
+      },
+      "lotrrtm": {
+        "ChannelId": "1340655871461556285",
+        "Blueprint": "lotrrtm"
+      },
+      "minecraft": {
+        "ChannelId": "911747779704008745",
+        "Blueprint": "minecraft"
+      },
+      "minecraft-homestead": {
+        "ChannelId": "1381184910751961161",
+        "Blueprint": "minecraft"
+      },
+      "projectzomboid": {
+        "ChannelId": "1177396282038423561",
+        "Blueprint": "projectzomboid"
+      },
+      "projectzomboid-lisa": {
+        "ChannelId": "1380175468371644516",
+        "Blueprint": "projectzomboid"
+      },
+      "starbound": {
+        "ChannelId": "1177637279263641661",
+        "Blueprint": "starbound"
+      },
+      "starmade": {
+        "ChannelId": "1250457986468675747",
+        "Blueprint": "starmade"
+      },
+      "terraria": {
+        "ChannelId": "1177396264153923584",
+        "Blueprint": "terraria"
+      },
+      "valheim": {
+        "ChannelId": "812414286021787671",
+        "Blueprint": "valheim"
+      },
+      "veloren": {
+        "ChannelId": "1250462874275676231",
+        "Blueprint": "veloren"
+      }
+    }
+  },
+
+  // How long the server and blueprint lists are reused before being re-read, so the bot does not
+  // spawn a kgsm subprocess per message. Backstops only: install and uninstall drop the list at once.
+  "KgsmCache": {
+    "InstancesTtlSeconds": 300,
+    "BlueprintsTtlSeconds": 600
+  },
+
+  // The local model that answers when the bot is @-mentioned. Unreachable, slash commands and status
+  // still work; only the conversational surface goes quiet. A null seed leaves sampling unseeded.
+  "Ollama": {
+    "Endpoint": "http://localhost:11434",
+    "Model": "gemma4:12b",
+    "NumCtx": 32768,
+    "TimeoutSeconds": 300,
+    "Temperature": 0.3,
+    "Seed": null,
+    "Think": false
+  },
+
+  // Where past conversations are kept, which is the bot's memory between messages. Blank puts the
+  // file beside the binary, so it always has a home.
+  "Conversation": {
+    "DatabasePath": ""
+  },
+
+  // Safety bounds on one turn of the model↔tool loop.
+  "LlmAgent": {
+    "MaxIterations": 8,
+    "MaxToolOutputChars": 1500,
+    "IterationLimitReply": "I wasn't able to finish that after a few steps — could you rephrase or break it down?"
+  },
+
+  // Host-specific overrides of the assistant's system prompt. The library ships a host-agnostic
+  // default for each; a value here replaces it, which is how Discord's confirmation button gets
+  // named in wording a web caller would not understand. Prompt text has its own editing channel
+  // (the assistant's prompt files), so these are not rendered on the Control Panel.
+  "Llm": {
+    "Preamble": "You are a friendly assistant in a small Discord server for friends who run game servers together. You help them check on and manage their game servers. The lists below are complete and current. When a user asks what servers exist or what games can be installed, answer directly from these lists — do NOT call a tool for that. When a user refers to a specific server, act directly with the correct tool and the exact instance name from the list. If a request is ambiguous — it could match more than one instance — do NOT guess. Ask the user which one they mean and list the candidates. A single message may ask for several actions in sequence (e.g. stop, then back up, then update) — issue the tool calls in the order requested. Keep replies concise and conversational.",
+    "ActionsAllowed": "This user is authorized to perform actions. You can start, stop, restart, back up, and update servers, in addition to reading status. You can also install new servers and uninstall existing ones, but these are DESTRUCTIVE: calling install_server or uninstall_server does NOT perform the action — it only stages it, and the user is shown a button they must click to confirm. So when you use one of those tools, call it once and then tell the user it's awaiting their confirmation. NEVER claim a server was installed or uninstalled yourself — you cannot complete those; only the confirmation button can.",
+    "ActionsDenied": "This user is NOT authorized to perform actions. You can only READ information (list servers, status, whether a server is running). If they ask you to start, stop, restart, back up, or update a server, politely explain they don't have permission — do not attempt it."
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information",
+      "KGSM.Bot": "Debug"
+    }
+  }
+}
