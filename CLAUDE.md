@@ -69,8 +69,18 @@ markers), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and t
 An environment variable **overrides one key** of that file by spelling the key's path with
 `__` (`Discord__GuildId`), and a variable naming a key the file does not declare binds to
 nothing. That is where the token and this host's own scalars live
-(`/etc/kgsm-bot/kgsm-bot.env`). Four tests fail the build if the settings file, the bound
-options classes, the leaf descriptor, and `deploy/kgsm-bot.env.example` ever disagree.
+(`/etc/kgsm-bot/kgsm-bot.env`). Tests fail the build if the settings file, the bound options
+classes and `deploy/kgsm-bot.env.example` ever disagree.
+
+**`deploy/kgsm-bot.leaf.json` is generated, not written.** `TheKrystalShip.KGSM.LeafConfig`
+rewrites it on every build from `[LeafField]` attributes and `<panel>` doc tags — so edit the
+options classes, never the JSON, and commit what the build produces. `Discord`, `KGSM` and
+`KgsmCache` carry theirs on their own types in `KGSM.Bot.Infrastructure`, which the generator
+picks up because it scans every assembly beside the built binary. `Ollama`, `LlmAgent` and
+`Conversation` are declared as `[LeafFrameworkField]`s in `LeafDescriptor.cs` instead: those
+types belong to `TheKrystalShip.Llm`, and the bot and the assistant describe the same keys in
+their own words, so the prose has to live with the surface that shows it. Format:
+`../leaf-config-descriptor.md`; mechanism: `../kgsm-leafconfig/README.md`.
 
 **The `KGSM:Instances` channel map is the one host-specific thing that stays in the settings
 file**, because systemd refuses an environment variable whose name contains a hyphen — an

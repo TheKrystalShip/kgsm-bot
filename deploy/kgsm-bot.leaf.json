@@ -7,18 +7,55 @@
   "onDemand": false,
   "applyMode": "restart",
   "floorSources": [
-    { "kind": "appsettings", "path": "/opt/kgsm-bot/kgsm-bot.settings.json" },
-    { "kind": "systemd-unit", "path": "/etc/kgsm-bot/systemd/kgsm-bot.service" },
-    { "kind": "env-file", "path": "/etc/kgsm-bot/kgsm-bot.env" }
+    {
+      "kind": "appsettings",
+      "path": "/opt/kgsm-bot/kgsm-bot.settings.json"
+    },
+    {
+      "kind": "systemd-unit",
+      "path": "/etc/kgsm-bot/systemd/kgsm-bot.service"
+    },
+    {
+      "kind": "env-file",
+      "path": "/etc/kgsm-bot/kgsm-bot.env"
+    }
   ],
   "groups": [
-    { "id": "general", "label": "General", "order": 1 },
-    { "id": "discord", "label": "Discord", "order": 2 },
-    { "id": "channels", "label": "Server channels", "order": 3 },
-    { "id": "kgsm", "label": "KGSM connection", "order": 4 },
-    { "id": "cache", "label": "Inventory cache", "order": 5 },
-    { "id": "model", "label": "Model", "order": 6 },
-    { "id": "agent", "label": "Agent loop", "order": 7 }
+    {
+      "id": "general",
+      "label": "General",
+      "order": 1
+    },
+    {
+      "id": "discord",
+      "label": "Discord",
+      "order": 2
+    },
+    {
+      "id": "channels",
+      "label": "Server channels",
+      "order": 3
+    },
+    {
+      "id": "kgsm",
+      "label": "KGSM connection",
+      "order": 4
+    },
+    {
+      "id": "cache",
+      "label": "Inventory cache",
+      "order": 5
+    },
+    {
+      "id": "model",
+      "label": "Model",
+      "order": 6
+    },
+    {
+      "id": "agent",
+      "label": "Agent loop",
+      "order": 7
+    }
   ],
   "fields": [
     {
@@ -28,11 +65,17 @@
       "description": "Minimum severity this leaf logs.",
       "group": "general",
       "type": "enum",
-      "values": ["Trace", "Debug", "Information", "Warning", "Error", "Critical"],
+      "values": [
+        "Trace",
+        "Debug",
+        "Information",
+        "Warning",
+        "Error",
+        "Critical"
+      ],
       "default": "Information",
       "risk": "safe"
     },
-
     {
       "key": "discordToken",
       "env": "Discord__Token",
@@ -64,7 +107,6 @@
       "min": 0,
       "risk": "wiring"
     },
-
     {
       "key": "instancesCategoryId",
       "env": "Discord__InstancesCategoryId",
@@ -92,8 +134,8 @@
       "label": "Running marker",
       "description": "Shown beside a server that is running.",
       "group": "channels",
-      "default": "\ud83d\udfe2",
       "type": "string",
+      "default": "\uD83D\uDFE2",
       "risk": "safe"
     },
     {
@@ -102,8 +144,8 @@
       "label": "Stopped marker",
       "description": "Shown beside a server that is stopped.",
       "group": "channels",
-      "default": "\ud83d\udd34",
       "type": "string",
+      "default": "\uD83D\uDD34",
       "risk": "safe"
     },
     {
@@ -112,8 +154,8 @@
       "label": "Uninstalled marker",
       "description": "Shown beside a server that is no longer installed.",
       "group": "channels",
-      "default": "\u26ab",
       "type": "string",
+      "default": "⚫",
       "risk": "safe"
     },
     {
@@ -139,15 +181,14 @@
       "risk": "safe",
       "dependsOn": "deleteStatusMessages"
     },
-
     {
       "key": "kgsmPath",
       "env": "KGSM__Path",
       "label": "KGSM executable",
       "description": "Path to the KGSM executable. Everything the bot knows about this host's servers is read through it.",
       "group": "kgsm",
-      "default": "/usr/local/bin/kgsm",
       "type": "path",
+      "default": "/usr/local/bin/kgsm",
       "risk": "wiring"
     },
     {
@@ -170,7 +211,6 @@
       "default": "/run/kgsm-watchdog/control.sock",
       "risk": "wiring"
     },
-
     {
       "key": "cacheInstancesTtlSec",
       "env": "KgsmCache__InstancesTtlSeconds",
@@ -195,7 +235,6 @@
       "unit": "s",
       "risk": "safe"
     },
-
     {
       "key": "ollamaEndpoint",
       "env": "Ollama__Endpoint",
@@ -271,7 +310,6 @@
       "default": "false",
       "risk": "safe"
     },
-
     {
       "key": "conversationDbPath",
       "env": "Conversation__DatabasePath",
@@ -310,8 +348,8 @@
       "label": "Step-limit reply",
       "description": "What the bot says when it hits the tool-step limit without reaching an answer.",
       "group": "agent",
-      "default": "I wasn't able to finish that after a few steps \u2014 could you rephrase or break it down?",
       "type": "string",
+      "default": "I wasn't able to finish that after a few steps — could you rephrase or break it down?",
       "risk": "safe"
     }
   ]

@@ -1,12 +1,18 @@
+using TheKrystalShip.KGSM.LeafConfig;
+
 namespace KGSM.Bot.Infrastructure.Configuration;
 
 /// <summary>
 /// Configuration options for KGSM
 /// </summary>
+[LeafSection(Section)]
 public class KgsmOptions
 {
     public const string Section = "KGSM";
 
+    /// <panel>Path to the KGSM executable. Everything the bot knows about this host's servers is read
+    /// through it.</panel>
+    [LeafField("kgsmPath", "KGSM executable", Group = "kgsm", Type = LeafType.Path, Risk = LeafRisk.Wiring)]
     public string Path { get; set; } = string.Empty;
 
     /// <summary>
@@ -22,6 +28,11 @@ public class KgsmOptions
     /// hours ago. Missing what happened during a restart is the correct trade: the durable record
     /// is kgsm-monitor's, and this surface was never it.
     /// </remarks>
+    /// <panel>Directory holding the engine's event journal, which the bot reads so a channel's status
+    /// updates the moment a server starts or stops. Read-only and shared with every other consumer —
+    /// nothing needs configuring on the engine side.</panel>
+    [LeafField("kgsmJournalDir", "KGSM event journal", Group = "kgsm", Type = LeafType.Path,
+        Risk = LeafRisk.Wiring)]
     public string JournalDir { get; set; } = "/var/lib/kgsm/events";
 
     /// <summary>
@@ -32,6 +43,9 @@ public class KgsmOptions
     /// daemon's own default socket so the client always registers; an absent or
     /// unreachable daemon is handled gracefully at call time.
     /// </summary>
+    /// <panel>The supervisor's control socket, which the bot starts and stops servers through.</panel>
+    [LeafField("watchdogSocketPath", "Watchdog socket", Group = "kgsm", Type = LeafType.Path,
+        Risk = LeafRisk.Wiring)]
     public string WatchdogSocketPath { get; set; } = "/run/kgsm-watchdog/control.sock";
 
     public Dictionary<string, BlueprintSettings> Blueprints { get; set; } = new();

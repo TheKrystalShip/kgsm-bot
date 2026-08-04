@@ -5,7 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>KGSM.Bot.Infrastructure</RootNamespace>
+
+    <!-- This library declares bound settings sections, so it compiles the descriptor attributes and
+         emits the documentation file their <panel> tags travel in. It generates nothing itself — the
+         Discord host owns that step. -->
+    <GenerateLeafDescriptor>false</GenerateLeafDescriptor>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TheKrystalShip.KGSM.LeafConfig" Version="1.4.0" PrivateAssets="all" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
