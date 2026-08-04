@@ -17,6 +17,10 @@ using TheKrystalShip.KGSM.LeafConfig;
     unit: "kgsm-bot.service",
     role: "The Discord surface onto KGSM — a channel per server, live status, and authorized commands from chat.")]
 
+// Discord, KGSM and KgsmCache are declared on their own types over there. Named explicitly, so the
+// assistant's projects — which this bot also compiles against — cannot leak their sections in here.
+[assembly: LeafSectionAssembly("KGSM.Bot.Infrastructure")]
+
 [assembly: LeafGroup("general", "General", 1)]
 [assembly: LeafGroup("discord", "Discord", 2)]
 [assembly: LeafGroup("channels", "Server channels", 3)]
