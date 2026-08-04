@@ -38,7 +38,7 @@ Copy the contents of `appsettings.example.json` into a new file,
     },
     "KGSM": {
         "Path": "path/to/kgsm.sh",
-        "SocketPath": "path/to/kgsm.sock"
+        "JournalDir": "/var/lib/kgsm/events"
     }
 }
 ```

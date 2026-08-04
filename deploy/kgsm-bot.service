@@ -23,10 +23,11 @@ ExecStart=/opt/kgsm-bot/kgsm-bot
 
 Environment=DOTNET_ENVIRONMENT=Production
 # Path to the host's kgsm.sh (the canonical dev checkout — matches the kgsm-api/kgsm-monitor units)
-# and the bot's OWN dedicated kgsm event-listen socket. The bot binds this socket; kgsm dials OUT
-# to it (socat), so add this path to kgsm's event_socket_filenames for the bot to receive events.
+# and the engine's event journal, which the bot READS. Nothing is bound and nothing is reserved:
+# the engine is the sole writer, every consumer reads the same files, and there is no engine-side
+# configuration for a reader to be added to.
 Environment=KGSM__Path=/usr/local/bin/kgsm
-Environment=KGSM__SocketPath=/run/kgsm-bot/kgsm-events.sock
+Environment=KGSM__JournalDir=/var/lib/kgsm/events
 
 # REQUIRED: the Discord bot token (Discord__Token) lives here, NOT in the committed appsettings.json.
 # A SECRET — keep this file chmod 600. The deploy script creates it from kgsm-bot.env.example.

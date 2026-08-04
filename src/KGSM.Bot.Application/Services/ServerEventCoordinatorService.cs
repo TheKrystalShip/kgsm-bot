@@ -32,8 +32,24 @@ public class ServerEventCoordinatorService
         _logger = logger;
     }
 
+    // Guards against re-registration. The caller is Discord's gateway READY handler, which fires
+    // again on every reconnect — and each pass here APPENDS to the event handler's callback lists,
+    // so an unguarded second call makes every lifecycle event announce twice, a third makes it
+    // three times, and so on for the life of the process. It also re-entered
+    // IServerEventHandler.Initialize, starting a second journal reader over the same cursor state.
+    private bool _initialized;
+
     public void Initialize(ulong guildId)
     {
+        if (_initialized)
+        {
+            _logger.LogDebug(
+                "Server event coordinator already initialized for guild {GuildId} — skipping re-registration",
+                guildId);
+            return;
+        }
+        _initialized = true;
+
         _logger.LogInformation("Initializing server event coordinator for guild {GuildId}", guildId);
 
         // Register event handlers

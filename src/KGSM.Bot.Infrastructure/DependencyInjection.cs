@@ -86,8 +86,17 @@ public static class DependencyInjection
             .GetSection(Internal.KgsmOptions.Section)
             .Get<Internal.KgsmOptions>() ?? throw new InvalidOperationException("KGSM configuration is missing or invalid");
 
-        // Add KGSM-Lib services
-        services.AddKgsmServices(kgsmOptions.Path, kgsmOptions.SocketPath);
+        // Add KGSM-Lib services. Engine events come from the journal — a file every consumer
+        // reads concurrently, with no socket to bind and nothing to reserve. Tail, with no
+        // cursor: this surface ANNOUNCES, and an announcement is only meaningful while it is
+        // current (see KgsmOptions.JournalDir).
+        services.AddKgsmServices(new TheKrystalShip.KGSM.Core.Models.KgsmOptions
+        {
+            KgsmPath = kgsmOptions.Path,
+            EventTransport = TheKrystalShip.KGSM.Core.Models.KgsmEventTransport.Journal,
+            EventJournalDirectory = kgsmOptions.JournalDir,
+            EventStartPosition = TheKrystalShip.KGSM.Core.Models.EventStartPosition.Tail
+        });
 
         // Typed client for the kgsm-watchdog control socket (read-only supervision
         // surface). Registration always succeeds — the socket path defaults to the

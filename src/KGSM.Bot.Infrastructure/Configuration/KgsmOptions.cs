@@ -8,7 +8,21 @@ public class KgsmOptions
     public const string Section = "KGSM";
 
     public string Path { get; set; } = string.Empty;
-    public string SocketPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Directory holding the engine's append-only event journal, which the bot tails to learn
+    /// when a server started, stopped, or was installed. Read-only and shared: the engine is the
+    /// sole writer and any number of consumers read the same files, so nothing here belongs to
+    /// the bot and nothing needs configuring on the engine side.
+    /// </summary>
+    /// <remarks>
+    /// The bot reads from the <b>tail</b> and keeps no position between runs. It announces events
+    /// to Discord channels, and an announcement is only meaningful while it is current — replaying
+    /// a backlog on restart would post "server started" for a server that started and stopped
+    /// hours ago. Missing what happened during a restart is the correct trade: the durable record
+    /// is kgsm-monitor's, and this surface was never it.
+    /// </remarks>
+    public string JournalDir { get; set; } = "/var/lib/kgsm/events";
 
     /// <summary>
     /// Control-socket path for the kgsm-watchdog supervisor daemon, used by the

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a lifecycle event announced once, not once per gateway reconnect
+
+- **`Initialize` is now idempotent, and the event coordinator is a singleton.** Discord's gateway
+  READY fires again on every reconnect, and the READY handler re-ran the coordinator's
+  initialization — which *appends* callbacks to the event handler's lists. So after one reconnect
+  every start/stop announced twice, after two reconnects three times, for the life of the process.
+  Observed live at 2× on this host. Guarded in both `ServerEventCoordinatorService.Initialize` and
+  `KgsmServerEventHandler.Initialize`, and the coordinator's transient registration — the reason a
+  guard alone could not have been enough — is now a singleton, matching how it is actually held.
+
+### Changed — engine events come from the journal, not a socket
+
+- **`KGSM__JournalDir` replaces `KGSM__SocketPath`.** The bot tails the engine's append-only event
+  journal instead of binding a socket for the engine to dial out to. It no longer owns a path that
+  another consumer could collide with, and the engine no longer needs to be told this consumer
+  exists — a journal is a file any number of readers share. The four announcement handlers are
+  unchanged.
+
+  **The bot reads from the tail and keeps no position between runs**, deliberately. It *announces*
+  to Discord channels, and an announcement is only meaningful while it is current: replaying a
+  backlog on restart would post "server started" for a server that started and stopped hours ago.
+  Missing what happened during a restart is the right trade — the durable record is kgsm-monitor's,
+  and this surface was never it.
+
 ### Added — the Control Panel can configure the bot
 - **`deploy/kgsm-bot.leaf.json` declares every setting the bot binds** — all 27, across Discord
   identity and channel behaviour, the KGSM connection, the inventory cache, the model and the agent

@@ -147,12 +147,13 @@
       "risk": "wiring"
     },
     {
-      "key": "kgsmSocketPath",
-      "env": "KGSM__SocketPath",
-      "label": "KGSM event socket",
-      "description": "Socket the engine delivers events on, which is how a channel's status updates the moment a server starts or stops. It must be listed in the engine's own event socket configuration, and belong to no other consumer.",
+      "key": "kgsmJournalDir",
+      "env": "KGSM__JournalDir",
+      "label": "KGSM event journal",
+      "description": "Directory holding the engine's event journal, which the bot reads so a channel's status updates the moment a server starts or stops. Read-only and shared with every other consumer — nothing needs configuring on the engine side.",
       "group": "kgsm",
       "type": "path",
+      "default": "/var/lib/kgsm/events",
       "risk": "wiring"
     },
     {

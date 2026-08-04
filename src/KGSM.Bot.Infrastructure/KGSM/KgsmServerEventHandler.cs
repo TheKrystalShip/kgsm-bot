@@ -31,9 +31,21 @@ public class KgsmServerEventHandler : IServerEventHandler
         _logger = logger;
     }
 
+    // Second guard, independent of the coordinator's: Initialize() starts the journal reader, and
+    // a second call would run a second read loop over one reader's cursor state. Public entry
+    // point, so it defends itself rather than trusting every caller.
+    private bool _initialized;
+
     /// <inheritdoc />
     public void Initialize()
     {
+        if (_initialized)
+        {
+            _logger.LogDebug("KGSM event handlers already initialized — skipping");
+            return;
+        }
+        _initialized = true;
+
         _logger.LogInformation("Initializing KGSM event handlers");
 
         // Register KGSM event handlers

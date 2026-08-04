@@ -133,10 +133,16 @@ a new mutating entry point, wrap it in a `Begin(...)` scope.
 `KgsmStateCache` caches the instance/blueprint inventory (TTL backstop +
 event-driven invalidation) so the bot doesn't spawn a `kgsm` subprocess per message;
 on a refresh failure it **serves the last-known-good snapshot rather than blanking**.
-The bot binds its own kgsm event socket (`KGSM.SocketPath`); kgsm dials *out* to it,
-so that path must be in kgsm's `event_socket_filenames`. Lifecycle events
-(installed/started/stopped/uninstalled) drive both Discord notifications and cache
+The bot tails the engine's event journal (`KGSM.JournalDir`) — a file every consumer
+reads, so nothing is bound and nothing on the engine side names this reader. Lifecycle
+events (installed/started/stopped/uninstalled) drive both Discord notifications and cache
 invalidation via `ServerEventCoordinatorService`.
+
+**It starts at the tail and stores no position.** This surface *announces*, and an
+announcement is only meaningful while it is current — replaying a backlog after a restart
+would post "server started" for a server that started and stopped hours ago. Don't give
+this consumer a cursor to "avoid missing events": the durable record is kgsm-monitor's,
+and missing a restart window here costs nothing.
 
 ## Ecosystem invariants that bite here
 
