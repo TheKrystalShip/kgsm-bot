@@ -37,7 +37,7 @@
   <ItemGroup>
     <!-- Build-only: the attributes arrive as source and the generator as a tool, and the package
          declares no dependencies, so nothing here reaches the published output. -->
-    <PackageReference Include="TheKrystalShip.KGSM.LeafConfig" Version="2.0.0" PrivateAssets="all" />
+    <PackageReference Include="TheKrystalShip.KGSM.LeafConfig" Version="2.2.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
