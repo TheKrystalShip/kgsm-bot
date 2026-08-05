@@ -32,29 +32,34 @@
       "order": 2
     },
     {
+      "id": "announcements",
+      "label": "Announcements",
+      "order": 3
+    },
+    {
       "id": "channels",
       "label": "Server channels",
-      "order": 3
+      "order": 4
     },
     {
       "id": "kgsm",
       "label": "KGSM connection",
-      "order": 4
+      "order": 5
     },
     {
       "id": "cache",
       "label": "Inventory cache",
-      "order": 5
+      "order": 6
     },
     {
       "id": "model",
       "label": "Model",
-      "order": 6
+      "order": 7
     },
     {
       "id": "agent",
       "label": "Agent loop",
-      "order": 7
+      "order": 8
     }
   ],
   "fields": [
@@ -108,10 +113,161 @@
       "risk": "wiring"
     },
     {
+      "key": "announceStarted",
+      "env": "Discord__Announce__Started",
+      "label": "Server started",
+      "description": "A server's process was launched.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceReady",
+      "env": "Discord__Announce__Ready",
+      "label": "Server ready to play",
+      "description": "A server finished loading and is playable. Follows every start, including the ones the supervisor makes on its own, so leaving it off keeps a channel to one message per start.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "false",
+      "risk": "safe"
+    },
+    {
+      "key": "announceStopped",
+      "env": "Discord__Announce__Stopped",
+      "label": "Server stopped",
+      "description": "A server was stopped.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceRestarted",
+      "env": "Discord__Announce__Restarted",
+      "label": "Server restarted",
+      "description": "Someone cycled a server deliberately.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceCrashed",
+      "env": "Discord__Announce__Crashed",
+      "label": "Server crashed",
+      "description": "A server died unexpectedly and the supervisor is restarting it. Announced once per crash, not once per restart attempt.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceFailed",
+      "env": "Discord__Announce__Failed",
+      "label": "Server gave up restarting",
+      "description": "The supervisor ran out of restart attempts and left a server down. This is the one that means somebody has to go look.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceUpdated",
+      "env": "Discord__Announce__Updated",
+      "label": "Game updated",
+      "description": "A new game build was applied to a server.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceInstalled",
+      "env": "Discord__Announce__Installed",
+      "label": "Server installed",
+      "description": "A new server was installed.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceUninstalled",
+      "env": "Discord__Announce__Uninstalled",
+      "label": "Server uninstalled",
+      "description": "A server was uninstalled.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announceBackupCreated",
+      "env": "Discord__Announce__BackupCreated",
+      "label": "Backup created",
+      "description": "A backup of a server was written.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "false",
+      "risk": "safe"
+    },
+    {
+      "key": "announceBackupRestored",
+      "env": "Discord__Announce__BackupRestored",
+      "label": "Backup restored",
+      "description": "A backup was rolled back onto a server, replacing what was there.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "announcePlayerJoined",
+      "env": "Discord__Announce__PlayerJoined",
+      "label": "Player joined",
+      "description": "A player connected. One message per join — busy on a popular server.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "false",
+      "risk": "safe"
+    },
+    {
+      "key": "announcePlayerLeft",
+      "env": "Discord__Announce__PlayerLeft",
+      "label": "Player left",
+      "description": "A player disconnected. One message per leave.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "false",
+      "risk": "safe"
+    },
+    {
+      "key": "announceModeration",
+      "env": "Discord__Announce__Moderation",
+      "label": "Player kicked or banned",
+      "description": "A player was kicked, banned, or had a ban lifted.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
       "key": "instancesCategoryId",
       "env": "Discord__InstancesCategoryId",
       "label": "Channel category id",
       "description": "Category the bot creates each server's channel under. Zero leaves new channels uncategorised.",
+      "group": "channels",
+      "type": "int",
+      "default": "0",
+      "min": 0,
+      "risk": "safe"
+    },
+    {
+      "key": "announcementChannelId",
+      "env": "Discord__AnnouncementChannelId",
+      "label": "Fallback announcement channel",
+      "description": "Channel for announcements about servers that have no channel of their own. Zero drops them instead, and the reason is logged.",
       "group": "channels",
       "type": "int",
       "default": "0",
@@ -161,21 +317,21 @@
     {
       "key": "deleteStatusMessages",
       "env": "Discord__DeleteStatusMessageAfterDelay",
-      "label": "Clean up status messages",
-      "description": "Whether status messages are removed after a while, so a busy channel does not fill with them.",
+      "label": "Clean up announcements",
+      "description": "Whether announcements are deleted again after a while, so a busy channel does not fill with them. On, the channel keeps no record of what happened.",
       "group": "channels",
       "type": "bool",
-      "default": "true",
+      "default": "false",
       "risk": "safe"
     },
     {
       "key": "deleteStatusMessagesAfterSec",
       "env": "Discord__DeleteStatusMessageDelaySeconds",
-      "label": "Status message lifetime",
-      "description": "How long a status message stays before it is removed.",
+      "label": "Announcement lifetime",
+      "description": "How long an announcement stays before it is deleted.",
       "group": "channels",
       "type": "int",
-      "default": "2",
+      "default": "300",
       "min": 1,
       "unit": "s",
       "risk": "safe",

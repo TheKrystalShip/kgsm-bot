@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — configurable event announcements
+
+- **Fourteen announcement switches (`Discord:Announce`), rendered as their own Control Panel
+  section.** The bot announces sixteen kinds of engine event — start, ready, stop, restart, crash,
+  give-up, update, install, uninstall, backup created/restored, player join/leave, and the three
+  moderation verbs — and each is switchable by the operator from the Control Panel. Previously the
+  bot posted a bare status emoji for four of them with nothing to configure, and the Discord
+  settings an operator could actually see belonged to kgsm-api's webhook integration, which is a
+  different delivery path entirely.
+
+  Every kind is sourced from an event the bot already reads off the journal. There is deliberately
+  no "update available" switch: the engine emits no such event, so the bot has no source it could
+  answer from without polling steamcmd per instance — kgsm-api's update probe remains the only
+  honest source of that fact, and it is not a Discord one.
+
+  `Ready`, `PlayerJoined`, `PlayerLeft` and `BackupCreated` ship off. The rest ship on.
+
+- **`Discord:AnnouncementChannelId`** — where an announcement goes when its server has no channel of
+  its own. A server only gets a channel when the bot sees it installed or finds it in the
+  `KGSM:Instances` map, so anything predating that map routed nowhere and was dropped. Zero keeps
+  the drop, and the reason is logged.
+
+- **A crash is announced once per crash, not once per restart attempt.** The supervisor emits an
+  `instance_crashed` per attempt, so a server in a restart loop produces a run of them seconds
+  apart — measured on this host, four crashes produced eleven events. The first attempt is
+  announced; the outcome, when the supervisor runs out of attempts, arrives as `instance_failed` and
+  is announced in its own right. A restart count that cannot be read is announced rather than
+  dropped.
+
+- **Announcements name their detail and their actor** — an exit code, a version pair, a blueprint, a
+  player — each taken from the event that carried it and left out when it did not. The actor travels
+  verbatim: a supervisor-driven event reads as automatic, never as a person.
+
+### Changed
+
+- **`Discord:DeleteStatusMessageAfterDelay` defaults off, with a 300s lifetime when on.** It governs
+  announcements, which are worth keeping; the old 2-second default deleted every one of them almost
+  as soon as it was posted.
+- **`TheKrystalShip.KGSM.Lib` 2.0.0 → 2.2.0**, for the three moderation event types.
+- **`IServerEventHandler` carries one announcement subscription** instead of a registration method
+  per event, with the install/uninstall pair kept separate because creating and retiring a channel
+  has to happen whether or not anything is announced. Install announces after its channel exists;
+  uninstall announces before its channel is taken away.
+
 ### Changed — the leaf config descriptor is generated, not written
 - **`deploy/kgsm-bot.leaf.json` is now written by `TheKrystalShip.KGSM.LeafConfig` on every build**, from
   `[LeafField]` attributes and `<panel>` doc tags on `the bound options classes`. A knob lives in two places —

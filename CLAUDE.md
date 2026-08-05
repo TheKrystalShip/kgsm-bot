@@ -11,16 +11,19 @@ status", leaves-are-independently-deployable).
 
 ## Building requires the full umbrella checkout
 
-This is the single biggest gotcha. The projects **ProjectReference their siblings by
-relative path** — there is no NuGet fallback:
+This is the single biggest gotcha. The LLM projects are **ProjectReferenced by relative
+path** — there is no NuGet fallback:
 
-- `../../../kgsm-lib/kgsm-lib/kgsm-lib.csproj` (referenced by Core, Application, Infrastructure)
 - `../../../kgsm-llm/TheKrystalShip.Llm/...` and `.../TheKrystalShip.Kgsm.Assistant/...` (the LLM agent loop + the extracted kgsm assistant)
 
-So `kgsm-bot` only builds when `kgsm-lib/` and `kgsm-llm/` are checked out as siblings
-under `tks/`. A standalone clone will not restore. (`nuget.config` adds a local feed
-`/home/heisen/local-nuget` — legacy, only relevant if `TheKrystalShip.Llm` is ever
-consumed as a package again; today it's a project reference.)
+So `kgsm-bot` only builds when `kgsm-llm/` is checked out as a sibling under `tks/`. A
+standalone clone will not restore.
+
+**kgsm-lib is different: it comes from the local feed** (`nuget.config` →
+`/home/heisen/local-nuget`) as `TheKrystalShip.KGSM.Lib`, pinned by version in Core,
+Application and Infrastructure. Editing `kgsm-lib/` changes nothing here until it is
+repacked and the three pins move together. NuGet caches by id+version, so a repack at the
+same version serves the old package from the cache with no error.
 
 Targets **.NET 10** (the README still says 9 — trust the `.csproj`/the code).
 
@@ -61,16 +64,18 @@ same pattern. If some *other* operation seems to need root, stop and ask; don't 
 
 `src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's **whole** configurable
 surface with its defaults, and is committed — it holds no secret and no host identity.
-Key sections: `Discord` (token, `GuildId`, `InstancesCategoryId`, `ActionRoleId`, status
-markers), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
+Key sections: `Discord` (token, `GuildId`, `InstancesCategoryId`, `AnnouncementChannelId`,
+`ActionRoleId`, status markers, and the `Announce` switches),
+`KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
 `Blueprints`/`Instances` maps), `Ollama`/`Conversation`/`LlmAgent`/`Llm` (the assistant),
 `KgsmCache` (inventory TTLs).
 
 An environment variable **overrides one key** of that file by spelling the key's path with
 `__` (`Discord__GuildId`), and a variable naming a key the file does not declare binds to
 nothing. That is where the token and this host's own scalars live
-(`/etc/kgsm-bot/kgsm-bot.env`). Tests fail the build if the settings file, the bound options
-classes and `deploy/kgsm-bot.env.example` ever disagree.
+(`/etc/kgsm-bot/kgsm-bot.env`). The descriptor generator fails the build when the settings
+file and the annotated options classes disagree in either direction, so a key added to one
+without the other never ships.
 
 **`deploy/kgsm-bot.leaf.json` is generated, not written.** `TheKrystalShip.KGSM.LeafConfig`
 rewrites it on every build from `[LeafField]` attributes and `<panel>` doc tags — so edit the
@@ -98,7 +103,7 @@ models + logging abstractions.
   the `Result`/`Result<T>` type, and `InvocationContext` (provenance, below).
 - **`KGSM.Bot.Application`** — the **MediatR** layer: commands/queries (`ServerCommands.cs`,
   `ServerQueries.cs`), their handlers, and `ServerEventCoordinatorService` (wires kgsm
-  lifecycle events → Discord notifications + cache invalidation).
+  events → Discord announcements + cache invalidation).
 - **`KGSM.Bot.Infrastructure`** — implementations over `kgsm-lib`'s `IKgsmClient`
   (`KgsmServerInstanceService`, `KgsmServerEventHandler`, `WatchdogService`), the
   `KgsmStateCache`, config option types, and all DI wiring (`DependencyInjection.cs`).
@@ -150,15 +155,39 @@ so the engine's audit events are attributable. Outside any scope `Current` is nu
 kgsm applies its **honest OS-user fallback — never a fabricated identity**. When adding
 a new mutating entry point, wrap it in a `Begin(...)` scope.
 
+### Announcements: the catalog is the journal's, and the operator owns each switch
+
+The bot announces sixteen kinds of engine event, and `Discord:Announce` carries a switch per
+kind that the Control Panel renders as its own section. Three rules hold the surface together:
+
+- **A kind exists only if the journal carries it.** Nothing is polled, derived or inferred to
+  fill a gap in the catalog. This is why there is no "update available" announcement: the
+  engine emits no such event, and the only honest source is kgsm-api's own update probe, which
+  is not a Discord one and which no leaf may reach into.
+- **The reduction happens where the payload's type is still known.** `KgsmServerEventHandler`
+  turns each event into a `ServerAnnouncement` — kind, instance, one rendered detail, the actor
+  verbatim — so nothing downstream switches over a kgsm-lib event class, and the announcement
+  type does not grow a nullable field per event.
+- **Announcing is not bookkeeping.** Creating a channel on install and retiring it on uninstall
+  happen whether or not anything is announced, so they keep their own registrations. Install
+  announces *after* its channel exists; uninstall announces *before* its channel is taken away.
+
+**Crashes are announced once per crash, not once per restart attempt.** The supervisor emits an
+`instance_crashed` per attempt, so a restart loop produces a run of them seconds apart. The
+first attempt is the news; the outcome arrives separately as `instance_failed`. An unreadable
+restart count is announced rather than dropped.
+
+A server with no channel of its own — one predating the `KGSM:Instances` map — falls back to
+`Discord:AnnouncementChannelId`, or is dropped with the reason logged when that is zero.
+
 ### State cache & events
 
 `KgsmStateCache` caches the instance/blueprint inventory (TTL backstop +
 event-driven invalidation) so the bot doesn't spawn a `kgsm` subprocess per message;
 on a refresh failure it **serves the last-known-good snapshot rather than blanking**.
 The bot tails the engine's event journal (`KGSM.JournalDir`) — a file every consumer
-reads, so nothing is bound and nothing on the engine side names this reader. Lifecycle
-events (installed/started/stopped/uninstalled) drive both Discord notifications and cache
-invalidation via `ServerEventCoordinatorService`.
+reads, so nothing is bound and nothing on the engine side names this reader. Those events
+drive both the announcements and cache invalidation via `ServerEventCoordinatorService`.
 
 **It starts at the tail and stores no position.** This surface *announces*, and an
 announcement is only meaningful while it is current — replaying a backlog after a restart

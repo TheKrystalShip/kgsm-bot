@@ -2,9 +2,6 @@ using KGSM.Bot.Core.Interfaces;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Core.Models;
-using TheKrystalShip.KGSM.Core.Models.Enums;
-
 namespace KGSM.Bot.Application.Services;
 
 /// <summary>
@@ -52,7 +49,13 @@ public class ServerEventCoordinatorService
 
         _logger.LogInformation("Initializing server event coordinator for guild {GuildId}", guildId);
 
-        // Register event handlers
+        // The reporting side: one handler for every announceable event. Which of them reaches a
+        // channel is the notification service's decision, made against the operator's toggles —
+        // this wiring reports everything and suppresses nothing.
+        _eventHandler.RegisterAnnouncementHandler(announcement =>
+            _notificationService.AnnounceAsync(announcement));
+
+        // The bookkeeping side: what has to happen whether or not anything is announced.
         _eventHandler.RegisterInstanceInstalledHandler(async (blueprintName, instanceName) =>
         {
             _logger.LogInformation("Server instance {InstanceName} installed using blueprint {BlueprintName}",
@@ -69,29 +72,12 @@ public class ServerEventCoordinatorService
             }
         });
 
-        _eventHandler.RegisterInstanceStartedHandler(async (instanceName) =>
-        {
-            _logger.LogInformation("Server instance {InstanceName} started", instanceName);
-
-            await _notificationService.NotifyRunningStatusUpdatedAsync(instanceName, InstanceStatus.Active);
-        });
-
-        _eventHandler.RegisterInstanceStoppedHandler(async (instanceName) =>
-        {
-            _logger.LogInformation("Server instance {InstanceName} stopped", instanceName);
-
-            await _notificationService.NotifyRunningStatusUpdatedAsync(instanceName, InstanceStatus.Inactive);
-        });
-
         _eventHandler.RegisterInstanceUninstalledHandler(async (instanceName) =>
         {
             _logger.LogInformation("Server instance {InstanceName} uninstalled", instanceName);
 
             // Inventory changed — drop the cached instance list.
             _stateCache.InvalidateInstances();
-
-            // Uninstalled is essentially offline
-            await _notificationService.NotifyRunningStatusUpdatedAsync(instanceName, InstanceStatus.Inactive);
 
             var result = await _channelRegistry.RemoveChannelAsync(guildId, instanceName);
             if (result.IsFailure)

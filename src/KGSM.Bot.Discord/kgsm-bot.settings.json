@@ -24,6 +24,7 @@
     "Token": "",
     "GuildId": 0,
     "InstancesCategoryId": 0,
+    "AnnouncementChannelId": 0,
     "ActionRoleId": 0,
     "RemoveChannelOnInstanceDeletion": false,
     "Status": {
@@ -31,8 +32,31 @@
       "Offline": "🔴",
       "Uninstalled": "⚫"
     },
-    "DeleteStatusMessageAfterDelay": true,
-    "DeleteStatusMessageDelaySeconds": 2
+
+    // What the bot announces. Each key is one engine event the bot reads off the journal; there is
+    // no key here the engine does not emit, so nothing in this list is polled, derived or guessed.
+    // The ones that start off fire on their own cadence rather than on an operator's action —
+    // "Ready" follows every start including the supervisor's own restarts, and a busy server
+    // produces a join and a leave per player per session.
+    "Announce": {
+      "Started": true,
+      "Ready": false,
+      "Stopped": true,
+      "Restarted": true,
+      "Crashed": true,
+      "Failed": true,
+      "Updated": true,
+      "Installed": true,
+      "Uninstalled": true,
+      "BackupCreated": false,
+      "BackupRestored": true,
+      "PlayerJoined": false,
+      "PlayerLeft": false,
+      "Moderation": true
+    },
+
+    "DeleteStatusMessageAfterDelay": false,
+    "DeleteStatusMessageDelaySeconds": 300
   },
 
   // Where the engine is and where its event journal lives. "Blueprints" gives the per-game log line

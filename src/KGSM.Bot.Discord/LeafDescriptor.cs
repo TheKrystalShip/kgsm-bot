@@ -23,11 +23,12 @@ using TheKrystalShip.KGSM.LeafConfig;
 
 [assembly: LeafGroup("general", "General", 1)]
 [assembly: LeafGroup("discord", "Discord", 2)]
-[assembly: LeafGroup("channels", "Server channels", 3)]
-[assembly: LeafGroup("kgsm", "KGSM connection", 4)]
-[assembly: LeafGroup("cache", "Inventory cache", 5)]
-[assembly: LeafGroup("model", "Model", 6)]
-[assembly: LeafGroup("agent", "Agent loop", 7)]
+[assembly: LeafGroup("announcements", "Announcements", 3)]
+[assembly: LeafGroup("channels", "Server channels", 4)]
+[assembly: LeafGroup("kgsm", "KGSM connection", 5)]
+[assembly: LeafGroup("cache", "Inventory cache", 6)]
+[assembly: LeafGroup("model", "Model", 7)]
+[assembly: LeafGroup("agent", "Agent loop", 8)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
 [assembly: LeafFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]

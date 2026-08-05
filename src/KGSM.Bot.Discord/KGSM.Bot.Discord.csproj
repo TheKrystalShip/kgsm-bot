@@ -6,9 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Discord.Net builds a CultureInfo from each guild's preferred_locale while handling
+         GUILD_AVAILABLE. Under invariant globalization alone, `new CultureInfo("en-US")` throws
+         CultureNotFoundException, that dispatch fails, and the SocketGuild is never populated —
+         so GetChannel() returns null for every channel and the bot cannot post at all, while the
+         gateway still reports Connected and the unit still reports active. This lets a culture be
+         constructed by any name and behave as the invariant one, which is all this bot needs: it
+         formats nothing per-locale, and the guild's locale is only ever stored. Keeping invariant
+         globalization keeps the ICU dependency off the deploy. -->
+    <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);

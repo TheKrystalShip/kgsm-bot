@@ -1,7 +1,5 @@
 using KGSM.Bot.Core.Common;
-
-using TheKrystalShip.KGSM.Core.Models;
-using TheKrystalShip.KGSM.Core.Models.Enums;
+using KGSM.Bot.Core.Models;
 
 namespace KGSM.Bot.Core.Interfaces;
 
@@ -11,10 +9,14 @@ namespace KGSM.Bot.Core.Interfaces;
 public interface IDiscordNotificationService
 {
     /// <summary>
-    /// Notifies users via Discord about a server's running status update
+    /// Posts an announcement to the channel that reports on its server, when the operator has that
+    /// kind of announcement switched on.
     /// </summary>
-    /// <param name="instanceName">Name of the instance</param>
-    /// <param name="status">Whether the server is active (true) or inactive (false)</param>
-    /// <returns>Result of the notification operation</returns>
-    Task<Result> NotifyRunningStatusUpdatedAsync(string instanceName, InstanceStatus status);
+    /// <param name="announcement">What happened</param>
+    /// <returns>
+    /// Success once the message is posted, and success when the announcement's kind is switched off
+    /// — a suppressed announcement is the configured outcome, not a failure. Failure when the
+    /// message was meant to be posted and could not be.
+    /// </returns>
+    Task<Result> AnnounceAsync(ServerAnnouncement announcement);
 }
