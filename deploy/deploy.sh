@@ -68,6 +68,27 @@ install_units_unprivileged
 # Before the swap, so the surface kgsm-api reads never lags the binary that implements it.
 install_leaf_descriptor
 
+# ── 2c. Publish the command manifest ──────────────────────────────────────────
+# The catalog of slash commands the Control Panel lists, in a subdirectory of the same discovery
+# tree so it cannot be mistaken for a config descriptor by the scan that reads those. Written by
+# the build from the assembly it just produced; installed here, unprivileged, because the parent
+# directory is ours. This bot has no listening surface and the list has to be readable while the
+# unit is stopped — the same reason the descriptor is a file rather than an endpoint.
+install_command_manifest() {
+    local src="${REPO_DIR}/deploy/${PROJECT}.commands.json"
+    [[ -f "$src" ]] || { warn "no command manifest at ${src} — the Control Panel will list no commands."; return 0; }
+
+    local dir="${LEAF_DESCRIPTOR_DIR}/commands"
+    mkdir -p "$dir"
+
+    local dst="${dir}/${LEAF_ID}.json"
+    if ! cmp -s "$src" "$dst"; then
+        log "command manifest changed → ${dst}"
+        install -m 0644 "$src" "$dst"
+    fi
+}
+install_command_manifest
+
 # ── 3. The swap ────────────────────────────────────────────────────────────────
 log "stopping ${SERVICE}"
 sysctl_do stop "$SERVICE" || true

@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "leaf": "bot",
+  "surface": "discord",
+  "gate": "none",
+  "commands": [
+    {
+      "name": "about",
+      "description": "Show information about the bot",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "install",
+      "description": "Install a new game server",
+      "mutates": true,
+      "options": [
+        {
+          "name": "blueprint",
+          "description": "Blueprint to install",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        },
+        {
+          "name": "path",
+          "description": "Installation path (optional)",
+          "type": "string",
+          "required": false,
+          "autocomplete": false
+        },
+        {
+          "name": "version",
+          "description": "Version to install (optional)",
+          "type": "string",
+          "required": false,
+          "autocomplete": false
+        },
+        {
+          "name": "name",
+          "description": "Custom name for the instance (optional)",
+          "type": "string",
+          "required": false,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "is-active",
+      "description": "Check if an instance is currently running",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "list",
+      "description": "List all game server instances",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "ping",
+      "description": "Check if the bot is responsive",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "restart",
+      "description": "Restart a game server",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "start",
+      "description": "Start up a game server",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "description": "Get a detailed status of a game server",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "stop",
+      "description": "Shut down a game server",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "supervision",
+      "description": "Show the watchdog supervision state of a game server",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "uninstall",
+      "description": "Uninstall a game server",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    }
+  ]
+}

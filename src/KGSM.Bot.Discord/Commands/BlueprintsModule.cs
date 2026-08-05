@@ -25,6 +25,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("install", "Install a new game server")]
+    [Mutating]
     public async Task InstallAsync(
         [Summary(description: "Blueprint to install")]
         [Autocomplete(typeof(BlueprintAutocompleteHandler))]
@@ -69,6 +70,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("uninstall", "Uninstall a game server")]
+    [Mutating]
     public async Task UninstallAsync(
         [Summary(description: "Game server instance")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]

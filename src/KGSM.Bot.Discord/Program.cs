@@ -21,6 +21,15 @@ public class Program
     /// </summary>
     public static async Task Main(string[] args)
     {
+        // The Control Panel lists this bot's commands from a file the deploy ships, and that file is
+        // written by the build running the binary it just produced. Reflection over this assembly and
+        // nothing else: no host, no configuration, no Discord connection, no side effect but the file.
+        if (args is ["--emit-commands", string manifestPath])
+        {
+            Commands.CommandManifest.WriteTo(manifestPath);
+            return;
+        }
+
         // Create and configure the host
         using var host = CreateHostBuilder(args).Build();
 

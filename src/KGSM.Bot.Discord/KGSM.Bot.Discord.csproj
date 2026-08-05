@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>1.6.0</Version>
+    <Version>1.7.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -42,6 +42,10 @@
          KGSM.Bot.Infrastructure. These name the two files the generator works between. -->
     <LeafSettingsFile>kgsm-bot.settings.json</LeafSettingsFile>
     <LeafDescriptorFile>$(MSBuildProjectDirectory)/../../deploy/kgsm-bot.leaf.json</LeafDescriptorFile>
+
+    <!-- The command catalog the Control Panel lists. Generated beside the descriptor, from the
+         binary rather than from source, by the target at the bottom of this file. -->
+    <BotCommandManifestFile>$(MSBuildProjectDirectory)/../../deploy/kgsm-bot.commands.json</BotCommandManifestFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -105,5 +109,18 @@
     <PropertyGroup Condition="'$(_GitExitCode)' == '0' and '$(_GitShortSha)' != ''">
       <SourceRevisionId>$(_GitShortSha)</SourceRevisionId>
     </PropertyGroup>
+  </Target>
+
+  <!-- Write the command manifest by running the binary that was just built. The catalog is read out
+       of the assembly's own modules, so the file cannot name a command this build does not register,
+       and a rename or a new command reaches the Control Panel with no second edit. Same reason the
+       leaf descriptor is generated rather than written — and, like it, the result is committed.
+       Inputs/Outputs keep it off no-op builds; a design-time build never runs it. -->
+  <Target Name="EmitBotCommandManifest" AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="$(TargetPath)" Outputs="$(BotCommandManifestFile)">
+    <Exec Command="dotnet exec &quot;$(TargetPath)&quot; --emit-commands &quot;$(BotCommandManifestFile)&quot;"
+          StandardOutputImportance="low" />
+    <Message Importance="normal" Text="kgsm-bot command manifest → $(BotCommandManifestFile)" />
   </Target>
 </Project>

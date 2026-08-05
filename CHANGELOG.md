@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the Control Panel lists the bot's real commands
+
+- **`deploy/kgsm-bot.commands.json`, generated from the built binary.** The Control Panel's leaf page
+  for this bot now carries a **Commands** tab listing every slash command, what it does, and what it
+  takes — split into what reads and what acts. The list is produced by the build running the binary it
+  just made with `--emit-commands`, reflecting over this assembly's own `InteractionModuleBase` types,
+  so it cannot name a command that does not exist and a rename reaches the panel with no second edit.
+  `deploy.sh` installs it into `/var/lib/kgsm/leaves/commands/bot.json` — a subdirectory, because the
+  config-descriptor scan globs `*.json` one level above and would read it there as a malformed
+  descriptor. Format: `../leaf-command-manifest.md`.
+
+- **`[Mutating]`** marks a command that changes something (`/start`, `/stop`, `/restart`, `/install`,
+  `/uninstall`). It is the one fact reflection cannot see, and it is what splits the panel into the
+  commands that read and the commands that act. `CommandManifestTests` pins the set by name, so a new
+  acting command that is not marked fails the build rather than reaching an operator labelled
+  read-only. The same tests compare the manifest against `InteractionService`'s own module scan —
+  command for command, option for option, including each option's type, requiredness and autocomplete
+  — because a file read by a process that never talks to Discord is only true while it agrees with
+  what the bot actually registers.
+
+- **The manifest states what the bot checks before acting, and today that is nothing.** `gate` is
+  `none`: `Discord:ActionRoleId` gates the natural-language surface and the confirm buttons, and was
+  never wired into the slash modules, so `/uninstall` runs for anyone the guild lets invoke it and the
+  only restriction available is a per-command permission in Discord's own Integrations settings. The
+  panel says so rather than leaving an operator to assume otherwise, and a test fails if a precondition
+  is added without the manifest being told.
+
 ### Added — configurable event announcements
 
 - **Fourteen announcement switches (`Discord:Announce`), rendered as their own Control Panel

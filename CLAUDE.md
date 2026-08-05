@@ -117,7 +117,8 @@ Everything that mutates a server funnels through the **same MediatR pipeline**
 which front end triggered it:
 
 1. **Slash commands** (`Commands/*Module.cs`, Discord.Net `InteractionModuleBase`) —
-   `/start`, `/stop`, `/list`, `/status`, `/supervision`, blueprints, etc.
+   `/start`, `/stop`, `/list`, `/status`, `/supervision`, blueprints, etc. The full list is
+   published, not written — see *The command manifest* below.
 2. **Natural-language LLM** (`MessageHandler.cs` + `Llm/`) — triggered by @-mentioning
    the bot. The message is run through the extracted assistant (`IServerAssistant`,
    Ollama-backed). `Llm/MediatorServerOperations` and `Llm/StateCacheInventory` are
@@ -140,10 +141,17 @@ value) are stashed server-side via `Llm/PendingEditStore`.
 
 ### Authorization
 
-A single `Discord.ActionRoleId` gates **all mutations**; read-only commands are open
-to everyone. If no role is configured, no one can mutate. The check is enforced at
-both entry points (`MessageHandler`, slash modules) **and re-checked at the Confirm
-click** — don't rely on a single layer.
+`Discord.ActionRoleId` gates the **natural-language surface**: `MessageHandler` refuses a mutation
+from anyone without the role, and `ConfirmationModule` **re-checks it at the Confirm click** rather
+than trusting the staging turn. If no role is configured, neither will act for anyone.
+
+⚠ **The slash modules carry no such check.** Nothing in `Commands/*Module.cs` reads `ActionRoleId` and
+no module carries a precondition, so `/start`, `/stop`, `/restart`, `/install` and `/uninstall` run for
+anyone Discord lets invoke them — the only restriction available today is a per-command permission set
+in the guild's own Integrations settings. The command manifest reports this honestly as `gate: "none"`,
+and `CommandManifestTests` fails if a precondition is added without the manifest being told. Wiring the
+role in is a behaviour change (it locks out whoever uses those commands now), so it is a decision, not
+a cleanup.
 
 ### Provenance (who did what, attributable to kgsm)
 
@@ -154,6 +162,28 @@ chokepoint (`KgsmServerInstanceService`) reads `Current` and stamps
 so the engine's audit events are attributable. Outside any scope `Current` is null and
 kgsm applies its **honest OS-user fallback — never a fabricated identity**. When adding
 a new mutating entry point, wrap it in a `Begin(...)` scope.
+
+### The command manifest: the Control Panel's list comes from the binary
+
+`deploy/kgsm-bot.commands.json` is the catalog the Control Panel shows on this leaf's **Commands**
+tab. It is **generated, not written**: an `AfterTargets="Build"` target runs the binary it just
+produced with `--emit-commands`, and `Commands/CommandManifest.cs` reflects over this assembly's own
+`InteractionModuleBase` types. So the file cannot name a command that does not exist, and a rename or
+a new option reaches the panel with no second edit. Commit what the build produces.
+
+- **A shipped file, not an endpoint**, for the same reason the config descriptor is one: this bot has
+  no listening surface, and the list is wanted when the unit is stopped. `deploy.sh` installs it into
+  `/var/lib/kgsm/leaves/commands/bot.json` — a subdirectory, because the descriptor scan globs `*.json`
+  at the level above and would read it as a malformed descriptor. Format:
+  `../leaf-command-manifest.md`.
+- **`[Mutating]` is the one thing reflection cannot see.** It marks a command that changes something,
+  which is what splits the panel into what reads and what acts. `CommandManifestTests` pins the set by
+  name, so a new acting command that is not marked fails the build rather than being listed to an
+  operator as read-only.
+- **The tests compare against Discord.Net itself** — the same `InteractionService.AddModulesAsync`
+  scan the bot runs at startup, command for command and option for option. The manifest is read by a
+  process that never talks to Discord, so agreeing with what is actually registered is the only thing
+  keeping it true.
 
 ### Announcements: the catalog is the journal's, and the operator owns each switch
 

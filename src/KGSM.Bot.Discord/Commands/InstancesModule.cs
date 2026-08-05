@@ -27,6 +27,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("start", "Start up a game server")]
+    [Mutating]
     public async Task StartAsync(
         [Summary(description: SUMMARY)]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -63,6 +64,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("stop", "Shut down a game server")]
+    [Mutating]
     public async Task StopAsync(
         [Summary(description: SUMMARY)]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -91,6 +93,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("restart", "Restart a game server")]
+    [Mutating]
     public async Task RestartAsync(
         [Summary(description: SUMMARY)]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
