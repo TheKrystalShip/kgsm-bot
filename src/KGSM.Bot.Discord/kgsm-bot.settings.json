@@ -20,12 +20,25 @@
   // "minecraft-homestead". Delivered through the env file, those entries are dropped with an
   // "Ignoring invalid environment assignment" in the journal and the server is given a new channel
   // on its next event. This file is the only source that can express every name, so the map lives here.
+  // Who may do what on this host, shared with the Control Panel API and the assistant so the same
+  // person gets the same authority whichever surface they reach KGSM through. Guild membership is the
+  // access gate and floors a member at viewer; the role ids below elevate. Both lists empty leaves
+  // everyone at viewer, so nothing acts until they are set. The secrets are delivered by the
+  // environment. Owned by TheKrystalShip.KGSM.Auth.
+  "KgsmAuth": {
+    "GuildId": "",
+    "ClientId": "",
+    "ClientSecret": "",
+    "BotToken": "",
+    "RoleAdminIds": "",
+    "RoleOperatorIds": ""
+  },
+
   "Discord": {
     "Token": "",
     "GuildId": 0,
     "InstancesCategoryId": 0,
     "AnnouncementChannelId": 0,
-    "ActionRoleId": 0,
     "RemoveChannelOnInstanceDeletion": false,
     "Status": {
       "Online": "🟢",

@@ -7,11 +7,14 @@ using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
+using TheKrystalShip.KGSM.Auth;
+
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
 /// Discord module for managing game server instances
 /// </summary>
+[RequireTier(KgsmTier.Viewer)]
 public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerService _server;

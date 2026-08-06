@@ -6,6 +6,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using TheKrystalShip.KGSM.Auth;
+
 namespace KGSM.Bot.Discord;
 
 /// <summary>
@@ -18,6 +20,7 @@ public class BotService : BackgroundService
     private readonly MessageHandler _messageHandler;
     private readonly ServerEventCoordinatorService _serverEventCoordinator;
     private readonly DiscordOptions _discordOptions;
+    private readonly KgsmRoleMap _roleMap;
     private readonly ILogger<BotService> _logger;
 
     public BotService(
@@ -26,6 +29,7 @@ public class BotService : BackgroundService
         MessageHandler messageHandler,
         ServerEventCoordinatorService serverEventCoordinator,
         IOptions<DiscordOptions> discordOptions,
+        KgsmRoleMap roleMap,
         ILogger<BotService> logger)
     {
         _discordClient = discordClient;
@@ -33,6 +37,7 @@ public class BotService : BackgroundService
         _messageHandler = messageHandler;
         _serverEventCoordinator = serverEventCoordinator;
         _discordOptions = discordOptions.Value;
+        _roleMap = roleMap;
         _logger = logger;
     }
 
@@ -41,6 +46,21 @@ public class BotService : BackgroundService
         try
         {
             _logger.LogInformation("Starting KGSM Bot service");
+
+            // Say who can act, at startup, where an operator will see it. An unconfigured role map is
+            // silent otherwise: every command still registers, the bot still answers, and the first
+            // anyone learns of it is a refusal. The library leaves this warning to the host precisely
+            // because the host is the one that knows it just started with nothing set.
+            if (_roleMap.IsEmpty)
+                _logger.LogWarning(
+                    "No KgsmAuth role ids are configured — every guild member is a viewer, so nothing " +
+                    "can be started, stopped, installed or uninstalled from Discord. Set " +
+                    "KgsmAuth__RoleOperatorIds to grant it.");
+            else
+                _logger.LogInformation(
+                    "Authorization: {OperatorCount} operator role(s), {AdminCount} admin role(s); " +
+                    "guild members floor at viewer",
+                    _roleMap.OperatorRoleIds.Count, _roleMap.AdminRoleIds.Count);
 
             // Add Discord client logging
             _discordClient.Log += OnDiscordClientLogAsync;

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.Kgsm.Assistant;
+using TheKrystalShip.KGSM.Auth;
 
 namespace KGSM.Bot.Discord;
 
@@ -26,7 +27,7 @@ public class MessageHandler
 
     private readonly DiscordSocketClient _client;
     private readonly IServerAssistant _assistant;
-    private readonly DiscordOptions _discordOptions;
+    private readonly KgsmRoleMap _roleMap;
     private readonly PendingEditStore _pendingEdits;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<MessageHandler> _logger;
@@ -34,14 +35,14 @@ public class MessageHandler
     public MessageHandler(
         DiscordSocketClient client,
         IServerAssistant assistant,
-        IOptions<DiscordOptions> discordOptions,
+        KgsmRoleMap roleMap,
         PendingEditStore pendingEdits,
         IInvocationContext invocation,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
-        _discordOptions = discordOptions.Value;
+        _roleMap = roleMap;
         _pendingEdits = pendingEdits;
         _invocation = invocation;
         _logger = logger;
@@ -87,12 +88,13 @@ public class MessageHandler
                 return;
             }
 
-            // Authorization for mutating actions: the author must hold the configured role.
-            // Read-only stays open to everyone. If no role is configured, no one is authorized.
+            // Authorization for mutating actions: the author must hold operator on this host, from
+            // the same role map the Control Panel and the assistant answer with. Reading stays open to
+            // any guild member. A host that configured no role ids leaves everyone at viewer, so
+            // nothing acts until the roles are set.
             var canPerformActions =
-                _discordOptions.ActionRoleId != 0 &&
-                message.Author is SocketGuildUser guildUser &&
-                guildUser.Roles.Any(r => r.Id == _discordOptions.ActionRoleId);
+                _roleMap.ResolveSnowflakes((message.Author as SocketGuildUser)?.Roles.Select(r => r.Id))
+                    >= KgsmTier.Operator;
 
             _logger.LogDebug(
                 "LLM prompt from {User} ({UserId}, canAct={CanAct}): {Prompt}",

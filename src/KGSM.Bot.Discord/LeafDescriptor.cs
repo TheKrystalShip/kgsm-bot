@@ -23,12 +23,13 @@ using TheKrystalShip.KGSM.LeafConfig;
 
 [assembly: LeafGroup("general", "General", 1)]
 [assembly: LeafGroup("discord", "Discord", 2)]
-[assembly: LeafGroup("announcements", "Announcements", 3)]
-[assembly: LeafGroup("channels", "Server channels", 4)]
-[assembly: LeafGroup("kgsm", "KGSM connection", 5)]
-[assembly: LeafGroup("cache", "Inventory cache", 6)]
-[assembly: LeafGroup("model", "Model", 7)]
-[assembly: LeafGroup("agent", "Agent loop", 8)]
+[assembly: LeafGroup("authorization", "Who may act", 3)]
+[assembly: LeafGroup("announcements", "Announcements", 4)]
+[assembly: LeafGroup("channels", "Server channels", 5)]
+[assembly: LeafGroup("kgsm", "KGSM connection", 6)]
+[assembly: LeafGroup("cache", "Inventory cache", 7)]
+[assembly: LeafGroup("model", "Model", 8)]
+[assembly: LeafGroup("agent", "Agent loop", 9)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
 [assembly: LeafFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]
@@ -92,3 +93,33 @@ using TheKrystalShip.KGSM.LeafConfig;
 [assembly: LeafFrameworkField("agentIterationLimitReply", "LlmAgent__IterationLimitReply", "Step-limit reply",
     Description = "What the bot says when it hits the tool-step limit without reaching an answer.",
     Group = "agent")]
+
+// ── TheKrystalShip.KGSM.Auth's section, described for this surface ───────────
+// The shared authorization block. The type lives in the auth package, which is deliberately free of
+// every dependency including this one, so its keys are described here — the same reason
+// TheKrystalShip.Llm's are. The values are shared with the Control Panel API and the assistant: a
+// host that changes them here without changing them there gives one person two different answers.
+
+[assembly: LeafFrameworkField("authGuildId", "KgsmAuth__GuildId", "Discord server id",
+    Description = "The Discord server whose membership and roles decide who may do what. Someone who is not in it is refused outright.",
+    Group = "authorization", Risk = LeafRisk.Wiring, NoDefault = true)]
+
+[assembly: LeafFrameworkField("authBotToken", "KgsmAuth__BotToken", "Role lookup token",
+    Description = "Token used to read which roles a person holds. Sign-in itself never asks Discord for roles, so without this nobody can be elevated above read-only.",
+    Group = "authorization", Type = LeafType.Secret, Risk = LeafRisk.Wiring, NoDefault = true)]
+
+[assembly: LeafFrameworkField("authClientId", "KgsmAuth__ClientId", "Discord application id",
+    Description = "The Discord application people sign in through on the surfaces that have a sign-in. The bot itself does not, and works without this.",
+    Group = "authorization", NoDefault = true)]
+
+[assembly: LeafFrameworkField("authClientSecret", "KgsmAuth__ClientSecret", "Discord application secret",
+    Description = "Secret for that application. Only the surfaces with a sign-in use it; the bot does not.",
+    Group = "authorization", Type = LeafType.Secret, NoDefault = true)]
+
+[assembly: LeafFrameworkField("authRoleAdminIds", "KgsmAuth__RoleAdminIds", "Admin roles",
+    Description = "Comma-separated role ids granting admin — host settings, and reading other people\u0027s conversations. Admin includes everything an operator may do.",
+    Group = "authorization", Risk = LeafRisk.Wiring, NoDefault = true)]
+
+[assembly: LeafFrameworkField("authRoleOperatorIds", "KgsmAuth__RoleOperatorIds", "Operator roles",
+    Description = "Comma-separated role ids granting operator — starting, stopping, installing and uninstalling servers. Empty means nobody can act, from any surface.",
+    Group = "authorization", Risk = LeafRisk.Wiring, NoDefault = true)]

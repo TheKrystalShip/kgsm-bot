@@ -64,8 +64,8 @@ same pattern. If some *other* operation seems to need root, stop and ask; don't 
 
 `src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's **whole** configurable
 surface with its defaults, and is committed — it holds no secret and no host identity.
-Key sections: `Discord` (token, `GuildId`, `InstancesCategoryId`, `AnnouncementChannelId`,
-`ActionRoleId`, status markers, and the `Announce` switches),
+Key sections: `KgsmAuth` (the shared role map — see *Authorization*), `Discord` (token, `GuildId`,
+`InstancesCategoryId`, `AnnouncementChannelId`, status markers, and the `Announce` switches),
 `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
 `Blueprints`/`Instances` maps), `Ollama`/`Conversation`/`LlmAgent`/`Llm` (the assistant),
 `KgsmCache` (inventory TTLs).
@@ -81,10 +81,10 @@ without the other never ships.
 rewrites it on every build from `[LeafField]` attributes and `<panel>` doc tags — so edit the
 options classes, never the JSON, and commit what the build produces. `Discord`, `KGSM` and
 `KgsmCache` carry theirs on their own types in `KGSM.Bot.Infrastructure`, which the generator
-picks up because it scans every assembly beside the built binary. `Ollama`, `LlmAgent` and
-`Conversation` are declared as `[LeafFrameworkField]`s in `LeafDescriptor.cs` instead: those
-types belong to `TheKrystalShip.Llm`, and the bot and the assistant describe the same keys in
-their own words, so the prose has to live with the surface that shows it. Format:
+picks up because it scans every assembly beside the built binary. `Ollama`, `LlmAgent`,
+`Conversation` and `KgsmAuth` are declared as `[LeafFrameworkField]`s in `LeafDescriptor.cs` instead:
+those types belong to `TheKrystalShip.Llm` and `TheKrystalShip.KGSM.Auth`, and each surface describes
+the same keys in its own words, so the prose has to live with the surface that shows it. Format:
 `../leaf-config-descriptor.md`; mechanism: `../kgsm-leafconfig/README.md`.
 
 **The `KGSM:Instances` channel map is the one host-specific thing that stays in the settings
@@ -141,17 +141,32 @@ value) are stashed server-side via `Llm/PendingEditStore`.
 
 ### Authorization
 
-`Discord.ActionRoleId` gates the **natural-language surface**: `MessageHandler` refuses a mutation
-from anyone without the role, and `ConfirmationModule` **re-checks it at the Confirm click** rather
-than trusting the staging turn. If no role is configured, neither will act for anyone.
+Authority comes from **`TheKrystalShip.KGSM.Auth`**, the ecosystem's shared role map, so a person gets
+the same answer here as they do in the Control Panel and the assistant. The `KgsmAuth` section carries
+the role ids; guild membership is the access gate and floors a member at **viewer**, and
+`KgsmAuth:RoleOperatorIds` / `RoleAdminIds` elevate from there. Both lists empty leaves everyone at
+viewer, so nothing acts until they are set.
 
-⚠ **The slash modules carry no such check.** Nothing in `Commands/*Module.cs` reads `ActionRoleId` and
-no module carries a precondition, so `/start`, `/stop`, `/restart`, `/install` and `/uninstall` run for
-anyone Discord lets invoke them — the only restriction available today is a per-command permission set
-in the guild's own Integrations settings. The command manifest reports this honestly as `gate: "none"`,
-and `CommandManifestTests` fails if a precondition is added without the manifest being told. Wiring the
-role in is a behaviour change (it locks out whoever uses those commands now), so it is a decision, not
-a cleanup.
+The bot resolves the tier from **the member object the gateway already hands it** — no REST call, no
+bot token for lookups, no cache. That is why this leaf takes only the model half of the shared auth
+packages and none of the transport.
+
+Every surface is gated:
+
+- **Slash commands.** Each module carries `[RequireTier(KgsmTier.Viewer)]`, so a command run where
+  there is no member object to read — a DM — is refused rather than answered. `[Mutating]` **is** the
+  operator gate: it derives from `RequireTierAttribute`, so the attribute that puts a command in the
+  panel's "acts" column is the same one that decides who may run it, and a new mutating command cannot
+  be added and left open by forgetting a second attribute.
+- **Natural language.** `MessageHandler` resolves the author's tier and passes `canPerformActions` to
+  the assistant; reading stays open to any guild member.
+- **Confirm buttons.** `ConfirmationModule` **re-resolves at the click** rather than trusting the
+  staging turn — the roles someone held when the button was posted are not the roles they hold now. It
+  authorizes inline rather than by precondition, because a refusal must leave the prompt standing for
+  whoever *is* permitted instead of failing the interaction.
+
+`CommandManifestTests` pins all of it: the manifest's `gate` must equal what the modules enforce, every
+mutating command must require operator, and every slash module must require membership.
 
 ### Provenance (who did what, attributable to kgsm)
 

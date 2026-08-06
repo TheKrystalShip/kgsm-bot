@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — one gate, shared with the rest of the ecosystem
+
+- **Authority comes from `TheKrystalShip.KGSM.Auth`.** The bot resolves a caller's tier from the
+  ecosystem's shared role map, so a person gets the same answer here as in the Control Panel and the
+  assistant. Roles are read off the member object the gateway already provides — no REST call, no
+  lookup token, no cache — which is why this leaf takes only the model half of the shared auth
+  packages.
+- **⚠ Slash commands are gated.** `/start`, `/stop`, `/restart`, `/install` and `/uninstall` now
+  require **operator** and refuse anyone below it; every slash module requires guild membership, so a
+  command run in a DM is refused rather than answered. They previously ran for anyone Discord let
+  invoke them.
+- **`[Mutating]` is the gate.** It derives from `RequireTierAttribute`, so the attribute that puts a
+  command in the panel's "acts" column is the same one that decides who may run it — a new mutating
+  command cannot be added and left ungated by forgetting a second attribute.
+- **The command manifest reports `gate: "operator"`**, and `CommandManifestTests` now fails unless the
+  modules actually enforce what it claims.
+
+### Removed
+
+- **`Discord:ActionRoleId`.** Replaced by `KgsmAuth:RoleOperatorIds`, which is a list and is shared
+  with the other surfaces. A host carrying only the old key leaves everyone at viewer, so nothing acts
+  until the new one is set.
+
 ### Added — the Control Panel lists the bot's real commands
 
 - **`deploy/kgsm-bot.commands.json`, generated from the built binary.** The Control Panel's leaf page

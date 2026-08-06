@@ -9,6 +9,7 @@ using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using TheKrystalShip.Kgsm.Assistant;
+using TheKrystalShip.KGSM.Auth;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
     private readonly IKgsmStateCache _stateCache;
     private readonly PendingEditStore _pendingEdits;
     private readonly DiscordOptions _options;
+    private readonly KgsmRoleMap _roleMap;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<ConfirmationModule> _logger;
 
@@ -36,6 +38,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         IKgsmStateCache stateCache,
         PendingEditStore pendingEdits,
         IOptions<DiscordOptions> options,
+        KgsmRoleMap roleMap,
         IInvocationContext invocation,
         ILogger<ConfirmationModule> logger)
     {
@@ -43,6 +46,7 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
         _stateCache = stateCache;
         _pendingEdits = pendingEdits;
         _options = options.Value;
+        _roleMap = roleMap;
         _invocation = invocation;
         _logger = logger;
     }
@@ -221,8 +225,10 @@ public class ConfirmationModule : InteractionModuleBase<SocketInteractionContext
             : $"⚠️ Could not set `{key}` on **{match}**: {result.ErrorMessage ?? "unknown error"}.";
     }
 
+    // Re-resolved at the click rather than trusted from the staging turn: the roles a person held
+    // when the button was posted are not the roles they hold now. A non-member has no member object,
+    // which the map reads as "not a member" and denies.
     private bool IsAuthorized(SocketUser user) =>
-        _options.ActionRoleId != 0 &&
-        user is SocketGuildUser guildUser &&
-        guildUser.Roles.Any(r => r.Id == _options.ActionRoleId);
+        _roleMap.ResolveSnowflakes((user as SocketGuildUser)?.Roles.Select(r => r.Id))
+            >= KgsmTier.Operator;
 }

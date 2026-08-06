@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "leaf": "bot",
   "surface": "discord",
-  "gate": "none",
+  "gate": "operator",
   "commands": [
     {
       "name": "about",

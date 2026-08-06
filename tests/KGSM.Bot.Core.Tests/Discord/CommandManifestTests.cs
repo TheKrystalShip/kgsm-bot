@@ -15,6 +15,8 @@ using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
+using TheKrystalShip.KGSM.Auth;
+
 using System.Reflection;
 
 using Xunit;
@@ -44,6 +46,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IInvocationContext>());
         services.AddSingleton<PendingEditStore>();
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
+        services.AddSingleton(KgsmRoleMap.Empty);
         return services.BuildServiceProvider();
     }
 
@@ -132,22 +135,56 @@ public sealed class CommandManifestTests
     }
 
     /// <summary>
-    /// The manifest states what the bot itself enforces before running a mutating command. Nothing in
-    /// the slash modules checks the action role — that gate lives on the natural-language surface and
-    /// the confirm buttons — so the manifest says <c>none</c>. This test fails when a gate is added
-    /// without the manifest being told, which would leave the panel understating who can act.
+    /// The manifest states what the bot enforces before running a mutating command, and the modules
+    /// have to actually enforce it — the panel prints this word and cannot verify it. Every mutating
+    /// command carries the operator gate, and it is the same attribute that marks it mutating, so the
+    /// two cannot drift apart.
     /// </summary>
     [Fact]
-    public void TheGateMatchesWhatTheSlashModulesActuallyCheck()
+    public void EveryMutatingCommandIsGatedAtTheTierTheManifestClaims()
+    {
+        CommandManifest.Build(BotAssembly).Gate.Should().Be(KgsmTiers.Operator);
+
+        IEnumerable<MethodInfo> mutating = BotAssembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
+            .SelectMany(t => t.GetMethods())
+            .Where(m => m.GetCustomAttribute<SlashCommandAttribute>() is not null
+                     && m.GetCustomAttribute<MutatingAttribute>() is not null);
+
+        mutating.Should().NotBeEmpty("the bot has commands that act, and a vacuous pass would hide a regression");
+
+        foreach (MethodInfo method in mutating)
+        {
+            method.GetCustomAttribute<RequireTierAttribute>()!.Minimum
+                .Should().Be(KgsmTier.Operator,
+                    "{0} changes something, so it must refuse anyone below operator", method.Name);
+        }
+    }
+
+    /// <summary>
+    /// Reading is gated too: every module carrying slash commands requires guild membership, which the
+    /// shared role map floors at viewer. Without it a slash command run in a DM — where there is no
+    /// member object to read roles from — would list this host's servers to someone who is not in the
+    /// guild at all.
+    /// </summary>
+    /// <remarks>
+    /// Scoped to the modules that declare slash commands. <c>ConfirmationModule</c> answers button
+    /// clicks rather than commands and authorizes each one itself, because it has to leave the prompt
+    /// standing for whoever IS permitted instead of failing the interaction outright.
+    /// </remarks>
+    [Fact]
+    public void EverySlashCommandModuleRequiresAtLeastViewer()
     {
         IEnumerable<Type> modules = BotAssembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t));
+            .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
+            .Where(t => t.GetMethods().Any(m => m.GetCustomAttribute<SlashCommandAttribute>() is not null));
 
-        bool anyPrecondition = modules.Any(m =>
-            m.GetCustomAttributes<PreconditionAttribute>().Any() ||
-            m.GetMethods().Any(x => x.GetCustomAttributes<PreconditionAttribute>().Any()));
+        modules.Should().NotBeEmpty("a vacuous pass here would leave every command ungated");
 
-        anyPrecondition.Should().BeFalse("the manifest reports gate 'none'; a precondition would make that a lie");
-        CommandManifest.Build(BotAssembly).Gate.Should().Be("none");
+        foreach (Type module in modules)
+        {
+            module.GetCustomAttribute<RequireTierAttribute>().Should().NotBeNull(
+                "{0} exposes slash commands, so it must require membership", module.Name);
+        }
     }
 }

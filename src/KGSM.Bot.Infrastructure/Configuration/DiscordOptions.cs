@@ -40,16 +40,6 @@ public class DiscordOptions
         Type = LeafType.Int, Min = 0)]
     public ulong AnnouncementChannelId { get; set; }
 
-    /// <summary>
-    /// Discord role ID whose members may trigger mutating actions (start/stop/
-    /// restart/backup/update) via the LLM. Read-only queries are open to all.
-    /// If 0 (unset), no one is authorized for actions until configured.
-    /// </summary>
-    /// <panel>Role whose holders may start, stop and otherwise act on servers from Discord — the same
-    /// role the assistant checks. Zero means no one is authorized.</panel>
-    [LeafField("discordActionRoleId", "Action role id", Group = "discord", Type = LeafType.Int,
-        Min = 0, Risk = LeafRisk.Wiring)]
-    public ulong ActionRoleId { get; set; }
     /// <panel>Whether uninstalling a server also deletes its Discord channel, taking that channel's
     /// history with it. Off, the channel is left behind.</panel>
     [LeafField("removeChannelOnUninstall", "Delete channel with the server", Group = "channels",

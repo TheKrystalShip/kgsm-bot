@@ -1,5 +1,7 @@
 using Discord.Interactions;
 
+using TheKrystalShip.KGSM.Auth;
+
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -7,14 +9,19 @@ using System.Text.Json.Serialization;
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
-/// Marks a slash command that changes something — a server's run state, or what is installed. The
-/// manifest below carries the mark so the Control Panel can separate the commands that read from the
-/// commands that act, which is the distinction an operator is actually looking for when they open the
-/// list. It grants nothing and gates nothing; <see cref="CommandManifest.Gate"/> is what says who may
-/// run these.
+/// Marks a slash command that changes something — a server's run state, or what is installed — and
+/// requires <see cref="KgsmTier.Operator"/> to run it. The manifest below carries the mark so the
+/// Control Panel can separate the commands that read from the commands that act, which is the
+/// distinction an operator is actually looking for when they open the list.
 /// </summary>
+/// <remarks>
+/// One attribute is both the mark and the gate on purpose: the thing that puts a command in the "acts"
+/// column is exactly the thing that decides who may run it, so a new mutating command cannot be added
+/// and left open by forgetting a second attribute. A command needing a different tier carries
+/// <see cref="RequireTierAttribute"/> directly.
+/// </remarks>
 [AttributeUsage(AttributeTargets.Method)]
-internal sealed class MutatingAttribute : Attribute;
+internal sealed class MutatingAttribute() : RequireTierAttribute(KgsmTier.Operator);
 
 /// <summary>
 /// One option of a slash command, named and typed the way Discord presents it. <c>Autocomplete</c>
@@ -46,8 +53,8 @@ internal sealed record BotCommand(
 /// </para>
 /// <para>
 /// <c>Gate</c> is what this bot itself requires of whoever runs a <see cref="BotCommand.Mutates"/>
-/// command: <c>actionRole</c> when the action role is checked, <c>none</c> when it is not and the only
-/// restriction is whatever the guild sets on the commands in Discord's own settings.
+/// command — the tier from the ecosystem's shared role map, so the panel prints the same word that
+/// decides the answer everywhere else.
 /// </para>
 /// </summary>
 internal sealed record CommandManifest(
@@ -67,12 +74,11 @@ internal sealed record CommandManifest(
     public const string LeafId = "bot";
 
     /// <summary>
-    /// Slash commands are open to everyone the guild lets use them: nothing in this bot checks the
-    /// action role before running one. That role gates the natural-language surface and the confirm
-    /// buttons, which is where install and uninstall are reached from chat — it was never wired into
-    /// the slash modules. Stated here rather than left for the panel to guess.
+    /// A mutating slash command requires <see cref="KgsmTier.Operator"/>, enforced by
+    /// <see cref="MutatingAttribute"/> before the command body runs. Read commands require guild
+    /// membership, which the shared role map floors at <see cref="KgsmTier.Viewer"/>.
     /// </summary>
-    public const string SlashCommandGate = "none";
+    public const string SlashCommandGate = KgsmTiers.Operator;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

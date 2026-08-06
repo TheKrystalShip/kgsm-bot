@@ -5,11 +5,13 @@ using KGSM.Bot.Infrastructure.Discord;
 using KGSM.Bot.Infrastructure.KGSM;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 using Discord;
 using Discord.WebSocket;
 using Discord.Interactions;
 
+using TheKrystalShip.KGSM.Auth;
 using TheKrystalShip.KGSM.Extensions;
 using TheKrystalShip.Llm.Extensions;
 
@@ -33,6 +35,14 @@ public static class DependencyInjection
 
         services.Configure<KgsmCacheOptions>(
             configuration.GetSection(KgsmCacheOptions.Section));
+
+        // The ecosystem's shared role map. Bound once and registered as the resolved map rather than
+        // as options, because every caller wants the same answer and the map is immutable — a gate
+        // that re-read configuration per request could disagree with the one beside it.
+        services.Configure<KgsmAuthOptions>(
+            configuration.GetSection(KgsmAuthOptions.Section));
+        services.AddSingleton(sp =>
+            sp.GetRequiredService<IOptions<KgsmAuthOptions>>().Value.ToRoleMap());
 
         // Register Discord services
         services.AddDiscordServices();

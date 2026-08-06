@@ -5,11 +5,14 @@ using Microsoft.Extensions.Logging;
 
 using System.Reflection;
 
+using TheKrystalShip.KGSM.Auth;
+
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
 /// Discord module for general commands
 /// </summary>
+[RequireTier(KgsmTier.Viewer)]
 public class GeneralModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly ILogger<GeneralModule> _logger;
