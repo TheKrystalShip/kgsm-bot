@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The role map moves to the shared `/etc/kgsm/discord-auth.env`**, loaded before `kgsm-bot.env`, so
+  the bot, the Control Panel API and the assistant answer every authority question with the same
+  values. Setting a role id in the per-leaf file still overrides it, deliberately.
+
 ### Changed — one gate, shared with the rest of the ecosystem
 
 - **Authority comes from `TheKrystalShip.KGSM.Auth`.** The bot resolves a caller's tier from the

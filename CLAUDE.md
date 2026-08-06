@@ -143,8 +143,11 @@ value) are stashed server-side via `Llm/PendingEditStore`.
 
 Authority comes from **`TheKrystalShip.KGSM.Auth`**, the ecosystem's shared role map, so a person gets
 the same answer here as they do in the Control Panel and the assistant. The `KgsmAuth` section carries
-the role ids; guild membership is the access gate and floors a member at **viewer**, and
-`KgsmAuth:RoleOperatorIds` / `RoleAdminIds` elevate from there. Both lists empty leaves everyone at
+the role ids and lives once per host, in `/etc/kgsm/discord-auth.env`, which this unit loads *before*
+its own env file — so setting a role id in `kgsm-bot.env` overrides the shared value for this leaf
+alone, which is how a host grants one person different authority on different surfaces. Guild
+membership is the access gate and floors a member at **viewer**, and `KgsmAuth:RoleOperatorIds` /
+`RoleAdminIds` elevate from there. Both lists empty leaves everyone at
 viewer, so nothing acts until they are set.
 
 The bot resolves the tier from **the member object the gateway already hands it** — no REST call, no

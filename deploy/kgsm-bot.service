@@ -32,6 +32,11 @@ Environment=KGSM__JournalDir=/var/lib/kgsm/events
 # REQUIRED: the Discord bot token (Discord__Token) and this host's Discord identity live here, NOT
 # in the committed settings file, which ships in the /opt artifact.
 # A SECRET — keep this file chmod 600. The deploy script creates it from kgsm-bot.env.example.
+# Who may do what on this host, shared with every other KGSM surface. Loaded FIRST so the per-leaf
+# file below can still override a value deliberately; setting one there is how a host ends up
+# granting the same person different authority on different surfaces, so prefer the shared file.
+# Seeded by deploy/setup.sh; optional, so a host that never provisioned it still starts.
+EnvironmentFile=-/etc/kgsm/discord-auth.env
 EnvironmentFile=/etc/kgsm-bot/kgsm-bot.env
 
 Restart=on-failure
