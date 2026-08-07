@@ -246,4 +246,111 @@ public class AssistantTurnClientTests
         using var down = Client(new Transport(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)));
         (await down.IsAvailableAsync()).Should().BeFalse();
     }
+
+    // ---- approving a staged action -------------------------------------------------------------
+
+    private static readonly AssistantApproval Approval = new(
+        UserId: "385730677141929985", DisplayName: "Heisen", Tier: KgsmTier.Operator,
+        Token: "60c24e5b21a7c863fae9648b996ae116");
+
+    /// <summary>
+    /// The click is forwarded as the clicker, with the tier they hold at that moment — the assistant
+    /// judges the approval on that, not on whatever was true when the action was proposed.
+    /// </summary>
+    [Fact]
+    public async Task AnApprovalForwardsTheClicker_AndHandsBackTheGrantUntouched()
+    {
+        var transport = Answering("""{"text":"'Ketchup' has been started.","success":true}""");
+        using var client = Client(transport);
+
+        await client.ConfirmAsync(Approval);
+
+        var request = transport.Seen!;
+        request.RequestUri!.AbsolutePath.Should().Be("/confirm");
+        Header(request, "X-Relay-User").Should().Be("385730677141929985");
+        Header(request, "X-Relay-Tier").Should().Be(KgsmTiers.ToWire(KgsmTier.Operator));
+        Header(request, "X-Relay-Leaf").Should().Be("kgsm-bot");
+
+        using var body = JsonDocument.Parse(transport.SeenBody!);
+        body.RootElement.GetProperty("token").GetString().Should().Be(Approval.Token);
+    }
+
+    [Fact]
+    public async Task AnApprovalReportsTheWatchedVerdict()
+    {
+        var transport = Answering("""
+            {"text":"'Ketchup' has been started.","success":true,
+             "outcome":{"verdict":"settled","verb":"start","instance":"Ketchup","observedState":"running"}}
+            """);
+        using var client = Client(transport);
+
+        var result = await client.ConfirmAsync(Approval);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Success.Should().BeTrue();
+        result.Value.Verdict.Should().Be("settled");
+        result.Value.ObservedState.Should().Be("running");
+        result.Value.Text.Should().Contain("has been started");
+    }
+
+    /// <summary>
+    /// An outcome with no observation carries none. "I could not read its state" and "it is not
+    /// running" are different facts, and only one of them was measured.
+    /// </summary>
+    [Fact]
+    public async Task AnOutcomeWithNothingObservedClaimsNothing()
+    {
+        var transport = Answering("""{"text":"Accepted.","success":false}""");
+        using var client = Client(transport);
+
+        var result = await client.ConfirmAsync(Approval);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Success.Should().BeFalse();
+        result.Value.Verdict.Should().BeNull();
+        result.Value.ObservedState.Should().BeNull();
+    }
+
+    /// <summary>
+    /// A refused grant — expired, already redeemed, or somebody else's — is its own message: the
+    /// action is no longer on the table, which is not the assistant being unwell.
+    /// </summary>
+    [Fact]
+    public async Task ARefusedGrantSaysTheActionIsGone_NotThatTheAssistantFailed()
+    {
+        var transport = new Transport(_ => Json(
+            HttpStatusCode.BadRequest, """{"error":"Invalid or expired confirmation."}"""));
+        using var client = Client(transport);
+
+        var result = await client.ConfirmAsync(Approval);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Contain("expired or was already used");
+        result.Error.Should().NotContain("trouble answering");
+    }
+
+    /// <summary>
+    /// A timeout is not a failure of the action — it may well still be running on the other side, so
+    /// the message says what is known rather than asserting an outcome nobody measured.
+    /// </summary>
+    [Fact]
+    public async Task AnUnreachableAssistantDoesNotClaimTheActionFailed()
+    {
+        var transport = new Transport(_ => throw new HttpRequestException("connection refused"));
+        using var client = Client(transport);
+
+        var result = await client.ConfirmAsync(Approval);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be("I couldn't reach the assistant.");
+    }
+
+    [Fact]
+    public async Task WithNoAssistantConfigured_AnApprovalIsRefusedWithoutCallingAnything()
+    {
+        var transport = new Transport(_ => throw new InvalidOperationException("must not be called"));
+        using var client = Client(transport, baseUrl: "");
+
+        (await client.ConfirmAsync(Approval)).IsFailure.Should().BeTrue();
+    }
 }

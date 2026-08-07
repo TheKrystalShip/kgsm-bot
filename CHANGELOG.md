@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a staged action is confirmed from a Discord button, by the person who asked
+
+An action the assistant stages is posted with Confirm/Cancel buttons. The button carries the
+assistant's grant and nothing else — the bot holds no part of the pending action, so a restart of
+either side leaves a posted button working, and there is one lifetime to reason about
+(`Assistant:Confirmation:TtlSeconds`) rather than two to keep ordered.
+
+**Only the person who asked can approve.** A conversation belongs to one person and so do the
+actions in it, which is the rule the Control Panel already follows; a surface that let another
+operator approve would be a way around it. A click is re-authorized at the moment it happens — the
+roles someone held when the button was posted are not the roles they hold now — and a refusal leaves
+the prompt standing for whoever is permitted. The assistant is the gate: it re-derives the clicker's
+authority, re-validates the target against what exists now, refuses a grant that is not theirs, and
+refuses one already redeemed.
+
+The outcome reports what is actually known. The assistant separates "the engine accepted this" from
+"the server got there", so a command that ran without arriving says so, and a state that could not
+be read is reported as unread rather than as stopped.
+
 ### Added — the bot asks the kgsm-assistant leaf, so Discord shares one conversation
 
 `Assistant:BaseUrl` + `Assistant:RelaySecret` point the @-mention surface at the kgsm-assistant
@@ -25,9 +44,6 @@ never a per-message choice: falling back to a second engine when the first is un
 split one person's history across two memories exactly when things are going wrong. Configured and
 unreachable, the conversational surface says so — slash commands, announcements and channel status
 are untouched.
-
-An action the assistant stages is named in the reply, along with the slash command that performs
-it: the grant it issues is redeemed by the assistant, and a chat message carries no click back to it.
 
 ### Fixed — the conversation store lives outside the install prefix
 

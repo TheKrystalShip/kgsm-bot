@@ -48,3 +48,41 @@ public sealed record StagedAction(
     string Token,
     string? ConfigKey = null,
     string? ConfigValue = null);
+
+/// <summary>
+/// One person approving one staged action: who is approving, what authority they hold at the moment
+/// they approve, and the grant they are redeeming.
+/// </summary>
+/// <remarks>
+/// The approver is named separately from whoever staged it because approving is its own act, judged
+/// on its own. The assistant redeems a grant only for the person it was staged for, so the two turn
+/// out to be the same person — but this surface forwards who actually clicked, and lets the authority
+/// that issued the grant decide whether that is allowed.
+/// </remarks>
+public sealed record AssistantApproval(
+    string UserId,
+    string DisplayName,
+    KgsmTier Tier,
+    string Token);
+
+/// <summary>
+/// What became of an approved action.
+/// </summary>
+/// <param name="Text">The outcome as the assistant tells it, fit to show the person who approved.</param>
+/// <param name="Success">
+/// Whether the action may be reported as having succeeded — true only when the end state was
+/// observed, or when the engine reported success for something with no end state to observe.
+/// </param>
+/// <param name="Verdict">
+/// Which of those it was: <c>settled</c> (observed), <c>accepted</c> (reported, nothing to observe),
+/// <c>notSettled</c> (ran without arriving), <c>unknown</c> (the end state could not be read).
+/// </param>
+/// <param name="ObservedState">
+/// The run state measured afterwards, for the verbs that have one. <c>unknown</c> means the read
+/// failed and is never a stand-in for "not running".
+/// </param>
+public sealed record AssistantOutcome(
+    string Text,
+    bool Success,
+    string? Verdict = null,
+    string? ObservedState = null);

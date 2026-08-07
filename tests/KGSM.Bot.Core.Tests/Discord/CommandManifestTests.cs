@@ -44,6 +44,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IServerService>());
         services.AddSingleton(Substitute.For<IKgsmStateCache>());
         services.AddSingleton(Substitute.For<IInvocationContext>());
+        services.AddSingleton(Substitute.For<IAssistantTurnClient>());
         services.AddSingleton<PendingEditStore>();
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
         services.AddSingleton(KgsmRoleMap.Empty);

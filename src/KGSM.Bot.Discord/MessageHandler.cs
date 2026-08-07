@@ -6,6 +6,7 @@ using Discord.WebSocket;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
+using KGSM.Bot.Discord.Commands;
 using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
 
@@ -211,27 +212,66 @@ public class MessageHandler
     }
 
     /// <summary>
-    /// Reports an action the assistant staged, and points at the command that performs it.
+    /// Posts a prompt for an action the assistant staged, with Confirm/Cancel buttons.
     /// </summary>
     /// <remarks>
-    /// A click is not carried back to the assistant, so the grant it issued cannot be redeemed from
-    /// here and no button is offered. Naming the action is what keeps the reply honest: the assistant
-    /// has said it will do something, and the person reading needs to know it has not.
+    /// The button carries the assistant's grant and nothing else, so the bot stores no part of the
+    /// pending action and a restart of either side leaves a posted button working. Only the person
+    /// who asked can approve it — <see cref="Commands.AssistantConfirmationModule"/> forwards the
+    /// clicker and the assistant refuses a grant that is not theirs.
     /// </remarks>
     private static async Task PostStagedActionAsync(SocketUserMessage message, StagedAction staged)
     {
-        var what = staged.Kind switch
+        if (!AssistantConfirmationIds.Fits(staged.Token))
         {
-            "setconfig" => $"set `{staged.ConfigKey}` on **{staged.Target}**",
-            "install" => $"install **{staged.Target}**"
-                + (staged.InstanceName is null ? "" : $" as `{staged.InstanceName}`"),
-            _ => $"{staged.Kind} **{staged.Target}**",
-        };
+            // Nothing to salvage: a button built from a grant that does not fit is one Discord
+            // accepts and the assistant then refuses, which is worse than saying so now.
+            await message.ReplyAsync(
+                $"⚠️ I staged *{Describe(staged)}* but couldn't build a button for it — " +
+                "please use the slash command instead.");
+            return;
+        }
 
-        await message.ReplyAsync(
-            $"⚠️ I staged *{what}*, but confirming an action from a chat message isn't something " +
-            "I can carry through — use the slash command for it.");
+        // Uninstalling is the one that cannot be undone, so it is the one that gets the alarming
+        // button; everything else is recoverable and gets a neutral one.
+        var style = staged.Kind == "uninstall" ? ButtonStyle.Danger : ButtonStyle.Primary;
+
+        var components = new ComponentBuilder()
+            .WithButton("Confirm", AssistantConfirmationIds.Confirm(staged.Token), style)
+            .WithButton("Cancel", ConfirmationIds.Cancel, ButtonStyle.Secondary)
+            .Build();
+
+        await message.ReplyAsync(StagedActionContent(staged), components: components);
     }
+
+    private static string StagedActionContent(StagedAction staged) => staged.Kind switch
+    {
+        "uninstall" =>
+            $"⚠️ This will **permanently delete `{staged.Target}`** and all of its data. This cannot be undone.",
+        "install" =>
+            $"⚙️ This will install a new **{staged.Target}** server" +
+            (staged.InstanceName is null ? "" : $" named `{staged.InstanceName}`") +
+            ". It can take a while.",
+        "start" => $"▶️ Start **{staged.Target}**?",
+        "stop" => $"⏹️ Stop **{staged.Target}**?",
+        "restart" => $"🔄 Restart **{staged.Target}**?",
+        "update" => $"⬆️ Update **{staged.Target}** to its latest version? It can take a while.",
+        "backup" => $"💾 Back up **{staged.Target}**?",
+        "setconfig" =>
+            $"⚙️ Set `{staged.ConfigKey}` = `{(string.IsNullOrEmpty(staged.ConfigValue) ? "(empty)" : staged.ConfigValue)}` " +
+            $"on **{staged.Target}**?",
+        // A kind this bot has no wording for is still a real staged action, so it is offered rather
+        // than dropped — the assistant's own reply above says what it is.
+        _ => $"Confirm *{Describe(staged)}*?",
+    };
+
+    private static string Describe(StagedAction staged) => staged.Kind switch
+    {
+        "setconfig" => $"set `{staged.ConfigKey}` on **{staged.Target}**",
+        "install" => $"install **{staged.Target}**"
+            + (staged.InstanceName is null ? "" : $" as `{staged.InstanceName}`"),
+        _ => $"{staged.Kind} **{staged.Target}**",
+    };
 
     /// <summary>
     /// Posts a confirmation prompt for a staged destructive op, with Confirm/Cancel

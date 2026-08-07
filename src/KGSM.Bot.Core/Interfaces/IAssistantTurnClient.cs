@@ -44,4 +44,21 @@ public interface IAssistantTurnClient
     /// asked — an unreachable assistant is reported, never papered over with a local answer.
     /// </returns>
     Task<Result<AssistantTurn>> AskAsync(AssistantAsk ask, CancellationToken ct = default);
+
+    /// <summary>
+    /// Approves a staged action on behalf of the person who clicked, redeeming the grant the
+    /// assistant issued when it proposed the action.
+    /// </summary>
+    /// <remarks>
+    /// The bot holds nothing of the action itself — only the grant, which it carries on the button
+    /// and hands straight back. Deciding whether the click may proceed is the assistant's: it
+    /// re-derives the approver's authority, re-validates the target against what exists now, and
+    /// refuses a grant belonging to somebody else. The bot's own tier check in front of this is a
+    /// courtesy to the clicker, never the gate.
+    /// </remarks>
+    /// <returns>
+    /// What became of the action, or a failure carrying text fit to show — a grant that has expired
+    /// or already been used is reported as such, never retried and never assumed to have run.
+    /// </returns>
+    Task<Result<AssistantOutcome>> ConfirmAsync(AssistantApproval approval, CancellationToken ct = default);
 }

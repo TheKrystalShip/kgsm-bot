@@ -150,6 +150,77 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
         }
     }
 
+    public async Task<Result<AssistantOutcome>> ConfirmAsync(
+        AssistantApproval approval, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(approval);
+
+        if (!IsConfigured)
+            return Result.Failure<AssistantOutcome>("No assistant is configured on this host.");
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/confirm")
+            {
+                Content = JsonContent.Create(new ConfirmBody(approval.Token), options: Json),
+            };
+
+            // The approver's own identity and their tier as it is right now — the assistant judges the
+            // click on that, not on whatever was true when the action was proposed.
+            _relay.Write(request, new RelayPrincipal(approval.UserId, approval.DisplayName, approval.Tier));
+
+            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+
+            // A refused grant is the one failure worth its own words: it means the action is simply
+            // no longer on the table, which is not the same as the assistant being unwell.
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                _logger.LogInformation(
+                    "Assistant refused a confirmation from {User} — expired, already used, or not theirs",
+                    approval.UserId);
+                return Result.Failure<AssistantOutcome>(
+                    "That confirmation has expired or was already used — ask me again.");
+            }
+
+            if (!response.IsSuccessStatusCode)
+                return Result.Failure<AssistantOutcome>(await DescribeFailureAsync(response, ct).ConfigureAwait(false));
+
+            var confirmed = await response.Content
+                .ReadFromJsonAsync<ConfirmResponseBody>(Json, ct).ConfigureAwait(false);
+
+            if (confirmed is null)
+                return Result.Failure<AssistantOutcome>("The assistant answered with nothing I could read.");
+
+            return Result.Success(new AssistantOutcome(
+                confirmed.Text ?? string.Empty,
+                confirmed.Success,
+                confirmed.Outcome?.Verdict,
+                confirmed.Outcome?.ObservedState));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // The action may well still be running on the other side — say what is known, which is
+            // that the answer did not arrive, never that it failed.
+            _logger.LogWarning("Assistant confirmation timed out after {Timeout}", _http.Timeout);
+            return Result.Failure<AssistantOutcome>(
+                "The assistant is taking too long to answer — it may still be working on it.");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Assistant confirmation failed to reach {BaseAddress}", _http.BaseAddress);
+            return Result.Failure<AssistantOutcome>("I couldn't reach the assistant.");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Assistant confirmation returned a body this bot could not read");
+            return Result.Failure<AssistantOutcome>("The assistant answered with something I couldn't read.");
+        }
+    }
+
     /// <summary>
     /// Turns a refusal into something worth showing a person, keeping the detail in the journal.
     /// </summary>
@@ -205,4 +276,10 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
     private sealed record ConfirmationBody(
         string? Kind, string? Target, string? InstanceName, string? Token,
         string? ConfigKey, string? ConfigValue);
+
+    private sealed record ConfirmBody([property: JsonPropertyName("token")] string Token);
+
+    private sealed record ConfirmResponseBody(string? Text, bool Success, OutcomeBody? Outcome);
+
+    private sealed record OutcomeBody(string? Verdict, string? ObservedState);
 }
