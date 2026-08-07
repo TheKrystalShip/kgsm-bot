@@ -212,10 +212,11 @@
     "Think": false
   },
 
-  // Where past conversations are kept, which is the bot's memory between messages. Blank puts the
-  // file beside the binary, so it always has a home.
+  // Where past conversations are kept, which is the bot's memory between messages. It sits under
+  // /var/lib rather than beside the binary because the install prefix is a build artifact a deploy
+  // rebuilds and prunes, and memory is not a build artifact. Blank falls back to beside the binary.
   "Conversation": {
-    "DatabasePath": ""
+    "DatabasePath": "/var/lib/kgsm-bot/conversations.db"
   },
 
   // Safety bounds on one turn of the model↔tool loop.

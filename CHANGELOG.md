@@ -7,15 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed — deploying no longer erases the bot's conversation memory
+### Fixed — the conversation store lives outside the install prefix
 
-`Conversation:DatabasePath` defaults to blank, which puts `conversations.db` beside the binary in
-the install prefix — and `deploy.sh` synced the publish tree over that prefix with `--delete`. A
-publish tree never carries a database, so every deploy removed the store and the bot came back with
-no memory of any conversation.
+`Conversation:DatabasePath` defaults to `/var/lib/kgsm-bot/conversations.db`, provisioned by
+`setup.sh`. The prefix is a build artifact that `deploy.sh` rebuilds and prunes with `--delete`, and
+a publish tree never carries a database — so a store kept there was removed by every deploy and the
+bot returned with no memory of any conversation. Memory is not a build artifact, and every other
+leaf in the ecosystem keeps its state under `/var/lib` for the same reason.
 
-The sync now spares `*.db` and its `-wal`/`-shm` sidecars. They are excluded by extension rather
-than by filename because the path is operator-configurable, so a renamed store stays protected.
+The prune also spares `*.db` and its `-wal`/`-shm` sidecars, by extension rather than by filename:
+the path stays operator-configurable and a blank value still falls back to beside the binary, so
+pointing memory at the prefix costs a stale file rather than the memory itself.
+
+An existing store is not moved for you — `systemctl stop kgsm-bot`, move `conversations.db` (with
+any `-wal`/`-shm` sidecars) into `/var/lib/kgsm-bot/`, then deploy. Left in place it is ignored, and
+the bot starts with an empty history.
 
 ### Changed — kgsm-lib 3.1.0
 

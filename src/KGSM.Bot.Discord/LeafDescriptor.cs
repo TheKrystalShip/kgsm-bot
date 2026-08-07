@@ -80,7 +80,7 @@ using TheKrystalShip.KGSM.LeafConfig;
 
 [assembly: LeafFrameworkField("conversationDbPath", "Conversation__DatabasePath", "Conversation database",
     Description = "File holding past conversations, which is the bot's memory between messages. Pointing it elsewhere starts an empty history and leaves the old one behind.",
-    Group = "agent", Type = LeafType.Path, Risk = LeafRisk.Destructive, NoDefault = true)]
+    Group = "agent", Type = LeafType.Path, Risk = LeafRisk.Destructive)]
 
 [assembly: LeafFrameworkField("agentMaxIterations", "LlmAgent__MaxIterations", "Maximum tool steps",
     Description = "How many times the bot may call a tool while working on one message before it has to answer with what it has.",

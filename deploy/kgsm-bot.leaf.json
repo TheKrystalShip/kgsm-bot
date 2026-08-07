@@ -521,6 +521,7 @@
       "description": "File holding past conversations, which is the bot's memory between messages. Pointing it elsewhere starts an empty history and leaves the old one behind.",
       "group": "agent",
       "type": "path",
+      "default": "/var/lib/kgsm-bot/conversations.db",
       "risk": "destructive"
     },
     {
