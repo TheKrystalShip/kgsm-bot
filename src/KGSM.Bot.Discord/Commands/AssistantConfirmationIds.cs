@@ -24,6 +24,16 @@ public static class AssistantConfirmationIds
     /// <summary>Prefix + wildcard segment the assistant-confirm handler matches on.</summary>
     public const string ConfirmPrefix = "kgsmact~";
 
+    /// <summary>
+    /// The Cancel button, which carries no data.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately outside <see cref="ConfirmPrefix"/>: the confirm handler matches
+    /// <c>kgsmact~*</c>, so a cancel id living under that prefix would be captured by the wildcard
+    /// and read as a grant.
+    /// </remarks>
+    public const string Cancel = "kgsmacx";
+
     /// <summary>The button that redeems <paramref name="token"/>.</summary>
     public static string Confirm(string token) => ConfirmPrefix + token;
 

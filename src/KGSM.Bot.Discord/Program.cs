@@ -1,9 +1,6 @@
 using KGSM.Bot.Infrastructure;
 using KGSM.Bot.Application;
 
-using TheKrystalShip.Kgsm.Assistant.Extensions;
-using TheKrystalShip.Kgsm.Assistant.Ports;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -86,21 +83,8 @@ public class Program
                 // Register the interaction handler
                 services.AddSingleton<InteractionHandler>();
 
-                // The reusable agent loop, Ollama client, and conversation store are
-                // registered by AddLocalLlm (inside AddInfrastructureServices). Here we
-                // add the extracted kgsm assistant (prompt builder, tool dispatcher,
-                // policy) and the bot's adapters that satisfy its IServerOperations /
-                // IServerInventory ports over the consolidated server service + state cache.
-                services.AddKgsmAssistant();
-                services.AddSingleton<IServerOperations, Llm.ServerOperations>();
-                services.AddSingleton<IServerInventory, Llm.StateCacheInventory>();
-
-                // Single-use store for confirmation payloads too long for a Discord customId
-                // (long SetConfig values). Singleton so MessageHandler (stash) and
-                // ConfirmationModule (take) share one instance.
-                services.AddSingleton<Llm.PendingEditStore>();
-
-                // Register the message handler (LLM bridge)
+                // Listens for @-mentions and puts them to the assistant leaf. The client itself is
+                // registered with the infrastructure, beside the rest of this host's outward wiring.
                 services.AddSingleton<MessageHandler>();
 
                 // Register hosted service

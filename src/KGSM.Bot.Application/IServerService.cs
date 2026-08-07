@@ -1,6 +1,5 @@
 using KGSM.Bot.Core.Interfaces;
 
-using TheKrystalShip.Kgsm.Assistant.Ports;
 using TheKrystalShip.KGSM.Core.Models;
 
 namespace KGSM.Bot.Application;
@@ -26,7 +25,6 @@ public interface IServerService
     Task<BlueprintsResult> GetAllBlueprintsAsync(CancellationToken ct = default);
     Task<ServerStatusResult> GetStatusAsync(string instanceName, CancellationToken ct = default);
     Task<ServerActiveResult> IsActiveAsync(string instanceName, CancellationToken ct = default);
-    Task<HealthSnapshotResult> GetHealthSnapshotAsync(string instanceName, CancellationToken ct = default);
     Task<InstanceChannelIdResult> GetChannelIdAsync(string instanceName, CancellationToken ct = default);
     Task<WatchdogStatusResult> GetWatchdogStatusAsync(string instanceName, CancellationToken ct = default);
 }
@@ -125,24 +123,6 @@ public record ServerActiveResult
 
     public static ServerActiveResult Success(bool isActive) => new(true, isActive, null);
     public static ServerActiveResult Failure(string errorMessage) => new(false, false, errorMessage);
-}
-
-/// <summary>Result for GetHealthSnapshotAsync.</summary>
-public record HealthSnapshotResult
-{
-    public bool IsSuccess { get; }
-    public InstanceHealthSnapshot? Snapshot { get; }
-    public string? ErrorMessage { get; }
-
-    private HealthSnapshotResult(bool isSuccess, InstanceHealthSnapshot? snapshot, string? errorMessage)
-    {
-        IsSuccess = isSuccess;
-        Snapshot = snapshot;
-        ErrorMessage = errorMessage;
-    }
-
-    public static HealthSnapshotResult Success(InstanceHealthSnapshot snapshot) => new(true, snapshot, null);
-    public static HealthSnapshotResult Failure(string errorMessage) => new(false, null, errorMessage);
 }
 
 /// <summary>Result for GetChannelIdAsync.</summary>

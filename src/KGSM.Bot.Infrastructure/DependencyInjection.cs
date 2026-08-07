@@ -13,7 +13,6 @@ using Discord.Interactions;
 
 using TheKrystalShip.KGSM.Auth;
 using TheKrystalShip.KGSM.Extensions;
-using TheKrystalShip.Llm.Extensions;
 
 namespace KGSM.Bot.Infrastructure;
 
@@ -54,11 +53,6 @@ public static class DependencyInjection
 
         // Register Discord services
         services.AddDiscordServices();
-
-        // Register the reusable local-LLM stack (Ollama client, conversation store,
-        // agent loop). Binds the "Ollama", "Conversation", and "LlmAgent" config
-        // sections. The kgsm-specific IToolDispatcher is registered in Program.
-        services.AddLocalLlm(configuration);
 
         // Register KGSM services
         services.AddKgsmServices(configuration);

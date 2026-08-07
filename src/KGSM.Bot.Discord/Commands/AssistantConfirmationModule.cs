@@ -89,6 +89,21 @@ public class AssistantConfirmationModule : InteractionModuleBase<SocketInteracti
     }
 
     /// <summary>
+    /// Dismisses the prompt. Nothing is told to the assistant: the grant simply goes unredeemed and
+    /// expires, which is the same outcome as walking away from it.
+    /// </summary>
+    [ComponentInteraction(AssistantConfirmationIds.Cancel)]
+    public async Task CancelAsync()
+    {
+        var component = (SocketMessageComponent)Context.Interaction;
+        await component.UpdateAsync(m =>
+        {
+            m.Content = "❌ Cancelled — nothing was changed.";
+            m.Components = new ComponentBuilder().Build();
+        });
+    }
+
+    /// <summary>
     /// Reports what is actually known. The assistant separates "the engine accepted this" from "the
     /// server got there", so a command that ran without arriving says so rather than being shown as
     /// a success — a claim nobody can check is worse than an honest partial one.

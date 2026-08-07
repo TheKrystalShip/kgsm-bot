@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>1.12.0</Version>
+    <Version>2.0.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -69,10 +69,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\KGSM.Bot.Infrastructure\KGSM.Bot.Infrastructure.csproj" />
-    <!-- Cross-repo project references to the sibling TheKrystalShip.Llm solution:
-         the generic LLM lib + the kgsm assistant extracted out of this bot. -->
-    <ProjectReference Include="..\..\..\kgsm-llm\TheKrystalShip.Llm\TheKrystalShip.Llm.csproj" />
-    <ProjectReference Include="..\..\..\kgsm-llm\TheKrystalShip.Kgsm.Assistant\TheKrystalShip.Kgsm.Assistant.csproj" />
   </ItemGroup>
 
   <ItemGroup>

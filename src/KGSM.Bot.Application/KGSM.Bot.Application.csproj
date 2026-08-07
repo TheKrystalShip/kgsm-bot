@@ -17,7 +17,5 @@
     <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
          /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
     <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="3.1.0" />
-    <!-- Assistant toolbox: the neutral InstanceHealthSnapshot the run_health_check query maps into. -->
-    <ProjectReference Include="..\..\..\kgsm-llm\TheKrystalShip.Kgsm.Assistant\TheKrystalShip.Kgsm.Assistant.csproj" />
   </ItemGroup>
 </Project>

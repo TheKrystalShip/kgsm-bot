@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — the second assistant engine, and everything that served it
+
+The bot no longer runs a model. `TheKrystalShip.Llm` and `TheKrystalShip.Kgsm.Assistant` are gone
+from this repo along with the Ollama client, the agent loop, the conversation store, the parallel
+`IServerOperations`/`IServerInventory` adapters, and the confirmation encoding they needed. There is
+one engine behind Discord, the Control Panel and the assistant's own site, and it is the
+kgsm-assistant leaf.
+
+**⚠ Configuration removed: `Ollama`, `Conversation`, `LlmAgent` and `Llm`.** A host that still sets
+any of them binds nothing. Their replacement is the `Assistant` section. The prompt text that lived
+in `Llm:Preamble` / `ActionsAllowed` / `ActionsDenied` is **not migrated**: the assistant's own
+prompts already say the same things and say them more accurately — every action stages behind a
+confirmation now, which the bot's text predated. A host that wants a different Discord voice writes
+`<Prompts:Directory>/kgsm-bot/preamble.md` on the assistant, which overrides per leaf.
+
+**⚠ `/var/lib/kgsm-bot` is no longer created or used.** The bot keeps no state at all;
+`setup.sh` provisions nothing and `deploy.sh` prunes the whole prefix. An existing directory is
+left alone and can be deleted by hand — the conversations in it are superseded by the assistant's.
+
+**This repo builds standalone.** Its longest-standing gotcha — four `ProjectReference`s by relative
+path into a sibling checkout, with no NuGet fallback — is gone. Every dependency is a package, so a
+clone with nothing beside it restores and builds.
+
+The parallel tool surface goes with it, and with it the maintenance tax of implementing every
+assistant capability twice. Discord gains the assistant's full catalog rather than the four
+capabilities that were stubbed here with "not available on the Discord surface yet".
+
 ### Added — a staged action is confirmed from a Discord button, by the person who asked
 
 An action the assistant stages is posted with Confirm/Cancel buttons. The button carries the
@@ -38,28 +65,10 @@ The channel a message was posted in is the conversation, sub-scoped under the as
 A thread held in Discord is therefore the same thread the Control Panel and the assistant's own
 site list for that person, and reaches nobody else's history.
 
-Which engine answers is decided once, at startup, by whether an address and a secret are
-configured; a host with neither keeps answering from the agent loop inside this process. It is
-never a per-message choice: falling back to a second engine when the first is unreachable would
-split one person's history across two memories exactly when things are going wrong. Configured and
-unreachable, the conversational surface says so — slash commands, announcements and channel status
-are untouched.
-
-### Fixed — the conversation store lives outside the install prefix
-
-`Conversation:DatabasePath` defaults to `/var/lib/kgsm-bot/conversations.db`, provisioned by
-`setup.sh`. The prefix is a build artifact that `deploy.sh` rebuilds and prunes with `--delete`, and
-a publish tree never carries a database — so a store kept there was removed by every deploy and the
-bot returned with no memory of any conversation. Memory is not a build artifact, and every other
-leaf in the ecosystem keeps its state under `/var/lib` for the same reason.
-
-The prune also spares `*.db` and its `-wal`/`-shm` sidecars, by extension rather than by filename:
-the path stays operator-configurable and a blank value still falls back to beside the binary, so
-pointing memory at the prefix costs a stale file rather than the memory itself.
-
-An existing store is not moved for you — `systemctl stop kgsm-bot`, move `conversations.db` (with
-any `-wal`/`-shm` sidecars) into `/var/lib/kgsm-bot/`, then deploy. Left in place it is ignored, and
-the bot starts with an empty history.
+There is no fallback and deliberately nothing to fall back to: answering from a second engine when
+the first is unreachable would split one person's history across two memories exactly when things
+are going wrong. Unconfigured or unreachable, the conversational surface says so — slash commands,
+announcements and channel status are untouched.
 
 ### Changed — kgsm-lib 3.1.0
 

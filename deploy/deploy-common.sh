@@ -62,22 +62,14 @@ render_unit() {   # $1 = unit filename
 health_probe() {
     systemctl is-active --quiet "$SERVICE"
 }
-# Where the bot's conversation store lives. Outside the install prefix, because the prefix is a
-# build artifact that deploy.sh prunes — state kept there is state a deploy can delete. Every leaf
-# in the ecosystem uses /var/lib/<leaf> for the same reason.
-STATE_DIR="/var/lib/kgsm-bot"
-
 # Anything else one-shot and privileged this project needs provisioned. setup.sh calls it once
 # the units are live; deploy.sh never does. Keep it idempotent — setup.sh is re-runnable. Use
 # "$SUDO" for privileged steps.
+#
+# This bot keeps no state of its own: conversations live with the assistant leaf that holds them,
+# and the channel map lives in the settings file. There is nothing to provision.
 setup_project_extras() {
-    if [[ ! -d "$STATE_DIR" ]]; then
-        log "creating ${STATE_DIR} (owned by ${DEPLOY_USER})"
-        $SUDO install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$STATE_DIR"
-    elif [[ ! -w "$STATE_DIR" ]]; then
-        log "taking ownership of ${STATE_DIR}"
-        $SUDO chown -R "${DEPLOY_USER}:${DEPLOY_GROUP}" "$STATE_DIR"
-    fi
+    :
 }
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 

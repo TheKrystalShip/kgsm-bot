@@ -95,13 +95,9 @@ sysctl_do stop "$SERVICE" || true
 STOPPED=1
 
 log "syncing publish tree → ${PREFIX}"
-# The conversation store lives in STATE_DIR, out of reach of this prune. The exclusion stands
-# anyway because Conversation:DatabasePath is operator-configurable and a blank value still falls
-# back to beside the binary: pointing memory at the prefix should cost that operator a stale file,
-# not the memory itself. By extension rather than by name, since SQLite keeps -wal/-shm sidecars.
-rsync -a --delete --exclude='*.pdb' --exclude='*.xml' \
-    --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' \
-    "$PUBLISH_DIR/" "$PREFIX/"
+# The prefix is a build artifact and this prune owns all of it: the bot keeps no state here, or
+# anywhere else — conversations live with the assistant leaf that holds them.
+rsync -a --delete --exclude='*.pdb' --exclude='*.xml' "$PUBLISH_DIR/" "$PREFIX/"
 
 if [[ "$UNIT_CHANGED" -eq 1 ]]; then
     log "reloading systemd"

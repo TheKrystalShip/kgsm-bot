@@ -2,7 +2,6 @@ using KGSM.Bot.Core.Interfaces;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.Kgsm.Assistant.Ports;
 
 namespace KGSM.Bot.Application;
 
@@ -284,46 +283,6 @@ public sealed class ServerService : IServerService
         {
             _logger.LogError(ex, "Error checking if server instance {InstanceName} is active", instanceName);
             return ServerActiveResult.Failure($"An error occurred: {ex.Message}");
-        }
-    }
-
-    public async Task<HealthSnapshotResult> GetHealthSnapshotAsync(string instanceName, CancellationToken ct = default)
-    {
-        try
-        {
-            _logger.LogInformation("Building health snapshot for instance {InstanceName}", instanceName);
-
-            var status = await _serverInstanceService.GetRuntimeStatusAsync(instanceName);
-            if (status.IsFailure || status.Value is null)
-                return HealthSnapshotResult.Failure(status.Error ?? "could not read status");
-
-            var s = status.Value;
-
-            // Host disk is best-effort: its absence skips the disk check, never fails the read.
-            HostDisk? hostDisk = null;
-            string? diskReason = null;
-            var disk = await _serverInstanceService.GetSystemInfoAsync();
-            if (disk.IsSuccess && disk.Value is not null)
-                hostDisk = new HostDisk(
-                    ParsePercent(disk.Value.Disk.UsePercent), disk.Value.Disk.Size, disk.Value.Disk.Available);
-            else
-                diskReason = disk.Error ?? "the host disk usage could not be read";
-
-            var snapshot = new InstanceHealthSnapshot(
-                Running: s.Status,
-                RecentLogLines: SplitLogLines(s.RecentLogs),
-                UpdatesAvailable: s.Version.UpdatesAvailable,
-                CurrentVersion: NullIfEmpty(s.Version.Current),
-                LatestVersion: s.Version.Latest,
-                HostDisk: hostDisk,
-                HostDiskUnavailableReason: diskReason);
-
-            return HealthSnapshotResult.Success(snapshot);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error building health snapshot for instance {InstanceName}", instanceName);
-            return HealthSnapshotResult.Failure($"An error occurred: {ex.Message}");
         }
     }
 

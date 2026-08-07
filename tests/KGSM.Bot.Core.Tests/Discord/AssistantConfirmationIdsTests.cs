@@ -24,15 +24,17 @@ public class AssistantConfirmationIdsTests
     }
 
     /// <summary>
-    /// Its own prefix, so a button can only ever be answered by the half of the bot that knows what
-    /// to do with it — the ids the bot mints for actions it runs itself parse nothing from here.
+    /// Cancel lives outside the confirm prefix. The confirm handler matches <c>kgsmact~*</c> on a
+    /// wildcard, so a cancel id under that prefix would be captured by it and read as a grant —
+    /// dismissing a prompt would become an attempt to redeem one.
     /// </summary>
     [Fact]
-    public void ItDoesNotShareAPrefixWithTheBotsOwnConfirmations()
+    public void CancelIsNotCapturedByTheConfirmWildcard()
     {
-        AssistantConfirmationIds.ConfirmPrefix.Should().NotBe(KGSM.Bot.Discord.Llm.ConfirmationIds.ConfirmPrefix);
-        AssistantConfirmationIds.Confirm(Grant).Should()
-            .NotStartWith(KGSM.Bot.Discord.Llm.ConfirmationIds.ConfirmPrefix);
+        AssistantConfirmationIds.Cancel.Should().NotStartWith(AssistantConfirmationIds.ConfirmPrefix);
+        AssistantConfirmationIds.Cancel.Should().NotBe(AssistantConfirmationIds.ConfirmPrefix);
+        AssistantConfirmationIds.Cancel.Length.Should()
+            .BeLessThanOrEqualTo(AssistantConfirmationIds.MaxCustomIdLength);
     }
 
     /// <summary>

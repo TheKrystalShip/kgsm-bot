@@ -32,9 +32,6 @@
   <ItemGroup>
     <ProjectReference Include="..\KGSM.Bot.Application\KGSM.Bot.Application.csproj" />
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
-    <!-- The reusable LLM lib now lives in the sibling TheKrystalShip.Llm solution
-         (consumed as a project reference instead of the local-feed NuGet). -->
-    <ProjectReference Include="..\..\..\kgsm-llm\TheKrystalShip.Llm\TheKrystalShip.Llm.csproj" />
     <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
          /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
     <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="3.1.0" />

@@ -4,26 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `kgsm-bot` is the **Discord surface onto KGSM** — one of the `kgsm-*` leaves in the
 `tks` umbrella workspace. It is a **leaf consumer**: it reaches the engine only
-through `kgsm-lib` (and the extracted assistant), never by shelling `kgsm.sh`
-itself. Read the workspace root `../CLAUDE.md` + `../system-architecture.md` for the
+through `kgsm-lib`, never by shelling `kgsm.sh` itself. Its conversational half is a
+**client of the kgsm-assistant leaf** — one engine behind every surface, so a chat held
+here is the same conversation the Control Panel and the assistant's own site show. Read the workspace root `../CLAUDE.md` + `../system-architecture.md` for the
 ecosystem rules this repo inherits (the dependency spine, "never fabricate a
 status", leaves-are-independently-deployable).
 
-## Building requires the full umbrella checkout
+## Building
 
-This is the single biggest gotcha. The LLM projects are **ProjectReferenced by relative
-path** — there is no NuGet fallback:
+This repo builds standalone — a clone with no sibling checkout restores and builds. Every
+dependency is a package.
 
-- `../../../kgsm-llm/TheKrystalShip.Llm/...` and `.../TheKrystalShip.Kgsm.Assistant/...` (the LLM agent loop + the extracted kgsm assistant)
-
-So `kgsm-bot` only builds when `kgsm-llm/` is checked out as a sibling under `tks/`. A
-standalone clone will not restore.
-
-**kgsm-lib is different: it comes from the local feed** (`nuget.config` →
+**kgsm-lib comes from the local feed** (`nuget.config` →
 `/home/heisen/local-nuget`) as `TheKrystalShip.KGSM.Lib`, pinned by version in Core,
 Application and Infrastructure. Editing `kgsm-lib/` changes nothing here until it is
 repacked and the three pins move together. NuGet caches by id+version, so a repack at the
-same version serves the old package from the cache with no error.
+same version serves the old package from the cache with no error. The same applies to
+`TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's relay contract) and
+`TheKrystalShip.KGSM.Auth`.
 
 Targets **.NET 10** (the README still says 9 — trust the `.csproj`/the code).
 
@@ -67,8 +65,8 @@ surface with its defaults, and is committed — it holds no secret and no host i
 Key sections: `KgsmAuth` (the shared role map — see *Authorization*), `Discord` (token, `GuildId`,
 `InstancesCategoryId`, `AnnouncementChannelId`, status markers, and the `Announce` switches),
 `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
-`Blueprints`/`Instances` maps), `Ollama`/`Conversation`/`LlmAgent`/`Llm` (the assistant),
-`KgsmCache` (inventory TTLs).
+`Blueprints`/`Instances` maps), `Assistant` (where the assistant leaf is + the shared relay
+secret), `KgsmCache` (inventory TTLs).
 
 An environment variable **overrides one key** of that file by spelling the key's path with
 `__` (`Discord__GuildId`), and a variable naming a key the file does not declare binds to
@@ -81,10 +79,10 @@ without the other never ships.
 rewrites it on every build from `[LeafField]` attributes and `<panel>` doc tags — so edit the
 options classes, never the JSON, and commit what the build produces. `Discord`, `KGSM` and
 `KgsmCache` carry theirs on their own types in `KGSM.Bot.Infrastructure`, which the generator
-picks up because it scans every assembly beside the built binary. `Ollama`, `LlmAgent`,
-`Conversation` and `KgsmAuth` are declared as `[LeafFrameworkField]`s in `LeafDescriptor.cs` instead:
-those types belong to `TheKrystalShip.Llm` and `TheKrystalShip.KGSM.Auth`, and each surface describes
-the same keys in its own words, so the prose has to live with the surface that shows it. Format:
+picks up because it scans every assembly beside the built binary. `KgsmAuth` is declared as
+`[LeafFrameworkField]`s in `LeafDescriptor.cs` instead: that type belongs to
+`TheKrystalShip.KGSM.Auth`, and each surface describes the same keys in its own words, so the prose
+has to live with the surface that shows it. Format:
 `../leaf-config-descriptor.md`; mechanism: `../kgsm-leafconfig/README.md`.
 
 **The `KGSM:Instances` channel map is the one host-specific thing that stays in the settings
@@ -119,25 +117,32 @@ which front end triggered it:
 1. **Slash commands** (`Commands/*Module.cs`, Discord.Net `InteractionModuleBase`) —
    `/start`, `/stop`, `/list`, `/status`, `/supervision`, blueprints, etc. The full list is
    published, not written — see *The command manifest* below.
-2. **Natural-language LLM** (`MessageHandler.cs` + `Llm/`) — triggered by @-mentioning
-   the bot. The message is run through the extracted assistant (`IServerAssistant`,
-   Ollama-backed). `Llm/MediatorServerOperations` and `Llm/StateCacheInventory` are
-   **adapters** that satisfy the assistant's `IServerOperations`/`IServerInventory`
-   ports by re-dispatching onto the *same* MediatR handlers + state cache — so LLM and
-   slash behaviour are identical. (Keep them in sync: a new bot action means a new
-   MediatR command **and** wiring it into the adapter.)
+2. **Natural language** (`MessageHandler.cs` + `Infrastructure/Assistant/`) — triggered by
+   @-mentioning the bot. The message goes to the **kgsm-assistant leaf** over its HTTP
+   surface, carrying the asking human's identity and the tier resolved from their roles. The
+   bot runs no model and holds no conversation: the assistant's tool catalog is what acts,
+   through its own kgsm access. A new assistant capability reaches Discord with no change
+   here.
 
 ### Destructive ops: stage → confirm (model-independent gate)
 
-The LLM never executes install/uninstall/destructive ops directly — it **stages** a
-`PendingConfirmation`, which `MessageHandler` renders as Discord Confirm/Cancel
-buttons. Execution happens only on a human Confirm click, in
-`Commands/ConfirmationModule.cs`, which **re-authorizes the clicker and re-validates
-the target against the live list** (neither trusted from the staging turn). The button
-`customId` encoding lives in `Llm/ConfirmationIds.cs` — the per-kind letter codes are
-**append-only** (a posted button carries its old code until clicked; never reuse a
-letter). Payloads too long for Discord's 100-char customId (e.g. a long SetConfig
-value) are stashed server-side via `Llm/PendingEditStore`.
+The assistant never executes an action inside a turn — it **stages** one and returns an opaque
+grant, which `MessageHandler` renders as Discord Confirm/Cancel buttons
+(`Commands/AssistantConfirmationIds.cs`). The button carries the grant and nothing else, so **the
+bot holds no part of the pending action**: a restart on either side leaves a posted button working,
+and one lifetime governs it (`Assistant:Confirmation:TtlSeconds`, the assistant's).
+
+`Commands/AssistantConfirmationModule.cs` forwards whoever clicked and the tier they hold at that
+moment. **The assistant is the gate**: it re-derives authority, re-validates the target against live
+inventory, refuses a grant that is already redeemed, and refuses one belonging to somebody else.
+
+**Only the person who asked can approve.** A conversation belongs to one person and so do the
+actions in it — the same rule the Control Panel follows. The bot's own operator check in front of
+the call is a courtesy to the clicker, never the gate, and a refusal leaves the prompt standing for
+whoever is permitted.
+
+The Cancel id lives **outside** the confirm prefix: the confirm handler matches `kgsmact~*` on a
+wildcard, and a cancel id underneath it would be captured and read as a grant.
 
 ### Authorization
 
@@ -245,21 +250,23 @@ and missing a restart window here costs nothing.
 
 ## Ecosystem invariants that bite here
 
-- **Never fabricate a status.** Fleet status and health snapshots map an unreadable
-  instance to an explicit `Unavailable`/reason, never a fake `stopped`
-  (`MediatorServerOperations.GetFleetStatusAsync`, the `run_health_check` query).
+- **Never fabricate a status.** An unreadable instance is reported as unavailable with the
+  reason, never as a fake `stopped`. A confirmed action reports the assistant's *watched*
+  verdict — "the engine accepted it" and "the server got there" are different claims, and a
+  run state that could not be read is reported as unread.
 - **Degrade gracefully when a dependency is absent.** The watchdog is optional: an
-  unreachable daemon makes `/supervision` report "unavailable" while native
-  start/stop still works. Assistant capabilities not yet wired on Discord
-  (`view_config_file`, `list_files`) return a polite failure rather than throwing — the
-  shared port stays satisfied.
+  unreachable daemon makes `/supervision` report "unavailable" while native start/stop still
+  works. The assistant is optional too — unconfigured or unreachable, the @-mention surface
+  says so and goes quiet while slash commands, announcements and channel status carry on.
+  There is deliberately **no fallback engine**: answering from a second one would split a
+  person's history across two memories exactly when things are going wrong.
 
 ## Tests
 
 `tests/KGSM.Bot.Core.Tests` — xUnit + NSubstitute + FluentAssertions, mirroring the
-source layout (`Application/`, `Infrastructure/`, `Llm/`, `Common/`). They mock at the
-`IServerInstanceService`/`IMediator`/cache seams; there is no live Discord or kgsm in
-the suite. `InternalsVisibleTo` exposes the internal `Llm/` adapters to the tests.
+source layout (`Application/`, `Infrastructure/`, `Discord/`, `Common/`). They mock at the
+`IServerInstanceService`/`IMediator`/cache seams and at the assistant client's HTTP
+transport; there is no live Discord, kgsm or assistant in the suite.
 
 ## Version tracking
 

@@ -7,7 +7,6 @@ using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Commands;
-using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -45,7 +44,6 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IKgsmStateCache>());
         services.AddSingleton(Substitute.For<IInvocationContext>());
         services.AddSingleton(Substitute.For<IAssistantTurnClient>());
-        services.AddSingleton<PendingEditStore>();
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
         services.AddSingleton(KgsmRoleMap.Empty);
         return services.BuildServiceProvider();

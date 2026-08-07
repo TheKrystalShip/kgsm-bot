@@ -7,13 +7,9 @@ using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
-using KGSM.Bot.Discord.Llm;
-using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-using TheKrystalShip.Kgsm.Assistant;
 using TheKrystalShip.KGSM.Auth;
 
 namespace KGSM.Bot.Discord;
@@ -24,12 +20,11 @@ namespace KGSM.Bot.Discord;
 /// detection, typing, and replying.
 /// </summary>
 /// <remarks>
-/// Where the answer comes from is decided once, at startup, by whether this host configured an
-/// assistant to reach (<see cref="IAssistantTurnClient.IsConfigured"/>). It is never a per-message
-/// choice: a bot that fell back to a second engine when the first was unreachable would split one
-/// person's history across two memories precisely when things are going wrong, and neither would
-/// hold the whole conversation. Configured, an unreachable assistant means the conversational
-/// surface says so and goes quiet — slash commands, announcements and channel status are untouched.
+/// The answer comes from the kgsm-assistant leaf and nowhere else. There is no second engine in
+/// this process to fall back to, deliberately: a fallback would split one person's history across
+/// two memories precisely when things are going wrong, and neither would hold the whole
+/// conversation. An unreachable or unconfigured assistant means this surface says so and goes quiet
+/// — slash commands, announcements and channel status are untouched.
 /// </remarks>
 public class MessageHandler
 {
@@ -37,28 +32,19 @@ public class MessageHandler
     private const int DiscordMessageLimit = 2000;
 
     private readonly DiscordSocketClient _client;
-    private readonly IServerAssistant _assistant;
-    private readonly IAssistantTurnClient _assistantClient;
+    private readonly IAssistantTurnClient _assistant;
     private readonly KgsmRoleMap _roleMap;
-    private readonly PendingEditStore _pendingEdits;
-    private readonly IInvocationContext _invocation;
     private readonly ILogger<MessageHandler> _logger;
 
     public MessageHandler(
         DiscordSocketClient client,
-        IServerAssistant assistant,
-        IAssistantTurnClient assistantClient,
+        IAssistantTurnClient assistant,
         KgsmRoleMap roleMap,
-        PendingEditStore pendingEdits,
-        IInvocationContext invocation,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
-        _assistantClient = assistantClient;
         _roleMap = roleMap;
-        _pendingEdits = pendingEdits;
-        _invocation = invocation;
         _logger = logger;
     }
 
@@ -68,10 +54,14 @@ public class MessageHandler
 
         // Say at startup whether the assistant is answering, where an operator will see it. The
         // alternative is learning it from the first person who asks a question and gets an apology.
-        if (_assistantClient.IsConfigured)
+        if (_assistant.IsConfigured)
             _logger.LogInformation(
                 "Conversational surface: the kgsm-assistant leaf, reachable={Reachable}",
-                await _assistantClient.IsAvailableAsync());
+                await _assistant.IsAvailableAsync());
+        else
+            _logger.LogWarning(
+                "No assistant is configured (Assistant:BaseUrl / Assistant:RelaySecret) — the bot " +
+                "will not answer @-mentions. Slash commands and announcements are unaffected.");
 
         _logger.LogInformation("Message handler initialized");
     }
@@ -109,24 +99,27 @@ public class MessageHandler
                 return;
             }
 
-            // Authorization for mutating actions: the author must hold operator on this host, from
-            // the same role map the Control Panel and the assistant answer with. Reading stays open to
-            // any guild member. A host that configured no role ids leaves everyone at viewer, so
-            // nothing acts until the roles are set.
-            // The authority the author holds right now, from the roles the gateway already handed us.
-            // Reading is open to any guild member; acting needs operator.
+            if (!_assistant.IsConfigured)
+            {
+                // Said once per message rather than logged and ignored: someone asked a question and
+                // is owed an answer, even when the answer is that nobody is home.
+                await message.ReplyAsync(
+                    "💤 There's no assistant set up on this host, so I can't answer questions here — " +
+                    "the slash commands still work.");
+                return;
+            }
+
+            // The authority the author holds right now, from the roles the gateway already handed us,
+            // out of the same role map the Control Panel and the assistant answer with. Reading is
+            // open to any guild member; acting needs operator, and a host that configured no role ids
+            // leaves everyone at viewer so nothing acts until they are set.
             var tier = _roleMap.ResolveSnowflakes(
                 (message.Author as SocketGuildUser)?.Roles.Select(r => r.Id));
-            var canPerformActions = tier >= KgsmTier.Operator;
-
             _logger.LogDebug(
-                "LLM prompt from {User} ({UserId}, tier={Tier}): {Prompt}",
+                "Assistant prompt from {User} ({UserId}, tier={Tier}): {Prompt}",
                 message.Author.Username, message.Author.Id, tier, prompt);
 
-            if (_assistantClient.IsConfigured)
-                await AnswerFromAssistantAsync(message, prompt, tier);
-            else
-                await AnswerLocallyAsync(message, prompt, canPerformActions);
+            await AnswerAsync(message, prompt, tier);
         }
         catch (Exception ex)
         {
@@ -142,12 +135,12 @@ public class MessageHandler
     /// which stamps them from the identity and the leaf name the relay carries. Nothing on this path
     /// reaches kgsm from inside the bot, so an ambient actor set here would attribute nothing.
     /// </remarks>
-    private async Task AnswerFromAssistantAsync(SocketUserMessage message, string prompt, KgsmTier tier)
+    private async Task AnswerAsync(SocketUserMessage message, string prompt, KgsmTier tier)
     {
         Result<AssistantTurn> result;
         using (message.Channel.EnterTypingState())
         {
-            result = await _assistantClient.AskAsync(new AssistantAsk(
+            result = await _assistant.AskAsync(new AssistantAsk(
                 message.Author.Id.ToString(),
                 message.Author.Username,
                 tier,
@@ -171,44 +164,6 @@ public class MessageHandler
 
         foreach (var staged in turn.StagedActions)
             await PostStagedActionAsync(message, staged);
-    }
-
-    /// <summary>
-    /// Answers from the agent loop running inside this process, on a host with no assistant leaf.
-    /// </summary>
-    private async Task AnswerLocallyAsync(SocketUserMessage message, string prompt, bool canPerformActions)
-    {
-        AssistantResult result;
-        // Attribute any server mutation the LLM runs this turn to the asking Discord user
-        // (origin=discord). Flows down the awaited RunAsync → tool dispatch → kgsm chokepoint.
-        // (Destructive ops are usually staged for a confirmation click — re-attributed there — but
-        // wrapping the turn covers any inline execution too.)
-        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(message.Author.Username));
-        using (message.Channel.EnterTypingState())
-        {
-            // Conversation key for memory: per (user, channel). The assistant
-            // treats this as an opaque id (a web client would supply its own).
-            result = await _assistant.RunAsync(
-                $"{message.Author.Id}:{message.Channel.Id}", prompt, canPerformActions);
-        }
-
-        if (result.IsFailure)
-        {
-            _logger.LogWarning("Agent run failed: {Error}", result.Error);
-            await message.ReplyAsync($"⚠️ {result.Error}");
-            return;
-        }
-
-        var reply = result.Text;
-        if (!string.IsNullOrWhiteSpace(reply))
-            await message.ReplyAsync(Truncate(reply, DiscordMessageLimit));
-        else if (result.Confirmations.Count == 0)
-            await message.ReplyAsync("🤔 I didn't have anything to say to that.");
-
-        // Each staged destructive op gets its own confirmation prompt with buttons.
-        // Nothing runs until a permitted human clicks Confirm (see ConfirmationModule).
-        foreach (var confirmation in result.Confirmations)
-            await PostConfirmationAsync(message, confirmation);
     }
 
     /// <summary>
@@ -238,7 +193,7 @@ public class MessageHandler
 
         var components = new ComponentBuilder()
             .WithButton("Confirm", AssistantConfirmationIds.Confirm(staged.Token), style)
-            .WithButton("Cancel", ConfirmationIds.Cancel, ButtonStyle.Secondary)
+            .WithButton("Cancel", AssistantConfirmationIds.Cancel, ButtonStyle.Secondary)
             .Build();
 
         await message.ReplyAsync(StagedActionContent(staged), components: components);
@@ -271,64 +226,6 @@ public class MessageHandler
         "install" => $"install **{staged.Target}**"
             + (staged.InstanceName is null ? "" : $" as `{staged.InstanceName}`"),
         _ => $"{staged.Kind} **{staged.Target}**",
-    };
-
-    /// <summary>
-    /// Posts a confirmation prompt for a staged destructive op, with Confirm/Cancel
-    /// buttons. Execution happens only on a Confirm click, handled (and re-authorized)
-    /// by <see cref="Commands.ConfirmationModule"/>.
-    /// </summary>
-    private async Task PostConfirmationAsync(SocketUserMessage message, PendingConfirmation confirmation)
-    {
-        var confirmId = ConfirmationIds.Confirm(confirmation);
-        if (confirmId.Length > ConfirmationIds.MaxCustomIdLength)
-        {
-            // A SetConfig value can legitimately be long (e.g. executable_arguments), which
-            // overflows Discord's 100-char customId. Stash the resolved op server-side and
-            // ride a short id instead, so the button still works. Other kinds can only
-            // overflow on an absurd instance name → keep the existing guidance.
-            if (confirmation.Kind == ConfirmationKind.SetConfig)
-            {
-                confirmId = ConfirmationIds.ConfirmStored(_pendingEdits.Stash(confirmation));
-            }
-            else
-            {
-                await message.ReplyAsync(
-                    "⚠️ That name is too long for me to build a confirmation button — please use the slash command instead.");
-                return;
-            }
-        }
-
-        // Destructive ops get the alarming red button; ordinary commands a neutral one.
-        var confirmStyle = ConfirmationKinds.IsDestructive(confirmation.Kind)
-            ? ButtonStyle.Danger
-            : ButtonStyle.Primary;
-
-        var components = new ComponentBuilder()
-            .WithButton("Confirm", confirmId, confirmStyle)
-            .WithButton("Cancel", ConfirmationIds.Cancel, ButtonStyle.Secondary)
-            .Build();
-
-        await message.ReplyAsync(ConfirmationContent(confirmation), components: components);
-    }
-
-    private static string ConfirmationContent(PendingConfirmation c) => c.Kind switch
-    {
-        ConfirmationKind.Uninstall =>
-            $"⚠️ This will **permanently delete `{c.Target}`** and all of its data. This cannot be undone.",
-        ConfirmationKind.Install =>
-            $"⚙️ This will install a new **{c.Target}** server" +
-            (c.InstanceName is null ? "" : $" named `{c.InstanceName}`") +
-            ". It can take a while.",
-        ConfirmationKind.Start => $"▶️ Start **{c.Target}**?",
-        ConfirmationKind.Stop => $"⏹️ Stop **{c.Target}**?",
-        ConfirmationKind.Restart => $"🔄 Restart **{c.Target}**?",
-        ConfirmationKind.Update => $"⬆️ Update **{c.Target}** to its latest version? It can take a while.",
-        ConfirmationKind.Backup => $"💾 Back up **{c.Target}**?",
-        ConfirmationKind.SetConfig =>
-            $"⚙️ Set `{c.ConfigKey}` = `{(string.IsNullOrEmpty(c.ConfigValue) ? "(empty)" : c.ConfigValue)}` " +
-            $"on **{c.Target}**?",
-        _ => "Please confirm this action."
     };
 
     /// <summary>

@@ -212,42 +212,6 @@
     "TimeoutSeconds": 300
   },
 
-  // The local model, which answers on a host with no assistant leaf to reach. Unreachable, slash
-  // commands and status still work; only the conversational surface goes quiet. A null seed leaves
-  // sampling unseeded.
-  "Ollama": {
-    "Endpoint": "http://localhost:11434",
-    "Model": "gemma4:12b",
-    "NumCtx": 32768,
-    "TimeoutSeconds": 300,
-    "Temperature": 0.3,
-    "Seed": null,
-    "Think": false
-  },
-
-  // Where past conversations are kept, which is the bot's memory between messages. It sits under
-  // /var/lib rather than beside the binary because the install prefix is a build artifact a deploy
-  // rebuilds and prunes, and memory is not a build artifact. Blank falls back to beside the binary.
-  "Conversation": {
-    "DatabasePath": "/var/lib/kgsm-bot/conversations.db"
-  },
-
-  // Safety bounds on one turn of the model↔tool loop.
-  "LlmAgent": {
-    "MaxIterations": 8,
-    "MaxToolOutputChars": 1500,
-    "IterationLimitReply": "I wasn't able to finish that after a few steps — could you rephrase or break it down?"
-  },
-
-  // Host-specific overrides of the assistant's system prompt. The library ships a host-agnostic
-  // default for each; a value here replaces it, which is how Discord's confirmation button gets
-  // named in wording a web caller would not understand. Prompt text has its own editing channel
-  // (the assistant's prompt files), so these are not rendered on the Control Panel.
-  "Llm": {
-    "Preamble": "You are a friendly assistant in a small Discord server for friends who run game servers together. You help them check on and manage their game servers. The lists below are complete and current. When a user asks what servers exist or what games can be installed, answer directly from these lists — do NOT call a tool for that. When a user refers to a specific server, act directly with the correct tool and the exact instance name from the list. If a request is ambiguous — it could match more than one instance — do NOT guess. Ask the user which one they mean and list the candidates. A single message may ask for several actions in sequence (e.g. stop, then back up, then update) — issue the tool calls in the order requested. Keep replies concise and conversational.",
-    "ActionsAllowed": "This user is authorized to perform actions. You can start, stop, restart, back up, and update servers, in addition to reading status. You can also install new servers and uninstall existing ones, but these are DESTRUCTIVE: calling install_server or uninstall_server does NOT perform the action — it only stages it, and the user is shown a button they must click to confirm. So when you use one of those tools, call it once and then tell the user it's awaiting their confirmation. NEVER claim a server was installed or uninstalled yourself — you cannot complete those; only the confirmation button can.",
-    "ActionsDenied": "This user is NOT authorized to perform actions. You can only READ information (list servers, status, whether a server is running). If they ask you to start, stop, restart, back up, or update a server, politely explain they don't have permission — do not attempt it."
-  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",
