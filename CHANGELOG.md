@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — deploying no longer erases the bot's conversation memory
+
+`Conversation:DatabasePath` defaults to blank, which puts `conversations.db` beside the binary in
+the install prefix — and `deploy.sh` synced the publish tree over that prefix with `--delete`. A
+publish tree never carries a database, so every deploy removed the store and the bot came back with
+no memory of any conversation.
+
+The sync now spares `*.db` and its `-wal`/`-shm` sidecars. They are excluded by extension rather
+than by filename because the path is operator-configurable, so a renamed store stays protected.
+
 ### Changed — kgsm-lib 3.1.0
 
 Up from 2.2.0. The engine event journal is now queried directly through the library

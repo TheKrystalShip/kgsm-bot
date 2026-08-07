@@ -95,7 +95,13 @@ sysctl_do stop "$SERVICE" || true
 STOPPED=1
 
 log "syncing publish tree → ${PREFIX}"
-rsync -a --delete --exclude='*.pdb' --exclude='*.xml' "$PUBLISH_DIR/" "$PREFIX/"
+# The conversation store lives beside the binary when Conversation:DatabasePath is blank (its
+# default), so the prune has to spare it: it is the bot's memory between messages, not a build
+# artifact, and a publish tree never carries one. Excluded by extension rather than by name because
+# the path is operator-configurable and SQLite writes -wal/-shm sidecars next to the file.
+rsync -a --delete --exclude='*.pdb' --exclude='*.xml' \
+    --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' \
+    "$PUBLISH_DIR/" "$PREFIX/"
 
 if [[ "$UNIT_CHANGED" -eq 1 ]]; then
     log "reloading systemd"
