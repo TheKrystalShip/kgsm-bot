@@ -10,6 +10,7 @@ using NSubstitute;
 using NSubstitute.Core;
 
 using TheKrystalShip.KGSM.Core.Interfaces;
+using TheKrystalShip.KGSM.Core.Models;
 using TheKrystalShip.KGSM.Events;
 
 using Xunit;
@@ -102,6 +103,6 @@ public class KgsmServerEventHandlerUnknownEventTests
         // bot's: a raw handler would run on every envelope regardless of type, including the ones
         // above plus every type the bot has no model for, and would have to be written to tolerate
         // an unrecognised payload. The bot registers none.
-        events.DidNotReceive().RegisterRawHandler(Arg.Any<Func<EventWrapper, Task>>());
+        events.DidNotReceive().RegisterRawHandler(Arg.Any<Func<EventWrapper, EventPosition, Task>>());
     }
 }
