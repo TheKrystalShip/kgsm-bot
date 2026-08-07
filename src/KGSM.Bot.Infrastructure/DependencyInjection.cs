@@ -36,6 +36,14 @@ public static class DependencyInjection
         services.Configure<KgsmCacheOptions>(
             configuration.GetSection(KgsmCacheOptions.Section));
 
+        services.Configure<AssistantOptions>(
+            configuration.GetSection(AssistantOptions.Section));
+
+        // The line to the assistant leaf. Registered whether or not this host has one: the client
+        // reports itself unconfigured and the conversational surface stays off, which is what
+        // "a leaf runs standalone" means for an optional sibling.
+        services.AddSingleton<IAssistantTurnClient, Assistant.AssistantTurnClient>();
+
         // The ecosystem's shared role map. Bound once and registered as the resolved map rather than
         // as options, because every caller wants the same answer and the map is immutable — a gate
         // that re-read configuration per request could disagree with the one beside it.

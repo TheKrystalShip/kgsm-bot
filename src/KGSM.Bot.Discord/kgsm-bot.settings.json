@@ -200,8 +200,21 @@
     "BlueprintsTtlSeconds": 600
   },
 
-  // The local model that answers when the bot is @-mentioned. Unreachable, slash commands and status
-  // still work; only the conversational surface goes quiet. A null seed leaves sampling unseeded.
+  // The kgsm-assistant leaf, which answers when the bot is @-mentioned. It is one service behind every
+  // surface, so a conversation held in Discord is the same conversation the Control Panel and the
+  // assistant's own site show that person. The secret is the host's shared relay secret — it
+  // authenticates the bot as a trusted relay, while the identity and authority it forwards are always
+  // the asking person's. No address configured leaves the conversational surface off; slash commands,
+  // announcements and channel status are unaffected.
+  "Assistant": {
+    "BaseUrl": "",
+    "RelaySecret": "",
+    "TimeoutSeconds": 300
+  },
+
+  // The local model, which answers on a host with no assistant leaf to reach. Unreachable, slash
+  // commands and status still work; only the conversational surface goes quiet. A null seed leaves
+  // sampling unseeded.
   "Ollama": {
     "Endpoint": "http://localhost:11434",
     "Model": "gemma4:12b",

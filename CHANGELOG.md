@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the bot asks the kgsm-assistant leaf, so Discord shares one conversation
+
+`Assistant:BaseUrl` + `Assistant:RelaySecret` point the @-mention surface at the kgsm-assistant
+leaf. The bot forwards the asking human — their Discord id, their name, and the tier resolved from
+the roles they hold right now — through the assistant's own relay package
+(`TheKrystalShip.Kgsm.Assistant.Relay`), the same writer the Control Panel API forwards identity
+with, so the two cannot come to spell a person's authority differently.
+
+The channel a message was posted in is the conversation, sub-scoped under the asker's own memory.
+A thread held in Discord is therefore the same thread the Control Panel and the assistant's own
+site list for that person, and reaches nobody else's history.
+
+Which engine answers is decided once, at startup, by whether an address and a secret are
+configured; a host with neither keeps answering from the agent loop inside this process. It is
+never a per-message choice: falling back to a second engine when the first is unreachable would
+split one person's history across two memories exactly when things are going wrong. Configured and
+unreachable, the conversational surface says so — slash commands, announcements and channel status
+are untouched.
+
+An action the assistant stages is named in the reply, along with the slash command that performs
+it: the grant it issues is redeemed by the assistant, and a chat message carries no click back to it.
+
 ### Fixed — the conversation store lives outside the install prefix
 
 `Conversation:DatabasePath` defaults to `/var/lib/kgsm-bot/conversations.db`, provisioned by

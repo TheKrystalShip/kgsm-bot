@@ -4,6 +4,8 @@ using Discord;
 using Discord.WebSocket;
 
 using KGSM.Bot.Core.Common;
+using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Llm;
 using KGSM.Bot.Infrastructure.Configuration;
 
@@ -16,10 +18,18 @@ using TheKrystalShip.KGSM.Auth;
 namespace KGSM.Bot.Discord;
 
 /// <summary>
-/// Listens for messages that @-mention the bot and routes them through the LLM
-/// agent (which handles conversation memory and tool calls). This class owns
-/// only the Discord I/O concerns: trigger detection, typing, and replying.
+/// Listens for messages that @-mention the bot and puts them to the assistant, which handles
+/// conversation memory and tool calls. This class owns only the Discord I/O concerns: trigger
+/// detection, typing, and replying.
 /// </summary>
+/// <remarks>
+/// Where the answer comes from is decided once, at startup, by whether this host configured an
+/// assistant to reach (<see cref="IAssistantTurnClient.IsConfigured"/>). It is never a per-message
+/// choice: a bot that fell back to a second engine when the first was unreachable would split one
+/// person's history across two memories precisely when things are going wrong, and neither would
+/// hold the whole conversation. Configured, an unreachable assistant means the conversational
+/// surface says so and goes quiet — slash commands, announcements and channel status are untouched.
+/// </remarks>
 public class MessageHandler
 {
     // Discord hard-caps a single message at 2000 characters.
@@ -27,6 +37,7 @@ public class MessageHandler
 
     private readonly DiscordSocketClient _client;
     private readonly IServerAssistant _assistant;
+    private readonly IAssistantTurnClient _assistantClient;
     private readonly KgsmRoleMap _roleMap;
     private readonly PendingEditStore _pendingEdits;
     private readonly IInvocationContext _invocation;
@@ -35,6 +46,7 @@ public class MessageHandler
     public MessageHandler(
         DiscordSocketClient client,
         IServerAssistant assistant,
+        IAssistantTurnClient assistantClient,
         KgsmRoleMap roleMap,
         PendingEditStore pendingEdits,
         IInvocationContext invocation,
@@ -42,17 +54,25 @@ public class MessageHandler
     {
         _client = client;
         _assistant = assistant;
+        _assistantClient = assistantClient;
         _roleMap = roleMap;
         _pendingEdits = pendingEdits;
         _invocation = invocation;
         _logger = logger;
     }
 
-    public Task InitializeAsync()
+    public async Task InitializeAsync()
     {
         _client.MessageReceived += OnMessageReceivedAsync;
+
+        // Say at startup whether the assistant is answering, where an operator will see it. The
+        // alternative is learning it from the first person who asks a question and gets an apology.
+        if (_assistantClient.IsConfigured)
+            _logger.LogInformation(
+                "Conversational surface: the kgsm-assistant leaf, reachable={Reachable}",
+                await _assistantClient.IsAvailableAsync());
+
         _logger.LogInformation("Message handler initialized");
-        return Task.CompletedTask;
     }
 
     private Task OnMessageReceivedAsync(SocketMessage rawMessage)
@@ -92,45 +112,20 @@ public class MessageHandler
             // the same role map the Control Panel and the assistant answer with. Reading stays open to
             // any guild member. A host that configured no role ids leaves everyone at viewer, so
             // nothing acts until the roles are set.
-            var canPerformActions =
-                _roleMap.ResolveSnowflakes((message.Author as SocketGuildUser)?.Roles.Select(r => r.Id))
-                    >= KgsmTier.Operator;
+            // The authority the author holds right now, from the roles the gateway already handed us.
+            // Reading is open to any guild member; acting needs operator.
+            var tier = _roleMap.ResolveSnowflakes(
+                (message.Author as SocketGuildUser)?.Roles.Select(r => r.Id));
+            var canPerformActions = tier >= KgsmTier.Operator;
 
             _logger.LogDebug(
-                "LLM prompt from {User} ({UserId}, canAct={CanAct}): {Prompt}",
-                message.Author.Username, message.Author.Id, canPerformActions, prompt);
+                "LLM prompt from {User} ({UserId}, tier={Tier}): {Prompt}",
+                message.Author.Username, message.Author.Id, tier, prompt);
 
-            AssistantResult result;
-            // Attribute any server mutation the LLM runs this turn to the asking Discord user
-            // (origin=discord). Flows down the awaited RunAsync → tool dispatch → kgsm chokepoint.
-            // (Destructive ops are usually staged for a confirmation click — re-attributed there — but
-            // wrapping the turn covers any inline execution too.)
-            using var provenance = _invocation.Begin(Invocation.ForDiscordUser(message.Author.Username));
-            using (message.Channel.EnterTypingState())
-            {
-                // Conversation key for memory: per (user, channel). The assistant
-                // treats this as an opaque id (a web client would supply its own).
-                result = await _assistant.RunAsync(
-                    $"{message.Author.Id}:{message.Channel.Id}", prompt, canPerformActions);
-            }
-
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Agent run failed: {Error}", result.Error);
-                await message.ReplyAsync($"⚠️ {result.Error}");
-                return;
-            }
-
-            var reply = result.Text;
-            if (!string.IsNullOrWhiteSpace(reply))
-                await message.ReplyAsync(Truncate(reply, DiscordMessageLimit));
-            else if (result.Confirmations.Count == 0)
-                await message.ReplyAsync("🤔 I didn't have anything to say to that.");
-
-            // Each staged destructive op gets its own confirmation prompt with buttons.
-            // Nothing runs until a permitted human clicks Confirm (see ConfirmationModule).
-            foreach (var confirmation in result.Confirmations)
-                await PostConfirmationAsync(message, confirmation);
+            if (_assistantClient.IsConfigured)
+                await AnswerFromAssistantAsync(message, prompt, tier);
+            else
+                await AnswerLocallyAsync(message, prompt, canPerformActions);
         }
         catch (Exception ex)
         {
@@ -139,9 +134,109 @@ public class MessageHandler
     }
 
     /// <summary>
+    /// Puts the question to the kgsm-assistant leaf on the author's behalf, and posts what comes back.
+    /// </summary>
+    /// <remarks>
+    /// No provenance scope is opened here: this turn's tool calls run in the assistant's process,
+    /// which stamps them from the identity and the leaf name the relay carries. Nothing on this path
+    /// reaches kgsm from inside the bot, so an ambient actor set here would attribute nothing.
+    /// </remarks>
+    private async Task AnswerFromAssistantAsync(SocketUserMessage message, string prompt, KgsmTier tier)
+    {
+        Result<AssistantTurn> result;
+        using (message.Channel.EnterTypingState())
+        {
+            result = await _assistantClient.AskAsync(new AssistantAsk(
+                message.Author.Id.ToString(),
+                message.Author.Username,
+                tier,
+                // The channel is the conversation. Each channel is its own context window, and the
+                // thread is the same one this person sees wherever else they reach the assistant.
+                message.Channel.Id.ToString(),
+                prompt));
+        }
+
+        if (result.IsFailure)
+        {
+            await message.ReplyAsync($"⚠️ {result.Error}");
+            return;
+        }
+
+        var turn = result.Value!;
+        if (!string.IsNullOrWhiteSpace(turn.Text))
+            await message.ReplyAsync(Truncate(turn.Text, DiscordMessageLimit));
+        else if (turn.StagedActions.Count == 0)
+            await message.ReplyAsync("🤔 I didn't have anything to say to that.");
+
+        foreach (var staged in turn.StagedActions)
+            await PostStagedActionAsync(message, staged);
+    }
+
+    /// <summary>
+    /// Answers from the agent loop running inside this process, on a host with no assistant leaf.
+    /// </summary>
+    private async Task AnswerLocallyAsync(SocketUserMessage message, string prompt, bool canPerformActions)
+    {
+        AssistantResult result;
+        // Attribute any server mutation the LLM runs this turn to the asking Discord user
+        // (origin=discord). Flows down the awaited RunAsync → tool dispatch → kgsm chokepoint.
+        // (Destructive ops are usually staged for a confirmation click — re-attributed there — but
+        // wrapping the turn covers any inline execution too.)
+        using var provenance = _invocation.Begin(Invocation.ForDiscordUser(message.Author.Username));
+        using (message.Channel.EnterTypingState())
+        {
+            // Conversation key for memory: per (user, channel). The assistant
+            // treats this as an opaque id (a web client would supply its own).
+            result = await _assistant.RunAsync(
+                $"{message.Author.Id}:{message.Channel.Id}", prompt, canPerformActions);
+        }
+
+        if (result.IsFailure)
+        {
+            _logger.LogWarning("Agent run failed: {Error}", result.Error);
+            await message.ReplyAsync($"⚠️ {result.Error}");
+            return;
+        }
+
+        var reply = result.Text;
+        if (!string.IsNullOrWhiteSpace(reply))
+            await message.ReplyAsync(Truncate(reply, DiscordMessageLimit));
+        else if (result.Confirmations.Count == 0)
+            await message.ReplyAsync("🤔 I didn't have anything to say to that.");
+
+        // Each staged destructive op gets its own confirmation prompt with buttons.
+        // Nothing runs until a permitted human clicks Confirm (see ConfirmationModule).
+        foreach (var confirmation in result.Confirmations)
+            await PostConfirmationAsync(message, confirmation);
+    }
+
+    /// <summary>
+    /// Reports an action the assistant staged, and points at the command that performs it.
+    /// </summary>
+    /// <remarks>
+    /// A click is not carried back to the assistant, so the grant it issued cannot be redeemed from
+    /// here and no button is offered. Naming the action is what keeps the reply honest: the assistant
+    /// has said it will do something, and the person reading needs to know it has not.
+    /// </remarks>
+    private static async Task PostStagedActionAsync(SocketUserMessage message, StagedAction staged)
+    {
+        var what = staged.Kind switch
+        {
+            "setconfig" => $"set `{staged.ConfigKey}` on **{staged.Target}**",
+            "install" => $"install **{staged.Target}**"
+                + (staged.InstanceName is null ? "" : $" as `{staged.InstanceName}`"),
+            _ => $"{staged.Kind} **{staged.Target}**",
+        };
+
+        await message.ReplyAsync(
+            $"⚠️ I staged *{what}*, but confirming an action from a chat message isn't something " +
+            "I can carry through — use the slash command for it.");
+    }
+
+    /// <summary>
     /// Posts a confirmation prompt for a staged destructive op, with Confirm/Cancel
     /// buttons. Execution happens only on a Confirm click, handled (and re-authorized)
-    /// by <see cref="ConfirmationModule"/>.
+    /// by <see cref="Commands.ConfirmationModule"/>.
     /// </summary>
     private async Task PostConfirmationAsync(SocketUserMessage message, PendingConfirmation confirmation)
     {

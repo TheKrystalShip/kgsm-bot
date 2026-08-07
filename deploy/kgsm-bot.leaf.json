@@ -57,14 +57,19 @@
       "order": 7
     },
     {
+      "id": "assistant",
+      "label": "Assistant",
+      "order": 8
+    },
+    {
       "id": "model",
       "label": "Model",
-      "order": 8
+      "order": 9
     },
     {
       "id": "agent",
       "label": "Agent loop",
-      "order": 9
+      "order": 10
     }
   ],
   "fields": [
@@ -436,6 +441,38 @@
       "type": "int",
       "default": "600",
       "min": 0,
+      "unit": "s",
+      "risk": "safe"
+    },
+    {
+      "key": "assistantBaseUrl",
+      "env": "Assistant__BaseUrl",
+      "label": "Assistant address",
+      "description": "Where the assistant service is reached. It is normally on this same machine. Left blank, the bot still runs commands and announces, and only answering questions is unavailable.",
+      "group": "assistant",
+      "type": "string",
+      "default": "",
+      "risk": "wiring"
+    },
+    {
+      "key": "assistantRelaySecret",
+      "env": "Assistant__RelaySecret",
+      "label": "Assistant relay secret",
+      "description": "Shared secret the assistant recognises this bot by. It has to match the assistant's own, and without it the assistant refuses every question the bot asks on someone's behalf.",
+      "group": "assistant",
+      "type": "secret",
+      "default": "",
+      "risk": "wiring"
+    },
+    {
+      "key": "assistantTimeoutSec",
+      "env": "Assistant__TimeoutSeconds",
+      "label": "Answer timeout",
+      "description": "How long to wait for an answer before giving up. A question that has the assistant check several servers takes longer than a simple one.",
+      "group": "assistant",
+      "type": "int",
+      "default": "300",
+      "min": 1,
       "unit": "s",
       "risk": "safe"
     },
