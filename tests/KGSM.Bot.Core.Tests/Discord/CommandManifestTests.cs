@@ -64,16 +64,25 @@ public sealed class CommandManifestTests
     private static string PathOf(SlashCommandInfo cmd) =>
         string.IsNullOrEmpty(cmd.Module.SlashGroupName) ? cmd.Name : cmd.Module.SlashGroupName + " " + cmd.Name;
 
+    // Every command the manifest lists, whichever gate bucket it sits under. The buckets are what the
+    // panel reads; these tests are about the catalog being complete and truthful, which is a property
+    // of the whole of it.
+    private static IReadOnlyList<BotCommand> AllCommands(CommandManifest manifest) =>
+        [.. manifest.Gates.Values.SelectMany(c => c)];
+
     [Fact]
     public async Task TheManifestListsExactlyTheCommandsTheBotRegisters()
     {
         IReadOnlyList<SlashCommandInfo> registered = await RegisteredAsync();
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
-        manifest.Commands.Select(c => c.Name).Should().BeEquivalentTo(registered.Select(PathOf));
-        manifest.Commands.Select(c => c.Name).Should().BeInAscendingOrder(StringComparer.Ordinal,
-            "the file is committed, and reflection order is not stable enough to diff against");
-        manifest.Commands.Should().NotBeEmpty();
+        AllCommands(manifest).Select(c => c.Name).Should().BeEquivalentTo(registered.Select(PathOf));
+        foreach ((string gate, IReadOnlyList<BotCommand> bucket) in manifest.Gates)
+        {
+            bucket.Select(c => c.Name).Should().BeInAscendingOrder(StringComparer.Ordinal,
+                "the file is committed, and reflection order is not stable enough to diff against ({0})", gate);
+        }
+        AllCommands(manifest).Should().NotBeEmpty();
     }
 
     [Fact]
@@ -84,7 +93,7 @@ public sealed class CommandManifestTests
 
         foreach (SlashCommandInfo cmd in registered)
         {
-            BotCommand listed = manifest.Commands.Single(c => c.Name == PathOf(cmd));
+            BotCommand listed = AllCommands(manifest).Single(c => c.Name == PathOf(cmd));
             listed.Description.Should().Be(cmd.Description).And.NotBeNullOrWhiteSpace();
         }
     }
@@ -102,7 +111,7 @@ public sealed class CommandManifestTests
 
         foreach (SlashCommandInfo cmd in registered)
         {
-            BotCommand listed = manifest.Commands.Single(c => c.Name == PathOf(cmd));
+            BotCommand listed = AllCommands(manifest).Single(c => c.Name == PathOf(cmd));
             listed.Options.Should().HaveCount(cmd.Parameters.Count);
 
             foreach ((CommandOption option, SlashCommandParameterInfo p) in listed.Options.Zip(cmd.Parameters))
@@ -129,7 +138,7 @@ public sealed class CommandManifestTests
     {
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
-        manifest.Commands.Where(c => c.Mutates).Select(c => c.Name)
+        AllCommands(manifest).Where(c => c.Mutates).Select(c => c.Name)
             .Should().BeEquivalentTo(["start", "stop", "restart", "install", "uninstall"]);
     }
 
@@ -142,7 +151,14 @@ public sealed class CommandManifestTests
     [Fact]
     public void EveryMutatingCommandIsGatedAtTheTierTheManifestClaims()
     {
-        CommandManifest.Build(BotAssembly).Gate.Should().Be(KgsmTiers.Operator);
+        CommandManifest manifest = CommandManifest.Build(BotAssembly);
+
+        // Every command that acts sits under the operator bucket, and no command that only reads does —
+        // the bucket IS the claim, so a mutating command landing anywhere else is the drift this catches.
+        manifest.Gates[KgsmTiers.Operator].Should().OnlyContain(c => c.Mutates);
+        manifest.Gates[CommandManifest.NoGate].Should().OnlyContain(c => !c.Mutates);
+        AllCommands(manifest).Where(c => c.Mutates).Select(c => c.Name)
+            .Should().BeEquivalentTo(manifest.Gates[KgsmTiers.Operator].Select(c => c.Name));
 
         IEnumerable<MethodInfo> mutating = BotAssembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))

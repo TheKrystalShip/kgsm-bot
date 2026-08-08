@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the command manifest is keyed by gate (schemaVersion 2)
+
+`deploy/kgsm-bot.commands.json` groups commands under the gate that admits them rather than carrying
+one leaf-wide `gate` beside a flat list. Commands that act sit under `operator` — the tier
+`[Mutating]` already enforces — and commands that only read sit under `none`, the bot stating that it
+checks nothing of its own for them beyond the guild membership every module requires.
+
+Keying by gate means a command cannot be added without landing in a bucket, the same property that
+makes `[Mutating]` both the mark and the gate. `CommandManifestTests` now holds the buckets against
+what the modules enforce: nothing mutating outside `operator`, nothing read-only inside it.
+
+Format: `../leaf-command-manifest.md`. kgsm-api reads both versions, so this needs no deploy ordering.
+
 ### Removed — the second assistant engine, and everything that served it
 
 The bot no longer runs a model. `TheKrystalShip.Llm` and `TheKrystalShip.Kgsm.Assistant` are gone

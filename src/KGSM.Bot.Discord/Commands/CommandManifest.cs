@@ -52,20 +52,20 @@ internal sealed record BotCommand(
 /// command cannot be listed that does not exist or renamed without the list following.
 /// </para>
 /// <para>
-/// <c>Gate</c> is what this bot itself requires of whoever runs a <see cref="BotCommand.Mutates"/>
-/// command — the tier from the ecosystem's shared role map, so the panel prints the same word that
-/// decides the answer everywhere else.
+/// The catalog is <strong>keyed by the gate that admits each command</strong> — the tier from the
+/// ecosystem's shared role map, so the panel prints the same word that decides the answer everywhere
+/// else. Keying by gate means a command cannot be added without landing in a bucket, which is the
+/// same property that makes <see cref="MutatingAttribute"/> both the mark and the gate.
 /// </para>
 /// </summary>
 internal sealed record CommandManifest(
     int SchemaVersion,
     string Leaf,
     string Surface,
-    string Gate,
-    IReadOnlyList<BotCommand> Commands)
+    IReadOnlyDictionary<string, IReadOnlyList<BotCommand>> Gates)
 {
     /// <summary>The schema readers match on. A reader that does not know the version skips the file.</summary>
-    public const int Version = 1;
+    public const int Version = 2;
 
     /// <summary>
     /// The leaf id this manifest belongs to — the same id the config descriptor declares and the
@@ -80,6 +80,13 @@ internal sealed record CommandManifest(
     /// </summary>
     public const string SlashCommandGate = KgsmTiers.Operator;
 
+    /// <summary>
+    /// The bucket a command sits in when this bot checks nothing of its own before running it. Not a
+    /// gap — a statement, so the panel can say plainly that the only restriction on a read command is
+    /// whatever Discord itself imposes.
+    /// </summary>
+    public const string NoGate = "none";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -92,13 +99,20 @@ internal sealed record CommandManifest(
         SchemaVersion: Version,
         Leaf: LeafId,
         Surface: "discord",
-        Gate: SlashCommandGate,
-        Commands: [.. assembly.GetTypes()
+        Gates: assembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
             .SelectMany(CommandsIn)
-            // Reflection makes no promise about the order it returns types or methods in, and this
-            // file is committed — an unordered write would show up as a diff on an unrelated build.
-            .OrderBy(c => c.Name, StringComparer.Ordinal)]);
+            // A command that ACTS is refused below the slash-command gate before its body runs; one that
+            // only reads needs guild membership, which the shared role map already floors at viewer — so
+            // this bot states no check of its own for those.
+            .GroupBy(c => c.Mutates ? SlashCommandGate : NoGate, StringComparer.Ordinal)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .ToDictionary(
+                g => g.Key,
+                // Reflection makes no promise about the order it returns types or methods in, and this
+                // file is committed — an unordered write would show up as a diff on an unrelated build.
+                g => (IReadOnlyList<BotCommand>)[.. g.OrderBy(c => c.Name, StringComparer.Ordinal)],
+                StringComparer.Ordinal));
 
     /// <summary>Generate the manifest and write it where the deploy expects to find it.</summary>
     public static void WriteTo(string path)
