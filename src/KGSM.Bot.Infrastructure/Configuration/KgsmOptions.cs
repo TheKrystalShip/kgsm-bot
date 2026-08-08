@@ -48,6 +48,24 @@ public class KgsmOptions
         Risk = LeafRisk.Wiring)]
     public string WatchdogSocketPath { get; set; } = "/run/kgsm-watchdog/control.sock";
 
+    /// <summary>
+    /// Where the bot serves its one-line status snapshot: gateway state, the guild it resolved, the
+    /// channels it holds, and which announcements are switched on. One JSON line per connection, then
+    /// close — the same NDJSON-over-unix-socket shape kgsm-scheduler serves, and deliberately not HTTP:
+    /// a Discord bot carries no web stack, and a tiny private protocol is enough for the one consumer.
+    /// </summary>
+    /// <remarks>
+    /// This is also how the Control Panel gets a real health signal for this leaf. systemd liveness says
+    /// the process is up, which is exactly the state the bot is in when its guild failed to populate and
+    /// it can post nothing — reading a status line proves the gateway and the guild, not just the process.
+    /// Blank disables the server entirely.
+    /// </remarks>
+    /// <panel>Where the bot publishes its status for the Control Panel to read — gateway state, the
+    /// resolved guild, and its channel map. Leave blank to serve no status at all.</panel>
+    [LeafField("statusSocketPath", "Status socket", Group = "kgsm", Type = LeafType.Path,
+        Risk = LeafRisk.Wiring)]
+    public string StatusSocketPath { get; set; } = "/run/kgsm-bot/status.sock";
+
     public Dictionary<string, BlueprintSettings> Blueprints { get; set; } = new();
     public Dictionary<string, InstanceSettings> Instances { get; set; } = new();
 }

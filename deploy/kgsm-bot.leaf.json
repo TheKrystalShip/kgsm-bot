@@ -411,6 +411,16 @@
       "risk": "wiring"
     },
     {
+      "key": "statusSocketPath",
+      "env": "KGSM__StatusSocketPath",
+      "label": "Status socket",
+      "description": "Where the bot publishes its status for the Control Panel to read — gateway state, the resolved guild, and its channel map. Leave blank to serve no status at all.",
+      "group": "kgsm",
+      "type": "path",
+      "default": "/run/kgsm-bot/status.sock",
+      "risk": "wiring"
+    },
+    {
       "key": "cacheInstancesTtlSec",
       "env": "KgsmCache__InstancesTtlSeconds",
       "label": "Server list cache",

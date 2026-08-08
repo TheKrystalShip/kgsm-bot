@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A status socket** (`KGSM__StatusSocketPath`, default `/run/kgsm-bot/status.sock`) serving one JSON
+  line per connection: gateway connection state and latency, the guild the client actually resolved,
+  the instance→channel map with per-channel reachability, the registered command count, and every
+  announcement switch. Same NDJSON-over-unix-socket shape kgsm-scheduler serves — a Discord bot carries
+  no web stack, and there is one consumer.
+
+  Reading that line is also the first real health signal this leaf has had. systemd liveness and the
+  gateway's own state both read healthy in exactly the situation where the guild failed to populate and
+  the bot can post nothing at all; the resolved guild is what distinguishes them.
+
 ### Changed — the command manifest is keyed by gate (schemaVersion 2)
 
 `deploy/kgsm-bot.commands.json` groups commands under the gate that admits them rather than carrying

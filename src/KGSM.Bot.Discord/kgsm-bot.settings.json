@@ -82,6 +82,7 @@
     "Path": "/usr/local/bin/kgsm",
     "JournalDir": "/var/lib/kgsm/events",
     "WatchdogSocketPath": "/run/kgsm-watchdog/control.sock",
+    "StatusSocketPath": "/run/kgsm-bot/status.sock",
     "Blueprints": {
       "7dtd": {
         "OnlineTrigger": "INF StartGame done"

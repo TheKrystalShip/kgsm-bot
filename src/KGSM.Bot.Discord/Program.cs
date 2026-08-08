@@ -89,5 +89,10 @@ public class Program
 
                 // Register hosted service
                 services.AddHostedService<BotService>();
+
+                // Publishes the bot's status on a unix socket for the Control Panel to read. Runs
+                // beside the bot rather than inside it: it must be able to report a gateway that never
+                // connected, which a service hanging off the client's Ready event could not.
+                services.AddHostedService<StatusSocketServer>();
             });
 }
