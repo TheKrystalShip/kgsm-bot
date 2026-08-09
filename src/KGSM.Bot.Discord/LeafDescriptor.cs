@@ -52,10 +52,10 @@ using TheKrystalShip.KGSM.LeafConfig;
 // Who may act is not in this section. It is the KGSM account behind a Discord account, in the store
 // declared on AuthOptions over in KGSM.Bot.Infrastructure.
 
-[assembly: LeafFrameworkField("authClientId", "KgsmAuth__ClientId", "Discord application id",
+[assembly: LeafFrameworkField("authClientId", "KgsmAuth__Providers__discord__ClientId", "Discord application id",
     Description = "The Discord application people sign in through on the surfaces that have a sign-in. The bot itself does not, and works without this.",
     Group = "authorization", NoDefault = true)]
 
-[assembly: LeafFrameworkField("authClientSecret", "KgsmAuth__ClientSecret", "Discord application secret",
+[assembly: LeafFrameworkField("authClientSecret", "KgsmAuth__Providers__discord__ClientSecret", "Discord application secret",
     Description = "Secret for that application. Only the surfaces with a sign-in use it; the bot does not.",
     Group = "authorization", Type = LeafType.Secret, NoDefault = true)]

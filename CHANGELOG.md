@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **The bot no longer binds the shared `KgsmAuth` section.** It signs nobody in and nothing read the
+  binding; who may act comes from the KGSM account store. It still describes the host's Discord
+  application on its configuration page, which is a descriptor and needs no binding.
+
 ### Changed
 
+- Tracks `TheKrystalShip.KGSM.Auth` 3.0.0, whose `KgsmAuth` section holds a host's OAuth
+  applications keyed by provider (`KgsmAuth__Providers__discord__ClientId`).
+- **The shared credentials file is `/etc/kgsm/kgsm-auth.env`** — it holds a host's sign-in
+  applications, which is what it now says.
 - **Authority comes from the KGSM account store** (`Auth__UsersDbPath`, default
   `/var/lib/kgsm/auth/users.db`) instead of from a Discord guild role. A Discord account says who
   somebody is; the KGSM account it is connected to says what they may do — the same record the Control

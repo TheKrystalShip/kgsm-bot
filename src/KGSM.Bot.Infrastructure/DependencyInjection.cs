@@ -12,7 +12,6 @@ using Discord;
 using Discord.WebSocket;
 using Discord.Interactions;
 
-using TheKrystalShip.KGSM.Auth;
 using TheKrystalShip.KGSM.Extensions;
 
 namespace KGSM.Bot.Infrastructure;
@@ -43,11 +42,6 @@ public static class DependencyInjection
         // reports itself unconfigured and the conversational surface stays off, which is what
         // "a leaf runs standalone" means for an optional sibling.
         services.AddSingleton<IAssistantTurnClient, Assistant.AssistantTurnClient>();
-
-        // The shared Discord application. The bot signs nobody in, so it binds this only so the
-        // Control Panel can show the whole host's auth block in one place.
-        services.Configure<KgsmAuthOptions>(
-            configuration.GetSection(KgsmAuthOptions.Section));
 
         // This host's KGSM accounts — the one answer to who may act, shared with the Control Panel
         // and the assistant. A singleton because it holds the open store; opening it is what can

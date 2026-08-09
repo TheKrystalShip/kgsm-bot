@@ -156,7 +156,7 @@ deriving an answer.
 
 **A guild role grants nothing, and neither does guild membership.** The gate is having an account
 here, which an admin granted — strictly narrower than being in the Discord server, and the reason the
-slash commands are safe registered globally. `/etc/kgsm/discord-auth.env` carries the sign-in
+slash commands are safe registered globally. `/etc/kgsm/kgsm-auth.env` carries the sign-in
 application and nothing else.
 
 The store is opened **directly off the file**, not asked for over HTTP: a file cannot be down, so the

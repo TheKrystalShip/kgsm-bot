@@ -103,7 +103,7 @@
     },
     {
       "key": "authClientId",
-      "env": "KgsmAuth__ClientId",
+      "env": "KgsmAuth__Providers__discord__ClientId",
       "label": "Discord application id",
       "description": "The Discord application people sign in through on the surfaces that have a sign-in. The bot itself does not, and works without this.",
       "group": "authorization",
@@ -112,7 +112,7 @@
     },
     {
       "key": "authClientSecret",
-      "env": "KgsmAuth__ClientSecret",
+      "env": "KgsmAuth__Providers__discord__ClientSecret",
       "label": "Discord application secret",
       "description": "Secret for that application. Only the surfaces with a sign-in use it; the bot does not.",
       "group": "authorization",

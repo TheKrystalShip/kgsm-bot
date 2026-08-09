@@ -25,8 +25,12 @@
   // Panel can show the host's whole sign-in block in one place. The secret is delivered by the
   // environment. Owned by TheKrystalShip.KGSM.Auth.
   "KgsmAuth": {
-    "ClientId": "",
-    "ClientSecret": ""
+    "Providers": {
+      "discord": {
+        "ClientId": "",
+        "ClientSecret": ""
+      }
+    }
   },
 
   // Who may do what here. A Discord account says who somebody is; the KGSM account it is connected to
