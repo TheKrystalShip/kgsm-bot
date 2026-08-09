@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Tracks `TheKrystalShip.KGSM.Auth` 1.1.0. The bot resolves authority from gateway role snowflakes
+  through the same `KgsmRoleMap` as before; nothing about its own auth path changes.
+
 ### Added
 - **A status socket** (`KGSM__StatusSocketPath`, default `/run/kgsm-bot/status.sock`) serving one JSON
   line per connection: gateway connection state and latency, the guild the client actually resolved,

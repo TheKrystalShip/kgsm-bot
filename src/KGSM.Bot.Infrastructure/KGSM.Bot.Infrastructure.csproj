@@ -35,7 +35,7 @@
     <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
          /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
     <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="3.1.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="1.0.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="1.1.0" />
     <!-- The assistant leaf's own relay contract: the headers that carry who is asking and what they
          may do. Published by the service that reads them, so this bot and the Control Panel API
          cannot come to spell an identity differently. -->

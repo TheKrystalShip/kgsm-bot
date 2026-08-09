@@ -17,6 +17,6 @@
     <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="3.1.0" />
     <!-- The ecosystem's shared authority ladder. A question put to the assistant carries the asker's
          tier, so the type that spells it belongs with the interfaces rather than being re-stated. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="1.0.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="1.1.0" />
   </ItemGroup>
 </Project>
