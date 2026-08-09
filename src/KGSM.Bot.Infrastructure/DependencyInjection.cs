@@ -1,4 +1,5 @@
 using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 using Internal = KGSM.Bot.Infrastructure.Configuration;
 using KGSM.Bot.Infrastructure.Discord;
@@ -43,13 +44,16 @@ public static class DependencyInjection
         // "a leaf runs standalone" means for an optional sibling.
         services.AddSingleton<IAssistantTurnClient, Assistant.AssistantTurnClient>();
 
-        // The ecosystem's shared role map. Bound once and registered as the resolved map rather than
-        // as options, because every caller wants the same answer and the map is immutable — a gate
-        // that re-read configuration per request could disagree with the one beside it.
+        // The shared Discord application. The bot signs nobody in, so it binds this only so the
+        // Control Panel can show the whole host's auth block in one place.
         services.Configure<KgsmAuthOptions>(
             configuration.GetSection(KgsmAuthOptions.Section));
-        services.AddSingleton(sp =>
-            sp.GetRequiredService<IOptions<KgsmAuthOptions>>().Value.ToRoleMap());
+
+        // This host's KGSM accounts — the one answer to who may act, shared with the Control Panel
+        // and the assistant. A singleton because it holds the open store; opening it is what can
+        // fail, and it fails into an unavailable directory rather than out of the constructor.
+        services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.Section));
+        services.AddSingleton<IKgsmAccounts, KgsmAccounts>();
 
         // Register Discord services
         services.AddDiscordServices();

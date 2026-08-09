@@ -44,18 +44,13 @@ using TheKrystalShip.KGSM.LeafConfig;
     Values = ["Trace", "Debug", "Information", "Warning", "Error", "Critical"])]
 
 // ── TheKrystalShip.KGSM.Auth's section, described for this surface ───────────
-// The shared authorization block. The type lives in the auth package, which is deliberately free of
+// The shared Discord application. The type lives in the auth package, which is deliberately free of
 // every dependency including this one, so its keys are described here. The values are shared with the
 // Control Panel API and the assistant: a host that changes them here without changing them there
-// gives one person two different answers.
-
-[assembly: LeafFrameworkField("authGuildId", "KgsmAuth__GuildId", "Discord server id",
-    Description = "The Discord server whose membership and roles decide who may do what. Someone who is not in it is refused outright.",
-    Group = "authorization", Risk = LeafRisk.Wiring, NoDefault = true)]
-
-[assembly: LeafFrameworkField("authBotToken", "KgsmAuth__BotToken", "Role lookup token",
-    Description = "Token used to read which roles a person holds. Sign-in itself never asks Discord for roles, so without this nobody can be elevated above read-only.",
-    Group = "authorization", Type = LeafType.Secret, Risk = LeafRisk.Wiring, NoDefault = true)]
+// points two surfaces at two different applications.
+//
+// Who may act is not in this section. It is the KGSM account behind a Discord account, in the store
+// declared on AuthOptions over in KGSM.Bot.Infrastructure.
 
 [assembly: LeafFrameworkField("authClientId", "KgsmAuth__ClientId", "Discord application id",
     Description = "The Discord application people sign in through on the surfaces that have a sign-in. The bot itself does not, and works without this.",
@@ -64,11 +59,3 @@ using TheKrystalShip.KGSM.LeafConfig;
 [assembly: LeafFrameworkField("authClientSecret", "KgsmAuth__ClientSecret", "Discord application secret",
     Description = "Secret for that application. Only the surfaces with a sign-in use it; the bot does not.",
     Group = "authorization", Type = LeafType.Secret, NoDefault = true)]
-
-[assembly: LeafFrameworkField("authRoleAdminIds", "KgsmAuth__RoleAdminIds", "Admin roles",
-    Description = "Comma-separated role ids granting admin — host settings, and reading other people\u0027s conversations. Admin includes everything an operator may do.",
-    Group = "authorization", Risk = LeafRisk.Wiring, NoDefault = true)]
-
-[assembly: LeafFrameworkField("authRoleOperatorIds", "KgsmAuth__RoleOperatorIds", "Operator roles",
-    Description = "Comma-separated role ids granting operator — starting, stopping, installing and uninstalling servers. Empty means nobody can act, from any surface.",
-    Group = "authorization", Risk = LeafRisk.Wiring, NoDefault = true)]

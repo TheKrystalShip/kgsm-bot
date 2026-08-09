@@ -128,10 +128,12 @@ public class InteractionHandler
 
             switch (result.Error)
             {
+                // Printed verbatim. The precondition writes a whole sentence saying which refusal
+                // this is — no account connected, an account switched off, a tier too low, or a
+                // store that could not be read — and prefixing "you don't have permission" onto any
+                // of the last three states the one thing that is not true about it.
                 case InteractionCommandError.UnmetPrecondition:
-                    await context.Interaction.RespondAsync(
-                        $"You don't have permission to use this command: {result.ErrorReason}",
-                        ephemeral: true);
+                    await context.Interaction.RespondAsync(result.ErrorReason, ephemeral: true);
                     break;
                 case InteractionCommandError.UnknownCommand:
                     _logger.LogWarning("Unknown command was invoked");

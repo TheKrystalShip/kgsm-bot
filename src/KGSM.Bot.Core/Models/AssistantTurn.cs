@@ -9,8 +9,8 @@ namespace KGSM.Bot.Core.Models;
 /// <param name="UserId">The Discord snowflake of the person asking. Their memory is keyed under it.</param>
 /// <param name="DisplayName">Their name, for the assistant to address them by.</param>
 /// <param name="Tier">
-/// The authority resolved from the roles they hold right now, which decides whether the assistant may
-/// propose an action for them or only read.
+/// The authority their KGSM account holds right now, which decides whether the assistant may propose
+/// an action for them or only read.
 /// </param>
 /// <param name="ConversationId">
 /// Which of this person's conversations to continue — the channel they asked in, so a thread in one

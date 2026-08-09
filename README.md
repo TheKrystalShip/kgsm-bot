@@ -29,7 +29,7 @@ with Windows, try at your own risk.
 
 `src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's whole configurable surface with
 its defaults, and ships beside the binary. It holds no secret: the token and this host's Discord
-server, category and role belong in the environment file, which overrides one key of that file at a
+server and category belong in the environment file, which overrides one key of that file at a
 time by spelling the key's path with `__`. (The per-server channel map stays in the settings file —
 systemd refuses an environment variable whose name contains a hyphen, and a server may be called
 `minecraft-homestead`.)

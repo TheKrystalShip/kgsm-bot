@@ -7,6 +7,7 @@ using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Commands;
+using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -45,7 +46,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IInvocationContext>());
         services.AddSingleton(Substitute.For<IAssistantTurnClient>());
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
-        services.AddSingleton(KgsmRoleMap.Empty);
+        services.AddSingleton(Substitute.For<IKgsmAccounts>());
         return services.BuildServiceProvider();
     }
 
@@ -177,10 +178,9 @@ public sealed class CommandManifestTests
     }
 
     /// <summary>
-    /// Reading is gated too: every module carrying slash commands requires guild membership, which the
-    /// shared role map floors at viewer. Without it a slash command run in a DM — where there is no
-    /// member object to read roles from — would list this host's servers to someone who is not in the
-    /// guild at all.
+    /// Reading is gated too: every module carrying slash commands requires an account on this host.
+    /// Without it, a slash command would list this host's servers to any Discord account that can
+    /// reach the bot — including in a DM, since the commands are registered globally.
     /// </summary>
     /// <remarks>
     /// Scoped to the modules that declare slash commands. <c>ConfirmationModule</c> answers button

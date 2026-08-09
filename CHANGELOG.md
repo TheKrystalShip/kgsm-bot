@@ -9,8 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Tracks `TheKrystalShip.KGSM.Auth` 1.1.0. The bot resolves authority from gateway role snowflakes
-  through the same `KgsmRoleMap` as before; nothing about its own auth path changes.
+- **Authority comes from the KGSM account store** (`Auth__UsersDbPath`, default
+  `/var/lib/kgsm/auth/users.db`) instead of from a Discord guild role. A Discord account says who
+  somebody is; the KGSM account it is connected to says what they may do — the same record the Control
+  Panel and the assistant read, so all four surfaces now agree by construction rather than by each
+  deriving an answer. Guild membership and guild roles grant nothing anywhere.
+
+  **A Discord account connected to no KGSM account can no longer use the bot**, and is told so
+  explicitly with how to connect it — never an opaque permission error. Everyone who has signed in to
+  the Control Panel already has an account, and it is already connected.
+
+  The refusal says which of four things happened: no account connected, an account switched off, a
+  tier too low, or a store that could not be read. The last is deliberately not a denial — "we could
+  not ask" is a different fact from "the answer is no", and reporting the first as the second would
+  demote an admin mid-incident.
+
+- Tracks `TheKrystalShip.KGSM.Auth` 2.0.0 and takes `TheKrystalShip.KGSM.Auth.Users` 1.2.0.
+  `KgsmAuth` is now the sign-in application alone; `KgsmAuth__GuildId`, `BotToken`, `RoleAdminIds`
+  and `RoleOperatorIds` bind to nothing and are gone from the settings file and the leaf descriptor.
 
 ### Added
 - **A status socket** (`KGSM__StatusSocketPath`, default `/run/kgsm-bot/status.sock`) serving one JSON

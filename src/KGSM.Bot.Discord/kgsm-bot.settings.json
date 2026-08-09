@@ -20,18 +20,22 @@
   // "minecraft-homestead". Delivered through the env file, those entries are dropped with an
   // "Ignoring invalid environment assignment" in the journal and the server is given a new channel
   // on its next event. This file is the only source that can express every name, so the map lives here.
-  // Who may do what on this host, shared with the Control Panel API and the assistant so the same
-  // person gets the same authority whichever surface they reach KGSM through. Guild membership is the
-  // access gate and floors a member at viewer; the role ids below elevate. Both lists empty leaves
-  // everyone at viewer, so nothing acts until they are set. The secrets are delivered by the
+  // The Discord application the host signs people in through, shared with the Control Panel API and
+  // the assistant. The bot signs nobody in and needs neither key; it declares them so the Control
+  // Panel can show the host's whole sign-in block in one place. The secret is delivered by the
   // environment. Owned by TheKrystalShip.KGSM.Auth.
   "KgsmAuth": {
-    "GuildId": "",
     "ClientId": "",
-    "ClientSecret": "",
-    "BotToken": "",
-    "RoleAdminIds": "",
-    "RoleOperatorIds": ""
+    "ClientSecret": ""
+  },
+
+  // Who may do what here. A Discord account says who somebody is; the KGSM account it is connected to
+  // says what they may do, and that account is the only thing consulted — a guild role is a fact
+  // about a chat server and grants nothing. One file per host, shared with the Control Panel API and
+  // the assistant, so the same person holds the same tier on all three. Read straight off disk: a
+  // file cannot be down, so the bot keeps authorizing people with every other leaf stopped.
+  "Auth": {
+    "UsersDbPath": "/var/lib/kgsm/auth/users.db"
   },
 
   "Discord": {

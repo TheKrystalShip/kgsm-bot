@@ -30,7 +30,7 @@ public class AssistantOptions
     /// <remarks>
     /// The same value the assistant is configured with (<c>Assistant__Relay__Secret</c>). It
     /// authenticates the bot as a trusted relay — the identity and the authority it then forwards are
-    /// the asking person's, measured from their Discord roles, never this secret's.
+    /// the asking person's, read from their KGSM account, never this secret's.
     /// </remarks>
     /// <panel>Shared secret the assistant recognises this bot by. It has to match the assistant's own,
     /// and without it the assistant refuses every question the bot asks on someone's behalf.</panel>

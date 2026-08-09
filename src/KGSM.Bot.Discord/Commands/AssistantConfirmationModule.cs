@@ -4,6 +4,7 @@ using Discord.WebSocket;
 
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
+using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
 
@@ -30,16 +31,16 @@ namespace KGSM.Bot.Discord.Commands;
 public class AssistantConfirmationModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IAssistantTurnClient _assistant;
-    private readonly KgsmRoleMap _roleMap;
+    private readonly IKgsmAccounts _accounts;
     private readonly ILogger<AssistantConfirmationModule> _logger;
 
     public AssistantConfirmationModule(
         IAssistantTurnClient assistant,
-        KgsmRoleMap roleMap,
+        IKgsmAccounts accounts,
         ILogger<AssistantConfirmationModule> logger)
     {
         _assistant = assistant;
-        _roleMap = roleMap;
+        _accounts = accounts;
         _logger = logger;
     }
 
@@ -47,14 +48,13 @@ public class AssistantConfirmationModule : InteractionModuleBase<SocketInteracti
     [ComponentInteraction(AssistantConfirmationIds.ConfirmPrefix + "*")]
     public async Task ConfirmAsync(string token)
     {
-        // Re-resolved at the click rather than trusted from the staging turn: the roles someone held
-        // when the button was posted are not the roles they hold now. A refusal leaves the prompt
-        // standing, so whoever IS permitted can still use it.
-        var tier = _roleMap.ResolveSnowflakes(
-            (Context.User as SocketGuildUser)?.Roles.Select(r => r.Id));
-        if (tier < KgsmTier.Operator)
+        // Re-resolved at the click rather than trusted from the staging turn: the account someone
+        // held when the button was posted is not necessarily the one they hold now. A refusal leaves
+        // the prompt standing, so whoever IS permitted can still use it.
+        AccountAnswer account = await _accounts.ResolveAsync(Context.User.Id);
+        if (!account.Allows(KgsmTier.Operator))
         {
-            await RespondAsync("⛔ You don't have permission to confirm server actions.", ephemeral: true);
+            await RespondAsync(account.Refusal(KgsmTier.Operator), ephemeral: true);
             return;
         }
 
@@ -72,7 +72,7 @@ public class AssistantConfirmationModule : InteractionModuleBase<SocketInteracti
         // No provenance scope: the action runs in the assistant's process, which records it from the
         // identity and the leaf name this call carries. Nothing here reaches kgsm from inside the bot.
         var result = await _assistant.ConfirmAsync(new AssistantApproval(
-            Context.User.Id.ToString(), Context.User.Username, tier, token));
+            Context.User.Id.ToString(), Context.User.Username, account.Tier, token));
 
         if (result.IsFailure)
         {

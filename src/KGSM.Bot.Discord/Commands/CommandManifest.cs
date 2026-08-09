@@ -53,7 +53,7 @@ internal sealed record BotCommand(
 /// </para>
 /// <para>
 /// The catalog is <strong>keyed by the gate that admits each command</strong> — the tier from the
-/// ecosystem's shared role map, so the panel prints the same word that decides the answer everywhere
+/// caller's KGSM account, so the panel prints the same word that decides the answer everywhere
 /// else. Keying by gate means a command cannot be added without landing in a bucket, which is the
 /// same property that makes <see cref="MutatingAttribute"/> both the mark and the gate.
 /// </para>
@@ -75,8 +75,8 @@ internal sealed record CommandManifest(
 
     /// <summary>
     /// A mutating slash command requires <see cref="KgsmTier.Operator"/>, enforced by
-    /// <see cref="MutatingAttribute"/> before the command body runs. Read commands require guild
-    /// membership, which the shared role map floors at <see cref="KgsmTier.Viewer"/>.
+    /// <see cref="MutatingAttribute"/> before the command body runs. Read commands require an account
+    /// on this host, which is <see cref="KgsmTier.Viewer"/> at its lowest.
     /// </summary>
     public const string SlashCommandGate = KgsmTiers.Operator;
 
@@ -103,7 +103,7 @@ internal sealed record CommandManifest(
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
             .SelectMany(CommandsIn)
             // A command that ACTS is refused below the slash-command gate before its body runs; one that
-            // only reads needs guild membership, which the shared role map already floors at viewer — so
+            // only reads needs no more than an account on this host, which is viewer at its lowest — so
             // this bot states no check of its own for those.
             .GroupBy(c => c.Mutates ? SlashCommandGate : NoGate, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal)

@@ -7,6 +7,7 @@ using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
+using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
 
@@ -33,18 +34,18 @@ public class MessageHandler
 
     private readonly DiscordSocketClient _client;
     private readonly IAssistantTurnClient _assistant;
-    private readonly KgsmRoleMap _roleMap;
+    private readonly IKgsmAccounts _accounts;
     private readonly ILogger<MessageHandler> _logger;
 
     public MessageHandler(
         DiscordSocketClient client,
         IAssistantTurnClient assistant,
-        KgsmRoleMap roleMap,
+        IKgsmAccounts accounts,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
-        _roleMap = roleMap;
+        _accounts = accounts;
         _logger = logger;
     }
 
@@ -109,17 +110,23 @@ public class MessageHandler
                 return;
             }
 
-            // The authority the author holds right now, from the roles the gateway already handed us,
-            // out of the same role map the Control Panel and the assistant answer with. Reading is
-            // open to any guild member; acting needs operator, and a host that configured no role ids
-            // leaves everyone at viewer so nothing acts until they are set.
-            var tier = _roleMap.ResolveSnowflakes(
-                (message.Author as SocketGuildUser)?.Roles.Select(r => r.Id));
-            _logger.LogDebug(
-                "Assistant prompt from {User} ({UserId}, tier={Tier}): {Prompt}",
-                message.Author.Username, message.Author.Id, tier, prompt);
+            // The authority the author holds right now, from the KGSM account their Discord account
+            // is connected to — the same record the Control Panel and the assistant read. Asking a
+            // question needs an account here; acting through one needs operator.
+            AccountAnswer account = await _accounts.ResolveAsync(message.Author.Id);
+            if (!account.Allows(KgsmTier.Viewer))
+            {
+                // Answered rather than ignored: somebody asked a question, and being told why there
+                // is no answer is worth more than silence they cannot interpret.
+                await message.ReplyAsync(account.Refusal(KgsmTier.Viewer));
+                return;
+            }
 
-            await AnswerAsync(message, prompt, tier);
+            _logger.LogDebug(
+                "Assistant prompt from {User} ({UserId}, account={Account}, tier={Tier}): {Prompt}",
+                message.Author.Username, message.Author.Id, account.Account, account.Tier, prompt);
+
+            await AnswerAsync(message, prompt, account.Tier);
         }
         catch (Exception ex)
         {

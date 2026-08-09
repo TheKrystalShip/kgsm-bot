@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
-using Discord.WebSocket;
+
+using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,38 +11,35 @@ namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
 /// Requires the caller to hold at least <paramref name="minimum"/> on this host. The tier comes from
-/// the shared role map (<c>TheKrystalShip.KGSM.Auth</c>), so a person gets the same authority here as
-/// they do in the Control Panel and the assistant.
+/// the KGSM account their Discord account is connected to, so a person gets the same authority here
+/// as they do in the Control Panel and the assistant — all three read the same record rather than
+/// each deriving one.
 /// <para>
-/// The bot resolves the tier from the member object the gateway already gives it — no REST call, no
-/// token, no cache. That is the whole reason this leaf takes only the model half of the shared auth
-/// packages.
+/// The bot signs nobody in: the Discord account the gateway names is the identity, and the account
+/// store answers the rest. A guild role is a fact about a chat server and is not consulted.
 /// </para>
 /// </summary>
 /// <remarks>
-/// Fail-closed in both directions that matter. A caller who is not a guild member — a slash command
-/// run in a DM, where <c>Context.User</c> is not a <see cref="SocketGuildUser"/> — has no member
-/// object, which the role map reads as "not a member" and denies. A host that configured no role ids
-/// leaves every member at viewer, so an operator command refuses everyone until the roles are set,
-/// rather than admitting everyone.
+/// Fail-closed in every direction, and explicit about which one. A Discord account nobody has
+/// connected here is refused with how to connect it; a disabled account is told it is disabled; and a
+/// store that could not be read refuses without claiming anything about the caller's authority, since
+/// "we could not ask" is not "the answer is no".
 /// </remarks>
 internal class RequireTierAttribute(KgsmTier minimum) : PreconditionAttribute
 {
     public KgsmTier Minimum { get; } = minimum;
 
-    public override Task<PreconditionResult> CheckRequirementsAsync(
+    public override async Task<PreconditionResult> CheckRequirementsAsync(
         IInteractionContext context, ICommandInfo command, IServiceProvider services)
     {
-        KgsmRoleMap roleMap = services.GetRequiredService<KgsmRoleMap>();
+        IKgsmAccounts accounts = services.GetRequiredService<IKgsmAccounts>();
+        AccountAnswer answer = await accounts.ResolveAsync(context.User.Id);
 
-        // A non-member has no roles to read. null (not the empty list) is what the map reads as "not
-        // a member" — passing an empty list here would floor them at viewer and let a DM read the host.
-        KgsmTier tier = roleMap.ResolveSnowflakes(
-            (context.User as SocketGuildUser)?.Roles.Select(r => r.Id));
-
-        return Task.FromResult(tier >= Minimum
+        // The whole refusal, not a fragment: the handler prints this verbatim, because prefixing a
+        // "you don't have permission" onto "your account isn't connected" tells somebody the one
+        // thing that is not true about their situation.
+        return answer.Allows(Minimum)
             ? PreconditionResult.FromSuccess()
-            : PreconditionResult.FromError(
-                $"this needs {KgsmTiers.ToWire(Minimum)}; you hold {KgsmTiers.ToWire(tier)}."));
+            : PreconditionResult.FromError(answer.Refusal(Minimum));
     }
 }

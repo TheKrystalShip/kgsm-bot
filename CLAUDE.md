@@ -62,7 +62,8 @@ same pattern. If some *other* operation seems to need root, stop and ask; don't 
 
 `src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's **whole** configurable
 surface with its defaults, and is committed — it holds no secret and no host identity.
-Key sections: `KgsmAuth` (the shared role map — see *Authorization*), `Discord` (token, `GuildId`,
+Key sections: `KgsmAuth` (the host's shared sign-in application), `Auth` (the account store — see
+*Authorization*), `Discord` (token, `GuildId`,
 `InstancesCategoryId`, `AnnouncementChannelId`, status markers, and the `Announce` switches),
 `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
 `Blueprints`/`Instances` maps), `Assistant` (where the assistant leaf is + the shared relay
@@ -146,35 +147,55 @@ wildcard, and a cancel id underneath it would be captured and read as a grant.
 
 ### Authorization
 
-Authority comes from **`TheKrystalShip.KGSM.Auth`**, the ecosystem's shared role map, so a person gets
-the same answer here as they do in the Control Panel and the assistant. The `KgsmAuth` section carries
-the role ids and lives once per host, in `/etc/kgsm/discord-auth.env`, which this unit loads *before*
-its own env file — so setting a role id in `kgsm-bot.env` overrides the shared value for this leaf
-alone, which is how a host grants one person different authority on different surfaces. Guild
-membership is the access gate and floors a member at **viewer**, and `KgsmAuth:RoleOperatorIds` /
-`RoleAdminIds` elevate from there. Both lists empty leaves everyone at
-viewer, so nothing acts until they are set.
+**A Discord account says who you are; the KGSM account it is connected to says what you may do.** The
+bot has no login of its own, so the Discord user the gateway names *is* the identity — and the tier is
+whatever KGSM account that identity is a credential of, read from the host's account store
+(`/var/lib/kgsm/auth/users.db`, `Auth:UsersDbPath`, `TheKrystalShip.KGSM.Auth.Users`). The Control
+Panel and the assistant read the same record, so all three agree by construction rather than by each
+deriving an answer.
 
-The bot resolves the tier from **the member object the gateway already hands it** — no REST call, no
-bot token for lookups, no cache. That is why this leaf takes only the model half of the shared auth
-packages and none of the transport.
+**A guild role grants nothing, and neither does guild membership.** The gate is having an account
+here, which an admin granted — strictly narrower than being in the Discord server, and the reason the
+slash commands are safe registered globally. `/etc/kgsm/discord-auth.env` carries the sign-in
+application and nothing else.
+
+The store is opened **directly off the file**, not asked for over HTTP: a file cannot be down, so the
+bot keeps authorizing people with every other leaf stopped. Reads are **uncached** — a point query
+against a local file, at Discord typing speed — so an admin changing somebody's tier in the panel
+lands on their very next command with no window at the old one.
+
+`IKgsmAccounts.ResolveAsync` gives **four** answers, not a tier, and `AccountAnswer.Refusal` writes
+the whole sentence for each so every surface refuses somebody in the same words:
+
+| outcome | means | told |
+|---|---|---|
+| `Ok` | an account, usable; its tier is on the answer | — (or which tier it lacks) |
+| `NotLinked` | no KGSM account has this Discord account connected | how to connect it |
+| `Disabled` | the account was switched off | that it is disabled |
+| `Unreadable` | the store could not be read | that nothing is known, and nothing was done |
+
+`Unreadable` is deliberately not a denial. *"We could not ask"* is a different fact from *"the answer
+is no"*, and reporting the first as the second demotes an admin mid-incident.
 
 Every surface is gated:
 
-- **Slash commands.** Each module carries `[RequireTier(KgsmTier.Viewer)]`, so a command run where
-  there is no member object to read — a DM — is refused rather than answered. `[Mutating]` **is** the
-  operator gate: it derives from `RequireTierAttribute`, so the attribute that puts a command in the
-  panel's "acts" column is the same one that decides who may run it, and a new mutating command cannot
-  be added and left open by forgetting a second attribute.
-- **Natural language.** `MessageHandler` resolves the author's tier and passes `canPerformActions` to
-  the assistant; reading stays open to any guild member.
+- **Slash commands.** Each module carries `[RequireTier(KgsmTier.Viewer)]`, so a command from an
+  account this host does not have is refused rather than answered. `[Mutating]` **is** the operator
+  gate: it derives from `RequireTierAttribute`, so the attribute that puts a command in the panel's
+  "acts" column is the same one that decides who may run it, and a new mutating command cannot be
+  added and left open by forgetting a second attribute. `InteractionHandler` prints the precondition's
+  reason **verbatim** — prefixing "you don't have permission" onto "your account isn't connected"
+  states the one thing that is not true about it.
+- **Natural language.** `MessageHandler` resolves the author's account and passes `canPerformActions`
+  to the assistant; asking a question needs viewer, and someone with no account gets the same
+  explanation rather than silence.
 - **Confirm buttons.** `ConfirmationModule` **re-resolves at the click** rather than trusting the
-  staging turn — the roles someone held when the button was posted are not the roles they hold now. It
-  authorizes inline rather than by precondition, because a refusal must leave the prompt standing for
-  whoever *is* permitted instead of failing the interaction.
+  staging turn — the account someone held when the button was posted is not necessarily the one they
+  hold now. It authorizes inline rather than by precondition, because a refusal must leave the prompt
+  standing for whoever *is* permitted instead of failing the interaction.
 
 `CommandManifestTests` pins all of it: the manifest's `gate` must equal what the modules enforce, every
-mutating command must require operator, and every slash module must require membership.
+mutating command must require operator, and every slash module must require an account.
 
 ### Provenance (who did what, attributable to kgsm)
 
