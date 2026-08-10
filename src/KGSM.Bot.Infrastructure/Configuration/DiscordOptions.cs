@@ -98,6 +98,64 @@ public class DiscordOptions
         Min = 60, Unit = "s")]
     public int StatusMessageRefreshSeconds { get; set; } = 900;
 
+    /// <summary>
+    /// The floor between two calls the bot makes to Discord on its own initiative.
+    /// </summary>
+    /// <remarks>
+    /// This is what keeps a limit from being reached at all, and it is worth more than any backoff —
+    /// a 429 has already spent the request that earned it. Announcements fan out across guilds, the
+    /// board edits a message per guild, and installs create channels; without a floor those are
+    /// several producers bursting at once with no knowledge of each other. An idle bot pays nothing:
+    /// the floor is a gap between calls, not a delay on every one.
+    /// </remarks>
+    /// <panel>How long the bot waits between two messages it sends on its own, so a burst is spread
+    /// out instead of arriving at once and getting the bot throttled.</panel>
+    [LeafField("sendQueueMinIntervalMs", "Send floor", Group = "limits",
+        Min = 0, Max = 5000, Unit = "ms", Risk = LeafRisk.Wiring)]
+    public int SendQueueMinIntervalMs { get; set; } = 200;
+
+    /// <summary>
+    /// How many calls may wait in each of the two lanes before further ones are refused.
+    /// </summary>
+    /// <remarks>
+    /// An unbounded queue in front of a rate limit is a memory leak with a delay on it. Overflow is
+    /// refused and reported, never dropped quietly: a caller's own accounting shows the guild it did
+    /// not reach, because a bot announcing nothing must not look like a host where nothing happened.
+    /// </remarks>
+    /// <panel>How many messages may wait to be sent before the bot starts refusing new ones and
+    /// saying so. Reaching this means Discord is not keeping up with this host.</panel>
+    [LeafField("sendQueueCapacity", "Send queue size", Group = "limits",
+        Min = 16, Risk = LeafRisk.Wiring)]
+    public int SendQueueCapacity { get; set; } = 500;
+
+    /// <summary>
+    /// How many times one call is attempted before it is given up on.
+    /// </summary>
+    /// <remarks>
+    /// Only a rate limit, a server error or a dropped connection is retried at all. A refusal, a
+    /// missing channel or a malformed request is the answer rather than a hiccup, and is failed on
+    /// the first attempt however high this is set.
+    /// </remarks>
+    /// <panel>How many times the bot re-tries a message Discord could not take, before giving up on
+    /// it. Only a temporary failure is re-tried.</panel>
+    [LeafField("sendQueueMaxAttempts", "Send attempts", Group = "limits",
+        Min = 1, Max = 10, Risk = LeafRisk.Wiring)]
+    public int SendQueueMaxAttempts { get; set; } = 4;
+
+    /// <summary>The first hold-off after a rate limit or a server error; it doubles from here.</summary>
+    /// <panel>How long the bot pauses everything it is sending after Discord refuses a message for a
+    /// temporary reason. It doubles each time until the ceiling below.</panel>
+    [LeafField("sendQueueBackoffMs", "Backoff", Group = "limits",
+        Min = 100, Unit = "ms", Risk = LeafRisk.Wiring)]
+    public int SendQueueBackoffMs { get; set; } = 1000;
+
+    /// <summary>The ceiling the doubling hold-off stops at.</summary>
+    /// <panel>The longest the bot will pause between re-tries, however many times sending has
+    /// failed.</panel>
+    [LeafField("sendQueueMaxBackoffMs", "Backoff ceiling", Group = "limits",
+        Min = 1000, Unit = "ms", Risk = LeafRisk.Wiring)]
+    public int SendQueueMaxBackoffMs { get; set; } = 60000;
+
     public StatusOptions Status { get; set; } = new();
     public AnnouncementOptions Announce { get; set; } = new();
     /// <panel>Whether announcements are deleted again after a while, so a busy channel does not fill

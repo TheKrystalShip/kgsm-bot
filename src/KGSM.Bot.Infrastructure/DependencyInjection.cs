@@ -86,6 +86,13 @@ public static class DependencyInjection
                 sp.GetRequiredService<DiscordSocketClient>(),
                 sp.GetRequiredService<InteractionServiceConfig>()));
 
+        // The one path out to Discord for everything the bot says unprompted. Registered before its
+        // callers because every one of them takes it: announcements, the status board and channel
+        // management are four independent producers of the same scarce thing — rate-limit headroom —
+        // and being throttled off the API loses the rest with whichever call spent the last of it.
+        // A singleton, and it must be: two of these would be two rates, which is no rate at all.
+        services.AddSingleton<IDiscordSendQueue, DiscordSendQueue>();
+
         // Application service implementations
         services.AddSingleton<IDiscordChannelRegistry, DiscordChannelRegistry>();
         services.AddSingleton<IDiscordNotificationService, DiscordNotificationService>();

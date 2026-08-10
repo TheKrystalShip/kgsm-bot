@@ -34,12 +34,14 @@ namespace KGSM.Bot.Discord;
 public sealed class StatusSocketServer(
     DiscordSocketClient client,
     IGuildStore guilds,
+    IDiscordSendQueue queue,
     IOptions<KgsmOptions> kgsmOptions,
     IOptions<DiscordOptions> discordOptions,
     ILogger<StatusSocketServer> logger) : BackgroundService
 {
     private readonly DiscordSocketClient _client = client;
     private readonly IGuildStore _guilds = guilds;
+    private readonly IDiscordSendQueue _queue = queue;
     private readonly KgsmOptions _kgsm = kgsmOptions.Value;
     private readonly DiscordOptions _discord = discordOptions.Value;
     private readonly ILogger<StatusSocketServer> _logger = logger;
@@ -130,7 +132,18 @@ public sealed class StatusSocketServer(
             StoreAvailable: _guilds.Available,
             StoreUnavailableReason: _guilds.UnavailableReason,
             Guilds: [.. _guilds.Configured().Select(Describe)],
-            Announcements: Switches());
+            Announcements: Switches(),
+            SendQueue: Backlog());
+    }
+
+    /// <summary>
+    /// What is waiting to go out. Read off the live queue, so it is the backlog at the moment the
+    /// line was asked for rather than a figure kept somewhere and updated.
+    /// </summary>
+    private BotSendQueue Backlog()
+    {
+        SendQueueDepth depth = _queue.Depth;
+        return new BotSendQueue(depth.Announcements, depth.Background, depth.BackingOff);
     }
 
     /// <summary>
@@ -171,12 +184,20 @@ public sealed class StatusSocketServer(
             Channels: channels);
     }
 
-    // The announcement switches, read off the bound options rather than re-declared, so this list cannot
-    // drift from what the bot actually checks before posting. The keys match the leaf descriptor's, which
-    // is what lets the panel put each one next to the control that edits it.
-    private List<BotSwitch> Switches()
+    private List<BotSwitch> Switches() => Switches(_discord.Announce);
+
+    /// <summary>
+    /// The announcement switches, read off the bound options rather than re-declared, so a state here
+    /// cannot disagree with what the bot checks before posting.
+    /// </summary>
+    /// <remarks>
+    /// <b>The keys match the leaf descriptor's</b>, which is what lets the panel put each state next to
+    /// the control that edits it — and what makes a missing row invisible rather than obviously wrong:
+    /// the switch simply never appears, and an operator concludes the bot cannot be told to stop. So
+    /// the set is pinned by a test against the options type itself, one row per declared toggle.
+    /// </remarks>
+    internal static List<BotSwitch> Switches(AnnouncementOptions a)
     {
-        AnnouncementOptions a = _discord.Announce;
         return
         [
             new("announceStarted", "Server started", a.Started),
@@ -185,6 +206,7 @@ public sealed class StatusSocketServer(
             new("announceRestarted", "Server restarted", a.Restarted),
             new("announceCrashed", "Server crashed", a.Crashed),
             new("announceFailed", "Server gave up restarting", a.Failed),
+            new("announceUpdateAvailable", "Game update available", a.UpdateAvailable),
             new("announceUpdated", "Game updated", a.Updated),
             new("announceInstalled", "Server installed", a.Installed),
             new("announceUninstalled", "Server uninstalled", a.Uninstalled),

@@ -65,8 +65,8 @@ surface with its defaults, and is committed — it holds no secret and names no 
 Key sections: `KgsmAuth` (the host's shared sign-in application), `Auth` (the account store — see
 *Authorization*), `Guilds` (`DbPath` — the guild store, see *Where it announces*), `Discord`
 (token, status markers, `PublicAddress`, `RemoveChannelOnInstanceDeletion`, `ActionButtons`,
-`IncidentThreads`, the status-message cadence pair, the message-cleanup pair, and the `Announce`
-switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, `StatusSocketPath`,
+`IncidentThreads`, the status-message cadence pair, the message-cleanup pair, the five `SendQueue`
+keys, and the `Announce` switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, `StatusSocketPath`,
 `FirewallSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant leaf is + the
 shared relay secret), `KgsmCache` (inventory TTLs).
 
@@ -330,6 +330,43 @@ that channel is the required half of `/setup` and the board is not. See *Where i
 The switches, the status markers and the two message-cleanup keys are **host policy, not per-guild**:
 what this host announces is its own business, and only where each announcement lands is a guild's.
 Splitting them per guild is deferred until a second guild actually wants a different set.
+
+### One queue out to Discord
+
+**Everything the bot says unprompted goes through `IDiscordSendQueue`.** Announcements fanning out
+across guilds, the status board's per-guild edits, channels created and retired with an install, and
+expiring messages cleaned up are four producers with no knowledge of each other, each able to burst.
+Rate-limit headroom is a host-wide resource, and being throttled off the API loses everything else
+with whichever call spent the last of it — the same failure that makes run state in a channel name
+unbuildable. One worker in front of all of it makes them one paced stream. **A new outbound call
+belongs here too; a direct `SendMessageAsync` off the client is a producer nothing paces.**
+
+- **The floor is the mechanism, the backoff is the backstop.** `SendQueueMinIntervalMs` keeps a limit
+  from being reached at all, which is worth more than any recovery — a 429 has already spent the
+  request that earned it. When one arrives anyway the hold-off pauses the **whole** queue and doubles
+  to `SendQueueMaxBackoffMs`, because one call spinning against a limit while everything else waits
+  behind it is the failure this exists to prevent. Discord.Net still owns per-bucket waiting: it reads
+  the rate-limit headers, which is better information than anything here has.
+- **Only a rate limit, a server error or a dropped connection is re-tried.** A 403, a 404 or a
+  malformed request is the answer, not a hiccup; re-asking spins against a permission that is not
+  coming back, and for anything that posts it risks a duplicate. Classification defaults to *not*
+  transient — an unrecognised failure retried is a call made twice more for nothing.
+- **A full lane refuses and says so.** An unbounded queue in front of a rate limit is a memory leak
+  with a delay on it, and every message in the backlog is staler than the last. Overflow returns a
+  failure the caller reports, so its own accounting shows the guild it did not reach: a silent drop
+  makes a bot that announces nothing look like a host where nothing happened.
+- **Two lanes, and the split is about which one still reads correctly late.** An announcement, the
+  thread under it and its buttons are what somebody is waiting for. A board republish, a pin, an
+  expiring message's deletion and channel management are correct whenever they land, and the next
+  tick would have refreshed the board regardless.
+- **Interaction replies are not in it, and must not be.** Discord gives three seconds to acknowledge
+  an interaction; a reply queued behind a backlog arrives after the token is dead. Somebody waiting on
+  their own slash command is also not the traffic that causes a throttle.
+- **A failed send is a `Result`, never an exception** — one guild's dead channel cannot unwind the
+  loop over the others. `SendAsync<T>` cannot carry a null success (`Result<T>` forbids one), so a
+  call that can answer "there is no such thing" uses the non-generic overload and captures the value.
+- The backlog is on the status socket (`sendQueue`). Connected, configured, every channel visible and
+  messages arriving minutes late is a real state whose only symptom is a depth that does not fall.
 
 ### State cache & events
 

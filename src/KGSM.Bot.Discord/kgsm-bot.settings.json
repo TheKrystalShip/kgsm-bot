@@ -71,6 +71,28 @@
     "StatusMessageMinIntervalSeconds": 15,
     "StatusMessageRefreshSeconds": 900,
 
+    // Everything the bot says on its own initiative goes out through one paced queue: announcements
+    // across guilds, the board's per-guild edits, channels created with an install, expiring messages
+    // cleaned up. Four producers that know nothing of each other are one stream by the time they
+    // reach Discord. Rate-limit headroom is a host-wide resource, and being throttled off the API
+    // loses everything else with the call that did it.
+    //
+    // The FLOOR is the part that matters — it keeps a limit from being reached at all, where a
+    // backoff only reacts to one already spent. The backoff pauses the WHOLE queue rather than
+    // spinning one call against a limit while the rest starve behind it, and it doubles to the
+    // ceiling. Only a rate limit, a server error or a dropped connection is re-tried; a refusal or a
+    // missing channel is the answer and is failed at once. A full queue REFUSES and says so — the
+    // caller reports the guild it did not reach, because a silent drop makes a bot that announces
+    // nothing look like a host where nothing happened.
+    //
+    // Slash-command replies deliberately do NOT come through here: Discord gives three seconds to
+    // acknowledge an interaction, and a reply queued behind a backlog arrives after the token is dead.
+    "SendQueueMinIntervalMs": 200,
+    "SendQueueCapacity": 500,
+    "SendQueueMaxAttempts": 4,
+    "SendQueueBackoffMs": 1000,
+    "SendQueueMaxBackoffMs": 60000,
+
     "Status": {
       "Online": "🟢",
       "Offline": "🔴",

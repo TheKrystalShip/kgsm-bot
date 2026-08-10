@@ -23,17 +23,20 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildStore _guilds;
+    private readonly IDiscordSendQueue _queue;
     private readonly DiscordOptions _discordOptions;
     private readonly ILogger<DiscordChannelRegistry> _logger;
 
     public DiscordChannelRegistry(
         DiscordSocketClient discordClient,
         IGuildStore guilds,
+        IDiscordSendQueue queue,
         IOptions<DiscordOptions> discordOptions,
         ILogger<DiscordChannelRegistry> logger)
     {
         _discordClient = discordClient;
         _guilds = guilds;
+        _queue = queue;
         _discordOptions = discordOptions.Value;
         _logger = logger;
     }
@@ -82,10 +85,21 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
             if (category is null)
                 return Result.Failure($"the configured category {categoryId} is gone");
 
-            ITextChannel channel = await guild.CreateTextChannelAsync(instanceName, properties =>
-            {
-                properties.CategoryId = category.Id;
-            });
+            // Background lane: an install is not a burst, and the channel is wanted before the next
+            // event about that server rather than this instant. Channel creation is also the most
+            // expensive thing the bot asks Discord for, so it queues behind what people are reading.
+            Result<ITextChannel> created = await _queue.SendAsync(
+                $"create a channel for {instanceName} in guild {topology.GuildId}",
+                SendLane.Background,
+                async () => (ITextChannel)await guild.CreateTextChannelAsync(instanceName, properties =>
+                {
+                    properties.CategoryId = category.Id;
+                }));
+
+            if (created.IsFailure)
+                return created;
+
+            ITextChannel channel = created.Value!;
 
             _logger.LogInformation(
                 "Created channel {ChannelName} for instance {InstanceName} in guild {GuildId}",
@@ -138,10 +152,21 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
 
             if (guild.GetTextChannel(channelId) is SocketTextChannel channel)
             {
-                await channel.DeleteAsync();
+                string name = channel.Name;
+
+                Result deleted = await _queue.SendAsync(
+                    $"delete the channel for {instanceName} in guild {guildId}",
+                    SendLane.Background,
+                    () => channel.DeleteAsync());
+
+                // The binding stays when the channel does. Unbinding a channel that is still there
+                // orphans it — full of that server's history, and nothing pointing at it.
+                if (deleted.IsFailure)
+                    return deleted;
+
                 _logger.LogInformation(
                     "Deleted channel {ChannelName} for instance {InstanceName} in guild {GuildId}",
-                    channel.Name, instanceName, guildId);
+                    name, instanceName, guildId);
             }
             else
             {

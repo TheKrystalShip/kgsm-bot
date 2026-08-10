@@ -45,6 +45,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     private readonly IKgsmStateCache _cache;
     private readonly IServerInstanceService _instances;
     private readonly IHostAddressService _addresses;
+    private readonly IDiscordSendQueue _queue;
     private readonly DiscordOptions _options;
     private readonly ILogger<StatusBoardService> _logger;
 
@@ -61,6 +62,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         IKgsmStateCache cache,
         IServerInstanceService instances,
         IHostAddressService addresses,
+        IDiscordSendQueue queue,
         IOptions<DiscordOptions> options,
         ILogger<StatusBoardService> logger)
     {
@@ -69,6 +71,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         _cache = cache;
         _instances = instances;
         _addresses = addresses;
+        _queue = queue;
         _options = options.Value;
         _logger = logger;
     }
@@ -220,19 +223,71 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
 
             Embed embed = Render(snapshot);
 
-            if (topology.StatusMessageId is ulong messageId
-                && await channel.GetMessageAsync(messageId) is IUserMessage existing)
+            // Background lane throughout: the board says what is true now, and a republish that
+            // lands a moment later says the same thing. Anything a person is waiting to read goes
+            // ahead of it, and the next tick would have refreshed this regardless.
+            if (topology.StatusMessageId is ulong messageId)
             {
-                await existing.ModifyAsync(m => m.Embed = embed);
+                // A fetch is a request like any other and spends the same headroom, so it is paced
+                // with the rest rather than being made straight off the client. Captured rather than
+                // returned, because "no such message" is a successful answer of null and a result
+                // type that forbids a null success cannot carry it.
+                IMessage? fetched = null;
+                Result found = await _queue.SendAsync(
+                    $"read the status message in guild {topology.GuildId}",
+                    SendLane.Background,
+                    // A statement body, deliberately: an expression body would bind the generic
+                    // overload, and a message that is genuinely gone is a successful null it cannot
+                    // carry.
+                    async () => { fetched = await channel.GetMessageAsync(messageId); });
+
+                if (found.IsSuccess && fetched is IUserMessage existing)
+                {
+                    Result edited = await _queue.SendAsync(
+                        $"edit the status message in guild {topology.GuildId}",
+                        SendLane.Background,
+                        () => existing.ModifyAsync(m => m.Embed = embed));
+
+                    if (edited.IsFailure)
+                    {
+                        _logger.LogWarning(
+                            "The status message in guild {GuildId} could not be edited: {Reason}",
+                            topology.GuildId, edited.Error);
+                    }
+
+                    return;
+                }
+
+                // A fetch that failed is not a message that is gone. Posting a second board on the
+                // strength of a request Discord refused is how a guild ends up with two of them
+                // disagreeing, and only one being kept current.
+                if (found.IsFailure)
+                {
+                    _logger.LogWarning(
+                        "The status message in guild {GuildId} could not be read ({Reason}); " +
+                        "leaving it alone rather than posting a second one.",
+                        topology.GuildId, found.Error);
+                    return;
+                }
+            }
+
+            // No message recorded, or the one recorded is genuinely gone. Either way this guild needs
+            // a new one, and the id is written down before anything else can want it.
+            Result<IUserMessage> posted = await _queue.SendAsync(
+                $"post a status message in guild {topology.GuildId}",
+                SendLane.Background,
+                async () => (IUserMessage)await channel.SendMessageAsync(embed: embed));
+
+            if (posted.IsFailure)
+            {
+                _logger.LogWarning("A status message could not be posted in guild {GuildId}: {Reason}",
+                    topology.GuildId, posted.Error);
                 return;
             }
 
-            // No message recorded, or the one recorded is gone. Either way this guild needs a new
-            // one, and the id is written down before anything else can want it.
-            IUserMessage posted = await channel.SendMessageAsync(embed: embed);
-            _guilds.SetStatusMessage(topology.GuildId, posted.Id);
+            _guilds.SetStatusMessage(topology.GuildId, posted.Value!.Id);
 
-            await TryPinAsync(channel, posted, topology.GuildId);
+            await TryPinAsync(channel, posted.Value!, topology.GuildId);
 
             _logger.LogInformation("Posted a new status message in guild {GuildId}.", topology.GuildId);
         }
@@ -260,7 +315,16 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
                 return;
             }
 
-            await message.PinAsync();
+            Result pinned = await _queue.SendAsync(
+                $"pin the status message in guild {guildId}",
+                SendLane.Background,
+                () => message.PinAsync());
+
+            if (pinned.IsFailure)
+            {
+                _logger.LogDebug("The status message in guild {GuildId} could not be pinned: {Reason}",
+                    guildId, pinned.Error);
+            }
         }
         catch (Exception e)
         {

@@ -24,6 +24,7 @@ namespace KGSM.Bot.Discord;
 /// silent, and that is a different fact from a broken one.</param>
 /// <param name="Announcements">Every announcement switch and its state, in declaration order. Host
 /// policy, not per-guild — what this host announces is its own, only where it lands is a guild's.</param>
+/// <param name="SendQueue">What is waiting to go out to Discord.</param>
 public sealed record BotStatus(
     string ConnectionState,
     int? LatencyMs,
@@ -31,7 +32,23 @@ public sealed record BotStatus(
     bool StoreAvailable,
     string? StoreUnavailableReason,
     IReadOnlyList<BotGuild> Guilds,
-    IReadOnlyList<BotSwitch> Announcements);
+    IReadOnlyList<BotSwitch> Announcements,
+    BotSendQueue SendQueue);
+
+/// <summary>
+/// The outbound queue's backlog — the one thing here that says the bot is falling behind rather than
+/// failing.
+/// </summary>
+/// <remarks>
+/// Connected, configured, every channel visible, and messages arriving minutes late is a real state
+/// and the only symptom is a depth that does not come back down. A gateway that reads healthy says
+/// nothing about it, which is why it is on this line and not derived from anything else here.
+/// </remarks>
+/// <param name="Announcements">Announcements waiting to be sent.</param>
+/// <param name="Background">Housekeeping waiting to be sent: board edits, pins, channel management.</param>
+/// <param name="BackingOff">The queue is holding off after a rate limit or a Discord server error.
+/// Sustained, this is the throttle that would otherwise take the whole surface down with it.</param>
+public sealed record BotSendQueue(int Announcements, int Background, bool BackingOff);
 
 /// <summary>
 /// One Discord server this host announces into: what it was set up with, and what the bot can

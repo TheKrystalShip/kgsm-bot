@@ -32,10 +32,24 @@ public sealed class DiscordNotificationServiceTests : IDisposable
     private readonly IGuildStore _guilds = Substitute.For<IGuildStore>();
     private readonly DiscordOptions _options = new();
 
-    public void Dispose() => _client.Dispose();
+    /// <summary>
+    /// The real queue rather than a substitute. Nothing here reaches it — every send is refused at
+    /// channel resolution first — but a stand-in returning a null task would turn a test that did
+    /// reach it into a null reference instead of the answer it was asking for.
+    /// </summary>
+    private readonly DiscordSendQueue _queue;
+
+    public DiscordNotificationServiceTests() =>
+        _queue = new DiscordSendQueue(Options.Create(_options), NullLogger<DiscordSendQueue>.Instance);
+
+    public void Dispose()
+    {
+        _queue.Dispose();
+        _client.Dispose();
+    }
 
     private DiscordNotificationService Service() => new(
-        _client, _guilds, Options.Create(_options),
+        _client, _guilds, _queue, Options.Create(_options),
         NullLogger<DiscordNotificationService>.Instance);
 
     private static GuildTopology Guild(ulong id, ulong announce, ulong? board = null) =>

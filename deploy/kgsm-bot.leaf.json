@@ -52,24 +52,29 @@
       "order": 6
     },
     {
+      "id": "limits",
+      "label": "Sending to Discord",
+      "order": 7
+    },
+    {
       "id": "connect",
       "label": "Joining a server",
-      "order": 7
+      "order": 8
     },
     {
       "id": "kgsm",
       "label": "KGSM connection",
-      "order": 8
+      "order": 9
     },
     {
       "id": "cache",
       "label": "Inventory cache",
-      "order": 9
+      "order": 10
     },
     {
       "id": "assistant",
       "label": "Assistant",
-      "order": 10
+      "order": 11
     }
   ],
   "fields": [
@@ -394,6 +399,66 @@
       "min": 60,
       "unit": "s",
       "risk": "safe"
+    },
+    {
+      "key": "sendQueueMinIntervalMs",
+      "env": "Discord__SendQueueMinIntervalMs",
+      "label": "Send floor",
+      "description": "How long the bot waits between two messages it sends on its own, so a burst is spread out instead of arriving at once and getting the bot throttled.",
+      "group": "limits",
+      "type": "int",
+      "default": "200",
+      "min": 0,
+      "max": 5000,
+      "unit": "ms",
+      "risk": "wiring"
+    },
+    {
+      "key": "sendQueueCapacity",
+      "env": "Discord__SendQueueCapacity",
+      "label": "Send queue size",
+      "description": "How many messages may wait to be sent before the bot starts refusing new ones and saying so. Reaching this means Discord is not keeping up with this host.",
+      "group": "limits",
+      "type": "int",
+      "default": "500",
+      "min": 16,
+      "risk": "wiring"
+    },
+    {
+      "key": "sendQueueMaxAttempts",
+      "env": "Discord__SendQueueMaxAttempts",
+      "label": "Send attempts",
+      "description": "How many times the bot re-tries a message Discord could not take, before giving up on it. Only a temporary failure is re-tried.",
+      "group": "limits",
+      "type": "int",
+      "default": "4",
+      "min": 1,
+      "max": 10,
+      "risk": "wiring"
+    },
+    {
+      "key": "sendQueueBackoffMs",
+      "env": "Discord__SendQueueBackoffMs",
+      "label": "Backoff",
+      "description": "How long the bot pauses everything it is sending after Discord refuses a message for a temporary reason. It doubles each time until the ceiling below.",
+      "group": "limits",
+      "type": "int",
+      "default": "1000",
+      "min": 100,
+      "unit": "ms",
+      "risk": "wiring"
+    },
+    {
+      "key": "sendQueueMaxBackoffMs",
+      "env": "Discord__SendQueueMaxBackoffMs",
+      "label": "Backoff ceiling",
+      "description": "The longest the bot will pause between re-tries, however many times sending has failed.",
+      "group": "limits",
+      "type": "int",
+      "default": "60000",
+      "min": 1000,
+      "unit": "ms",
+      "risk": "wiring"
     },
     {
       "key": "publicAddress",

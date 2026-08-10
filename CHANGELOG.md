@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **One paced queue in front of everything the bot says unprompted.** Announcements fanning out
+  across guilds, the status board's per-guild edits, channels created and retired with an install,
+  and expiring messages cleaned up were four producers each able to burst, none aware of the others.
+  Rate-limit headroom is a host-wide resource and being throttled off the API loses everything else
+  with whichever call spent the last of it — the same failure that makes run state in a channel name
+  unbuildable. All of it now goes through `IDiscordSendQueue`: one worker, a floor between calls
+  (`Discord:SendQueueMinIntervalMs`, 200ms), a bounded backlog per lane
+  (`Discord:SendQueueCapacity`, 500) and a doubling hold-off after a rate limit or a server error
+  (`Discord:SendQueueBackoffMs` → `Discord:SendQueueMaxBackoffMs`, up to
+  `Discord:SendQueueMaxAttempts` tries).
+
+  The floor is the part that matters — a 429 has already spent the request that earned it. The
+  hold-off pauses the whole queue rather than spinning one call against a limit while the rest starve
+  behind it. Only a rate limit, a server error or a dropped connection is re-tried; a refusal, a
+  missing channel or a malformed request is the answer and fails on the first attempt. A full lane
+  **refuses and says so**, so a caller's own accounting shows the guild it did not reach — a silent
+  drop would make a bot announcing nothing look like a host where nothing happened. Two lanes:
+  announcements drain ahead of housekeeping, because a crash notice delayed behind fifteen board
+  refreshes is the news arriving after the incident, while a board refresh that lands a moment later
+  says the same thing.
+
+  **Slash-command replies deliberately do not go through it.** Discord gives three seconds to
+  acknowledge an interaction, and a reply queued behind a backlog arrives after the token is dead.
+
+  The status socket carries the backlog (`sendQueue`: waiting per lane, and whether it is holding
+  off). Connected, configured, every channel visible and messages arriving minutes late is a real
+  state, and a depth that does not come back down is its only symptom.
+
 - **"Update available" announcements** (`Discord:Announce:UpdateAvailable`, on by default). A channel
   hears when a newer game build is released for one of its servers — `🆕 **factorio** has an update
   available — 1.4.1 → 1.4.2` — which is the cue to run `/update`.
@@ -63,6 +91,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It refuses a guild that already has a row rather than merging.
 
 ### Fixed
+
+- **The "Game update available" switch appears in the Control Panel.** The kind was announced and the
+  toggle was bound, but the status line the panel renders its switches from had no row for it — so the
+  control was simply absent and an operator would conclude the bot could not be told to stop. The set
+  is now pinned by a test against `AnnouncementOptions` itself, one row per declared toggle, because a
+  missing row looks like nothing at all rather than like a failure.
+
+- **A status board that could not be read is left alone instead of replaced.** A failed fetch of the
+  recorded message was indistinguishable from the message being gone, so a refused request posted a
+  second board beside the first — two of them disagreeing, one kept current. A fetch that fails is now
+  reported and skipped; only a successful "no such message" posts a new one.
 
 - **A channel the bot created on install is no longer forgotten at the next restart.** The binding
   was written to the in-memory options dictionary and nothing ever serialised it back, so after a

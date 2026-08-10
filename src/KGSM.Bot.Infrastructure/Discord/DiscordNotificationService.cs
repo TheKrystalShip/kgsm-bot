@@ -16,17 +16,20 @@ public class DiscordNotificationService : IDiscordNotificationService
 {
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildStore _guilds;
+    private readonly IDiscordSendQueue _queue;
     private readonly DiscordOptions _options;
     private readonly ILogger<DiscordNotificationService> _logger;
 
     public DiscordNotificationService(
         DiscordSocketClient discordClient,
         IGuildStore guilds,
+        IDiscordSendQueue queue,
         IOptions<DiscordOptions> options,
         ILogger<DiscordNotificationService> logger)
     {
         _discordClient = discordClient;
         _guilds = guilds;
+        _queue = queue;
         _options = options.Value;
         _logger = logger;
     }
@@ -97,10 +100,22 @@ public class DiscordNotificationService : IDiscordNotificationService
             if (_discordClient.GetChannel(channelId) is not ITextChannel channel)
                 return Result.Failure($"channel {channelId} cannot be seen");
 
-            IUserMessage message = await channel.SendMessageAsync(
-                text,
-                allowedMentions: AllowedMentions.None,
-                components: ActionsFor(announcement));
+            MessageComponent? components = ActionsFor(announcement);
+
+            // The announcement lane: somebody is waiting to read this, and a crash notice that
+            // arrives after fifteen board refreshes is the news arriving after the incident.
+            Result<IUserMessage> posted = await _queue.SendAsync(
+                $"announce {announcement.Kind} for {announcement.InstanceName} in {topology.GuildId}",
+                SendLane.Announcement,
+                async () => (IUserMessage)await channel.SendMessageAsync(
+                    text,
+                    allowedMentions: AllowedMentions.None,
+                    components: components));
+
+            if (posted.IsFailure)
+                return posted;
+
+            IUserMessage message = posted.Value!;
 
             await OpenIncidentThreadAsync(channel, message, announcement);
 
@@ -182,11 +197,24 @@ public class DiscordNotificationService : IDiscordNotificationService
                 return;
             }
 
-            await channel.CreateThreadAsync(
-                ThreadName(announcement),
-                ThreadType.PublicThread,
-                ThreadArchiveDuration.OneDay,
-                message);
+            // Announcement lane, behind the message it hangs off: a thread for a conversation people
+            // are having now is not housekeeping, and it is one call per crash rather than per event.
+            Result opened = await _queue.SendAsync(
+                $"open a thread for {announcement.InstanceName}'s {announcement.Kind}",
+                SendLane.Announcement,
+                () => channel.CreateThreadAsync(
+                    ThreadName(announcement),
+                    ThreadType.PublicThread,
+                    ThreadArchiveDuration.OneDay,
+                    message));
+
+            if (opened.IsFailure)
+            {
+                _logger.LogWarning(
+                    "Could not open a thread for {InstanceName}'s {Kind}: {Reason}. " +
+                    "The announcement itself was posted.",
+                    announcement.InstanceName, announcement.Kind, opened.Error);
+            }
         }
         catch (Exception ex)
         {
@@ -220,21 +248,37 @@ public class DiscordNotificationService : IDiscordNotificationService
     private ulong ResolveChannel(GuildTopology topology, string instanceName) =>
         _guilds.ChannelFor(topology.GuildId, instanceName) ?? topology.AnnounceChannelId;
 
+    /// <summary>
+    /// Deletes the announcement once it has had its time, when the operator asked for that.
+    /// </summary>
+    /// <remarks>
+    /// <b>Background lane, and deliberately.</b> A tidy-up is correct whenever it lands, so it waits
+    /// behind anything a person is reading — and this is the one producer whose volume tracks the
+    /// announcements exactly, which is what would otherwise double a burst's cost.
+    /// <para>
+    /// Not retried past a refusal: a message somebody already deleted answers 404, and asking again
+    /// for it will not bring it back.
+    /// </para>
+    /// </remarks>
     private void ScheduleDeletion(IUserMessage message, string instanceName)
     {
-        _ = Task.Delay(TimeSpan.FromSeconds(_options.DeleteStatusMessageDelaySeconds))
-            .ContinueWith(async _ =>
+        _ = DeleteLaterAsync();
+
+        async Task DeleteLaterAsync()
+        {
+            await Task.Delay(TimeSpan.FromSeconds(_options.DeleteStatusMessageDelaySeconds));
+
+            Result deleted = await _queue.SendAsync(
+                $"delete the expired announcement for {instanceName}",
+                SendLane.Background,
+                () => message.DeleteAsync());
+
+            if (deleted.IsFailure)
             {
-                try
-                {
-                    await message.DeleteAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to delete announcement for instance {InstanceName}",
-                        instanceName);
-                }
-            });
+                _logger.LogWarning("Failed to delete announcement for instance {InstanceName}: {Reason}",
+                    instanceName, deleted.Error);
+            }
+        }
     }
 
     /// <summary>

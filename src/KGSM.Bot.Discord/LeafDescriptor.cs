@@ -26,10 +26,13 @@ using TheKrystalShip.KGSM.LeafConfig;
 [assembly: LeafGroup("announcements", "Announcements", 4)]
 [assembly: LeafGroup("channels", "Server channels", 5)]
 [assembly: LeafGroup("status", "Live status message", 6)]
-[assembly: LeafGroup("connect", "Joining a server", 7)]
-[assembly: LeafGroup("kgsm", "KGSM connection", 8)]
-[assembly: LeafGroup("cache", "Inventory cache", 9)]
-[assembly: LeafGroup("assistant", "Assistant", 10)]
+// Beside the status message, because the two answer the same question from opposite ends: that one
+// is how a burst becomes a single edit, this one is what paces everything the bot sends regardless.
+[assembly: LeafGroup("limits", "Sending to Discord", 7)]
+[assembly: LeafGroup("connect", "Joining a server", 8)]
+[assembly: LeafGroup("kgsm", "KGSM connection", 9)]
+[assembly: LeafGroup("cache", "Inventory cache", 10)]
+[assembly: LeafGroup("assistant", "Assistant", 11)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
 [assembly: LeafFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]
