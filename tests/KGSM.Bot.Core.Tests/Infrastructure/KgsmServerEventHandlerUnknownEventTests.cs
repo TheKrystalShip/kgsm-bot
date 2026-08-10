@@ -57,8 +57,9 @@ public class KgsmServerEventHandlerUnknownEventTests
         typeof(InstanceCrashedData),
         typeof(InstanceFailedData),
 
-        // The engine reports an update by naming the versions it moved between; there is no bare
-        // "updated" event on the wire, so there is nothing else here to subscribe to.
+        // The two halves of an update: one says a newer build exists, the other says this server is
+        // now running it. There is no bare "updated" event on the wire beyond these.
+        typeof(InstanceUpdateAvailableData),
         typeof(InstanceVersionUpdatedData),
 
         typeof(InstanceBackupCreatedData),

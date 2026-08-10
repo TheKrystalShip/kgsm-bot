@@ -219,6 +219,16 @@
       "risk": "safe"
     },
     {
+      "key": "announceUpdateAvailable",
+      "env": "Discord__Announce__UpdateAvailable",
+      "label": "Game update available",
+      "description": "A newer game build was released for a server. Announced once per build, not once per check, and only for servers this host actually checks.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
       "key": "announceUpdated",
       "env": "Discord__Announce__Updated",
       "label": "Game updated",

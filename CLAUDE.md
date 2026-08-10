@@ -290,13 +290,15 @@ a new option reaches the panel with no second edit. Commit what the build produc
 
 ### Announcements: the catalog is the journal's, and the operator owns each switch
 
-The bot announces sixteen kinds of engine event, and `Discord:Announce` carries a switch per
+The bot announces seventeen kinds of engine event, and `Discord:Announce` carries a switch per
 kind that the Control Panel renders as its own section. Three rules hold the surface together:
 
 - **A kind exists only if the journal carries it.** Nothing is polled, derived or inferred to
-  fill a gap in the catalog. This is why there is no "update available" announcement: the
-  engine emits no such event, and the only honest source is kgsm-api's own update probe, which
-  is not a Discord one and which no leaf may reach into.
+  fill a gap in the catalog — the bot never reaches into another leaf for a fact the engine does
+  not emit. "Update available" is a kind because the engine emits `instance_update_available`:
+  kgsm records what each update check found and emits only for a version it has not announced
+  before, so a channel sees one message per new build however often the host checks. How often it
+  checks is the scheduler's business, and nothing here.
 - **The reduction happens where the payload's type is still known.** `KgsmServerEventHandler`
   turns each event into a `ServerAnnouncement` — kind, instance, one rendered detail, the actor
   verbatim — so nothing downstream switches over a kgsm-lib event class, and the announcement

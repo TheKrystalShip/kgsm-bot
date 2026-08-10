@@ -273,6 +273,7 @@ public class DiscordNotificationService : IDiscordNotificationService
         AnnouncementKind.Uninstalled => _options.Status.Uninstalled,
         AnnouncementKind.Crashed => "💥",
         AnnouncementKind.Failed => "🛑",
+        AnnouncementKind.UpdateAvailable => "🆕",
         AnnouncementKind.Updated => "⬆️",
         AnnouncementKind.Installed => "📦",
         AnnouncementKind.BackupCreated or AnnouncementKind.BackupRestored => "💾",
@@ -283,7 +284,11 @@ public class DiscordNotificationService : IDiscordNotificationService
         _ => "ℹ️",
     };
 
-    private static string VerbFor(AnnouncementKind kind) => kind switch
+    /// <summary>
+    /// What the message says happened. The <c>_ =></c> arm is a backstop for a kind added without a
+    /// sentence, and it prints the enum name — readable, but not something a channel should ever see.
+    /// </summary>
+    internal static string VerbFor(AnnouncementKind kind) => kind switch
     {
         AnnouncementKind.Started => "is starting",
         AnnouncementKind.Ready => "is ready to play",
@@ -291,6 +296,7 @@ public class DiscordNotificationService : IDiscordNotificationService
         AnnouncementKind.Restarted => "was restarted",
         AnnouncementKind.Crashed => "crashed and is being restarted",
         AnnouncementKind.Failed => "is down — the supervisor gave up restarting it",
+        AnnouncementKind.UpdateAvailable => "has an update available",
         AnnouncementKind.Updated => "was updated",
         AnnouncementKind.Installed => "was installed",
         AnnouncementKind.Uninstalled => "was uninstalled",

@@ -150,6 +150,11 @@ public class AnnouncementOptions
     [LeafField("announceFailed", "Server gave up restarting", Group = "announcements")]
     public bool Failed { get; set; } = true;
 
+    /// <panel>A newer game build was released for a server. Announced once per build, not once per
+    /// check, and only for servers this host actually checks.</panel>
+    [LeafField("announceUpdateAvailable", "Game update available", Group = "announcements")]
+    public bool UpdateAvailable { get; set; } = true;
+
     /// <panel>A new game build was applied to a server.</panel>
     [LeafField("announceUpdated", "Game updated", Group = "announcements")]
     public bool Updated { get; set; } = true;
@@ -200,6 +205,7 @@ public class AnnouncementOptions
         AnnouncementKind.Restarted => Restarted,
         AnnouncementKind.Crashed => Crashed,
         AnnouncementKind.Failed => Failed,
+        AnnouncementKind.UpdateAvailable => UpdateAvailable,
         AnnouncementKind.Updated => Updated,
         AnnouncementKind.Installed => Installed,
         AnnouncementKind.Uninstalled => Uninstalled,

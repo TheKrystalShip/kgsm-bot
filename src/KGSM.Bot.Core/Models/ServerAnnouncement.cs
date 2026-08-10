@@ -7,9 +7,8 @@ namespace KGSM.Bot.Core.Models;
 /// </summary>
 /// <remarks>
 /// Every value is sourced from an engine event the bot already reads off the journal. Nothing here
-/// is derived, polled or inferred: a fact the journal does not carry is not a kind, which is why
-/// "an update is available" has no value here — the engine emits no such event, and the bot has no
-/// second source it could honestly answer from.
+/// is derived, polled or inferred: a fact the journal does not carry is not a kind, and the bot
+/// never reaches for a second source to answer from.
 /// </remarks>
 public enum AnnouncementKind
 {
@@ -30,6 +29,13 @@ public enum AnnouncementKind
 
     /// <summary>The supervisor exhausted its restart attempts and left the server down (<c>instance_failed</c>).</summary>
     Failed,
+
+    /// <summary>
+    /// A newer game build exists upstream (<c>instance_update_available</c>). The engine records what
+    /// each check found and emits only for a version it has not announced before, so this is one
+    /// message per new build rather than one per check.
+    /// </summary>
+    UpdateAvailable,
 
     /// <summary>A new game build was applied (<c>instance_version_updated</c>).</summary>
     Updated,

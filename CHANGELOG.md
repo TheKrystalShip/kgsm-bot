@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **"Update available" announcements** (`Discord:Announce:UpdateAvailable`, on by default). A channel
+  hears when a newer game build is released for one of its servers — `🆕 **factorio** has an update
+  available — 1.4.1 → 1.4.2` — which is the cue to run `/update`.
+
+  The bot subscribes to `instance_update_available` and does nothing else: the engine decides what is
+  worth announcing, because it records what each check found and emits only for a version it has not
+  reported before. So a channel sees one message per new build however often this host checks, and
+  how often it checks is the scheduler's business. Nothing here polls, compares versions or remembers
+  an answer — the catalog rule that a kind exists only if the journal carries it is unchanged; the
+  journal now carries this one.
+
 - **A live status message, one per Discord server** — `/setup status <channel>` keeps one pinned
   message showing every server on this host, whether it is up, and how to reach it; `/setup
   status-off` stops updating it and leaves it standing. This is the ambient status board the channel

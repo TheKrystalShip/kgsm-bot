@@ -70,9 +70,17 @@ public class KgsmServerEventHandler : IServerEventHandler
         _kgsmClient.Events.RegisterHandler<InstanceFailedData>(
             d => AnnounceAsync(AnnouncementKind.Failed, d, DescribeExit(d.ExitCode, d.Restarts, "after")));
 
-        // The version-carrying update event is the only one the engine emits: it reports an update
-        // by naming the versions it moved between. There is no separate bare "updated" to subscribe
-        // to, and subscribing to one would be a handler that never runs.
+        // The two halves of an update, and they are different facts: one says a newer build exists,
+        // the other says this server is now running it. Both name the version pair they moved
+        // between, so both render through DescribeVersions.
+        //
+        // The engine decides what is worth announcing here, not the bot: it records what each check
+        // found and emits only for a version it has not announced before, so a channel sees one
+        // message per new build however often the host checks.
+        _kgsmClient.Events.RegisterHandler<InstanceUpdateAvailableData>(
+            d => AnnounceAsync(AnnouncementKind.UpdateAvailable, d,
+                DescribeVersions(d.CurrentVersion, d.LatestVersion)));
+
         _kgsmClient.Events.RegisterHandler<InstanceVersionUpdatedData>(
             d => AnnounceAsync(AnnouncementKind.Updated, d, DescribeVersions(d.OldVersion, d.NewVersion)));
 

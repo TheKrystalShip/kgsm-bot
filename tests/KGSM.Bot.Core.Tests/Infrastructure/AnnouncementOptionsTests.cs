@@ -32,6 +32,7 @@ public class AnnouncementOptionsTests
             Restarted = false,
             Crashed = false,
             Failed = false,
+            UpdateAvailable = false,
             Updated = false,
             Installed = false,
             Uninstalled = false,
@@ -60,6 +61,7 @@ public class AnnouncementOptionsTests
             Restarted = false,
             Crashed = true,
             Failed = false,
+            UpdateAvailable = false,
             Updated = false,
             Installed = false,
             Uninstalled = false,
@@ -106,5 +108,10 @@ public class AnnouncementOptionsTests
         defaults.IsEnabled(AnnouncementKind.Stopped).Should().BeTrue();
         defaults.IsEnabled(AnnouncementKind.Crashed).Should().BeTrue();
         defaults.IsEnabled(AnnouncementKind.Failed).Should().BeTrue();
+
+        // On by default, and it belongs with these rather than with the self-firing ones: the engine
+        // announces a build once however often the host checks, so this is roughly as frequent as a
+        // game releases — and it is the operator's cue to do something.
+        defaults.IsEnabled(AnnouncementKind.UpdateAvailable).Should().BeTrue();
     }
 }

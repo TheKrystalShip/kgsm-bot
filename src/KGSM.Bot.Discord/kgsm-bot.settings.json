@@ -89,6 +89,7 @@
       "Restarted": true,
       "Crashed": true,
       "Failed": true,
+      "UpdateAvailable": true,
       "Updated": true,
       "Installed": true,
       "Uninstalled": true,
