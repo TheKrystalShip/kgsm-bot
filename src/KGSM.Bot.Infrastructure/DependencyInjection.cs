@@ -90,6 +90,10 @@ public static class DependencyInjection
         services.AddSingleton<IDiscordChannelRegistry, DiscordChannelRegistry>();
         services.AddSingleton<IDiscordNotificationService, DiscordNotificationService>();
 
+        // The one message per guild that is kept current. A singleton because it owns the publishing
+        // loop and the coalescing window — two of these would spend two edits on every change.
+        services.AddSingleton<IStatusBoard, StatusBoardService>();
+
         return services;
     }
 
@@ -119,6 +123,11 @@ public static class DependencyInjection
         // time, so this is safe even on hosts where the watchdog isn't deployed.
         services.AddKgsmWatchdogClient(kgsmOptions.WatchdogSocketPath);
 
+        // Typed client for the kgsm-firewall authority, used read-only to answer whether a
+        // server's ports are actually reachable. Registration always succeeds; the authority is
+        // an optional sibling, and an absent one costs that one answer and nothing else.
+        services.AddKgsmFirewallClient(kgsmOptions.FirewallSocketPath);
+
         // Ambient provenance (who/through-what) for the current action — set at an entry point (a slash
         // command, the LLM message handler), read at the kgsm chokepoint so every mutation is attributable.
         // Singleton: the AsyncLocal inside isolates the value per request flow.
@@ -129,6 +138,9 @@ public static class DependencyInjection
         services.AddSingleton<IBlueprintService, KgsmBlueprintService>();
         services.AddSingleton<IServerInstanceService, KgsmServerInstanceService>();
         services.AddSingleton<IWatchdogService, WatchdogService>();
+        services.AddSingleton<IFirewallReport, FirewallReport>();
+        services.AddSingleton<IHostAddressService, HostAddressService>();
+        services.AddSingleton<IServerConnectionService, ServerConnectionService>();
 
         // Cached inventory (avoids spawning kgsm per message)
         services.AddSingleton<IKgsmStateCache, KgsmStateCache>();

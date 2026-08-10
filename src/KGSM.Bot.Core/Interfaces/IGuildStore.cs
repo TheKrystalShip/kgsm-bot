@@ -47,6 +47,18 @@ public interface IGuildStore
     Result SetBoard(ulong guildId, ulong? boardCategoryId);
 
     /// <summary>
+    /// Keep a live status message in <paramref name="statusChannelId"/>, or stop keeping one with
+    /// <see langword="null"/>. Stopping forgets the message too; the message itself is left standing.
+    /// </summary>
+    Result SetStatusChannel(ulong guildId, ulong? statusChannelId);
+
+    /// <summary>
+    /// Record which message is being kept current, so a restart edits the one already posted instead
+    /// of leaving it stale and posting another beside it.
+    /// </summary>
+    Result SetStatusMessage(ulong guildId, ulong statusMessageId);
+
+    /// <summary>
     /// Drop a guild and its channel bindings. The bot goes quiet there; the channels themselves are
     /// left alone.
     /// </summary>

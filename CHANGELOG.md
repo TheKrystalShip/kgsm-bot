@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A live status message, one per Discord server** — `/setup status <channel>` keeps one pinned
+  message showing every server on this host, whether it is up, and how to reach it; `/setup
+  status-off` stops updating it and leaves it standing. This is the ambient status board the channel
+  markers were meant to be: Discord's channel-edit rate limit makes a name-based one unbuildable, and
+  a message edit is a different bucket entirely. An event marks the picture dirty and
+  `Discord:StatusMessageMinIntervalSeconds` (15s) decides when to spend an edit, so a host reboot's
+  one-event-per-server burst costs a single edit; `Discord:StatusMessageRefreshSeconds` (900s) is a
+  backstop for what no event describes. The message id is stored, so a restart edits the board that
+  is already there instead of posting a second one and keeping the wrong one current.
+- **`/connect <server>`** — the address, the ports, and whether those ports are actually reachable.
+  Ports come from the engine's canonical `[{start,end,protocol}]`; the address is
+  `Discord:PublicAddress` when the operator set one (a host cannot discover its own DNS name), else
+  the external IP the host measured, stated as the changeable thing it is. Reachability comes from
+  the kgsm-firewall authority over `KGSM:FirewallSocketPath`, read-only and optional: an inactive
+  backend is reported as *unfiltered* rather than closed, an authority that cannot enumerate is
+  *unknown*, and an absent one costs that one line.
+- **Announcements you can act from.** A server the supervisor gave up on carries a **Restart**
+  button — a shortcut to `/restart`, re-resolved against the account store at the click and stamped
+  with the clicker's provenance. A crash opens a **thread**, so the conversation about an incident
+  stays with it and the assistant can be asked there in its own context. `Discord:ActionButtons` and
+  `Discord:IncidentThreads` switch each off; a missing permission costs the thread and nothing else.
+  The button is deliberately not offered on `instance_crashed`, where the supervisor is already
+  restarting the server.
+- **Guild store schema 2** — `status_channel_id` / `status_message_id`, added in place. A version-1
+  file is migrated, never recreated: losing it loses every channel binding.
 - **`/setup` — the bot works in any Discord server, and each one is configured from inside Discord.**
   `/setup announce <channel>` is the whole of a working setup; `/setup board <category>` additionally
   gives each game server its own channel; `/setup board-off`, `/setup forget` and `/setup show`

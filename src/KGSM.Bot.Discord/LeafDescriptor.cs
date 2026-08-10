@@ -25,9 +25,11 @@ using TheKrystalShip.KGSM.LeafConfig;
 [assembly: LeafGroup("authorization", "Who may act", 3)]
 [assembly: LeafGroup("announcements", "Announcements", 4)]
 [assembly: LeafGroup("channels", "Server channels", 5)]
-[assembly: LeafGroup("kgsm", "KGSM connection", 6)]
-[assembly: LeafGroup("cache", "Inventory cache", 7)]
-[assembly: LeafGroup("assistant", "Assistant", 8)]
+[assembly: LeafGroup("status", "Live status message", 6)]
+[assembly: LeafGroup("connect", "Joining a server", 7)]
+[assembly: LeafGroup("kgsm", "KGSM connection", 8)]
+[assembly: LeafGroup("cache", "Inventory cache", 9)]
+[assembly: LeafGroup("assistant", "Assistant", 10)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
 [assembly: LeafFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]

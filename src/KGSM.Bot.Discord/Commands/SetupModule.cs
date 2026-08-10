@@ -45,12 +45,18 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IGuildStore _guilds;
     private readonly IKgsmAccounts _accounts;
+    private readonly IStatusBoard _statusBoard;
     private readonly ILogger<SetupModule> _logger;
 
-    public SetupModule(IGuildStore guilds, IKgsmAccounts accounts, ILogger<SetupModule> logger)
+    public SetupModule(
+        IGuildStore guilds,
+        IKgsmAccounts accounts,
+        IStatusBoard statusBoard,
+        ILogger<SetupModule> logger)
     {
         _guilds = guilds;
         _accounts = accounts;
+        _statusBoard = statusBoard;
         _logger = logger;
     }
 
@@ -82,6 +88,11 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
                     ? $"on, under <#{category}>"
                     : "off — everything goes to the one channel",
                 inline: true);
+            embed.AddField("Live status message",
+                topology.StatusChannelId is ulong status
+                    ? $"kept in <#{status}>"
+                    : "off — `/setup status` picks a channel for it",
+                inline: true);
             embed.AddField("Set up by",
                 $"{topology.ConfiguredBy}, {topology.ConfiguredUtc:yyyy-MM-dd}", inline: true);
 
@@ -97,7 +108,9 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
         // the one that decides whether any of the above will work.
         embed.AddField("The bot can",
             $"{Mark(permissions.SendMessages)} send messages\n" +
-            $"{Mark(permissions.ManageChannels)} manage channels (needed for per-server channels)");
+            $"{Mark(permissions.ManageChannels)} manage channels (needed for per-server channels)\n" +
+            $"{Mark(permissions.ManageMessages)} manage messages (needed to pin the status message)\n" +
+            $"{Mark(permissions.CreatePublicThreads)} create threads (needed for crash threads)");
 
         await RespondAsync(embed: embed.Build(), ephemeral: true);
     }
@@ -204,6 +217,83 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
             "✅ No more channels will be made here, and every server reports in the announcement " +
             "channel again. **The channels already made are left standing** — their history is yours, " +
             "not mine to delete.");
+    }
+
+    [SlashCommand("status", "Keep one message here always showing every server and how to reach it")]
+    public async Task StatusAsync(
+        [Summary(description: "Channel the live status message is kept in")]
+        ITextChannel channel)
+    {
+        if (await GuildOrRefuseAsync() is not SocketGuild guild)
+            return;
+
+        if (_guilds.Find(guild.Id) is null)
+        {
+            await RespondAsync(
+                "🚫 This server has no announcement channel yet. Run `/setup announce` first.",
+                ephemeral: true);
+            return;
+        }
+
+        // Before the write: a channel the bot cannot post in, recorded, is a board that never appears
+        // and never says why.
+        ChannelPermissions permissions = guild.CurrentUser.GetPermissions(channel);
+        if (!permissions.ViewChannel || !permissions.SendMessages)
+        {
+            await RespondAsync(
+                $"🚫 I can't post in {channel.Mention} — I need **View Channel** and **Send " +
+                "Messages** there. Nothing was changed.", ephemeral: true);
+            return;
+        }
+
+        Result result = _guilds.SetStatusChannel(guild.Id, channel.Id);
+        if (result.IsFailure)
+        {
+            await RespondAsync($"⚠️ I couldn't record that: {result.Error}", ephemeral: true);
+            return;
+        }
+
+        _logger.LogInformation("Guild {GuildId} keeps its status message in channel {ChannelId}",
+            guild.Id, channel.Id);
+
+        // Answered before the message is posted, then posted: the publish reads the whole inventory
+        // and would sit past Discord's three seconds if it came first.
+        await RespondAsync(
+            $"✅ I'll keep one message in {channel.Mention} showing every server and how to reach it, " +
+            "and edit it as things change." +
+            (permissions.ManageMessages
+                ? " I'll pin it, so it's easy to find."
+                : " I can't pin it without **Manage Messages**, so you may want to pin it yourself."));
+
+        await _statusBoard.PublishAsync(guild.Id);
+    }
+
+    [SlashCommand("status-off", "Stop keeping a live status message here")]
+    public async Task StatusOffAsync()
+    {
+        if (await GuildOrRefuseAsync() is not SocketGuild guild)
+            return;
+
+        if (_guilds.Find(guild.Id) is null)
+        {
+            await RespondAsync("This server isn't set up for KGSM at all.", ephemeral: true);
+            return;
+        }
+
+        Result result = _guilds.SetStatusChannel(guild.Id, null);
+        if (result.IsFailure)
+        {
+            await RespondAsync($"⚠️ I couldn't record that: {result.Error}", ephemeral: true);
+            return;
+        }
+
+        _logger.LogInformation("Guild {GuildId} stopped keeping a status message", guild.Id);
+
+        // Same rule as the board: a message the bot posted is still a message in somebody's channel,
+        // and deleting it because a setting changed is not a decision a bot gets to make.
+        await RespondAsync(
+            "✅ I'll stop updating it. **The message is left where it is** — it will simply stop " +
+            "changing, so unpin or delete it whenever you like.");
     }
 
     [SlashCommand("forget", "Stop announcing in this Discord server entirely")]

@@ -49,6 +49,26 @@
         "description": "What this Discord server is set up with, and what the bot can do here",
         "mutates": false,
         "options": []
+      },
+      {
+        "name": "setup status",
+        "description": "Keep one message here always showing every server and how to reach it",
+        "mutates": false,
+        "options": [
+          {
+            "name": "channel",
+            "description": "Channel the live status message is kept in",
+            "type": "channel",
+            "required": true,
+            "autocomplete": false
+          }
+        ]
+      },
+      {
+        "name": "setup status-off",
+        "description": "Stop keeping a live status message here",
+        "mutates": false,
+        "options": []
       }
     ],
     "operator": [
@@ -150,6 +170,20 @@
         "description": "Show information about the bot",
         "mutates": false,
         "options": []
+      },
+      {
+        "name": "connect",
+        "description": "How to join a game server \u2014 address, ports, and whether they are reachable",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
       },
       {
         "name": "is-active",

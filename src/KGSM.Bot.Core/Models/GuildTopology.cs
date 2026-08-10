@@ -16,16 +16,29 @@ namespace KGSM.Bot.Core.Models;
 /// <param name="ConfiguredBy">The KGSM account that ran <c>/setup</c>.</param>
 /// <param name="ConfiguredUtc">When this guild was first configured.</param>
 /// <param name="UpdatedUtc">When any of it last changed.</param>
+/// <param name="StatusChannelId">Where this guild's live status message is kept, or
+/// <see langword="null"/> when it keeps none.</param>
+/// <param name="StatusMessageId">The message being kept current, or <see langword="null"/> until one
+/// has been posted. Stored so a restart edits the message already there instead of posting a second
+/// one beside it.</param>
 public sealed record GuildTopology(
     ulong GuildId,
     ulong AnnounceChannelId,
     ulong? BoardCategoryId,
     string ConfiguredBy,
     DateTimeOffset ConfiguredUtc,
-    DateTimeOffset UpdatedUtc)
+    DateTimeOffset UpdatedUtc,
+    ulong? StatusChannelId = null,
+    ulong? StatusMessageId = null)
 {
     /// <summary>Whether this guild keeps a channel per server.</summary>
     public bool HasBoard => BoardCategoryId is not null;
+
+    /// <summary>
+    /// Whether this guild keeps a live status message. Enabled by <i>having</i> a channel, for the
+    /// same reason the board is enabled by having a category: a flag and a channel can disagree.
+    /// </summary>
+    public bool KeepsStatus => StatusChannelId is not null;
 }
 
 /// <summary>

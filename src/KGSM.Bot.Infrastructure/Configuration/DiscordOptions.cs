@@ -29,6 +29,75 @@ public class DiscordOptions
     [LeafField("removeChannelOnUninstall", "Delete channel with the server", Group = "channels",
         Risk = LeafRisk.Destructive)]
     public bool RemoveChannelOnInstanceDeletion { get; set; } = false;
+
+    /// <summary>
+    /// The address the bot tells people to connect to. Set it when this host is reached by a name
+    /// rather than by its IP.
+    /// </summary>
+    /// <remarks>
+    /// A host cannot discover this: a DNS record pointing at it is a fact about the world, not about
+    /// the machine. So an operator-set value is authoritative and is used verbatim; left blank, the
+    /// bot falls back to the external IP the host measured, which is correct at the moment it is read
+    /// and is not a promise.
+    /// </remarks>
+    /// <panel>The address the bot tells people to connect to — a domain name, if this host has one.
+    /// Left blank, it uses the external IP address the host measures for itself.</panel>
+    [LeafField("publicAddress", "Public address", Group = "connect")]
+    public string PublicAddress { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether an announcement about a server that is down carries a button to restart it.
+    /// </summary>
+    /// <remarks>
+    /// The button is a shortcut to the slash command and nothing more: it is authorized at the click
+    /// against the same account store, runs the same path, and stamps the same provenance. Turning it
+    /// off costs the shortcut, never the safety — nobody gains authority from a button.
+    /// </remarks>
+    /// <panel>Whether an announcement about a server that is down carries a button to restart it.
+    /// Pressing it needs the same permission the command does.</panel>
+    [LeafField("announcementActions", "Buttons on announcements", Group = "announcements")]
+    public bool ActionButtons { get; set; } = true;
+
+    /// <summary>
+    /// Whether a crash opens a thread under its announcement for the conversation about it.
+    /// </summary>
+    /// <remarks>
+    /// Needs <c>Create Public Threads</c> in the channel; without it the announcement is posted
+    /// plainly and nothing is lost. Threads auto-archive, so nothing accumulates.
+    /// </remarks>
+    /// <panel>Whether a crash opens a thread under its announcement, so the conversation about it
+    /// stays with it instead of scrolling the channel. Needs permission to create threads.</panel>
+    [LeafField("incidentThreads", "Threads for crashes", Group = "announcements")]
+    public bool IncidentThreads { get; set; } = true;
+
+    /// <summary>
+    /// The floor on how often a guild's live status message is edited.
+    /// </summary>
+    /// <remarks>
+    /// This is what turns a burst into one edit. A host reboot produces one event per server in the
+    /// same second, and spending an edit on each is how a bot gets throttled off the API — losing the
+    /// announcements with it. Everything that arrives inside the window is published together.
+    /// </remarks>
+    /// <panel>How long the bot waits before editing the live status message again, so a burst of
+    /// changes becomes one edit instead of one each.</panel>
+    [LeafField("statusMessageMinIntervalSec", "Status message floor", Group = "status",
+        Min = 5, Unit = "s")]
+    public int StatusMessageMinIntervalSeconds { get; set; } = 15;
+
+    /// <summary>
+    /// How often the live status message is republished even when nothing changed.
+    /// </summary>
+    /// <remarks>
+    /// The backstop, not the mechanism: the message is driven by events, and this only catches what
+    /// no event describes — a server stopped outside the engine, a missed journal line, a message
+    /// somebody deleted.
+    /// </remarks>
+    /// <panel>How often the live status message is refreshed even when nothing has happened, to catch
+    /// anything no event reported.</panel>
+    [LeafField("statusMessageRefreshSec", "Status message refresh", Group = "status",
+        Min = 60, Unit = "s")]
+    public int StatusMessageRefreshSeconds { get; set; } = 900;
+
     public StatusOptions Status { get; set; } = new();
     public AnnouncementOptions Announce { get; set; } = new();
     /// <panel>Whether announcements are deleted again after a while, so a busy channel does not fill

@@ -44,10 +44,11 @@ namespace KGSM.Bot.Infrastructure.Guilds;
 public sealed class SqliteGuildStore : IGuildStore
 {
     /// <summary>The schema this build writes and is willing to read.</summary>
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     private const string GuildColumns =
-        "guild_id, announce_channel_id, board_category_id, configured_by, configured_utc, updated_utc";
+        "guild_id, announce_channel_id, board_category_id, configured_by, configured_utc, updated_utc, " +
+        "status_channel_id, status_message_id";
 
     private static readonly TimeSpan BusyTimeout = TimeSpan.FromSeconds(5);
 
@@ -118,7 +119,9 @@ public sealed class SqliteGuildStore : IGuildStore
                 board_category_id   TEXT NULL,
                 configured_by       TEXT NOT NULL,
                 configured_utc      TEXT NOT NULL,
-                updated_utc         TEXT NOT NULL);
+                updated_utc         TEXT NOT NULL,
+                status_channel_id   TEXT NULL,
+                status_message_id   TEXT NULL);
 
             CREATE TABLE IF NOT EXISTS guild_channels (
                 guild_id    TEXT NOT NULL,
@@ -146,8 +149,26 @@ public sealed class SqliteGuildStore : IGuildStore
                     "open it rather than reading a file this build only half understands.");
             }
 
-            // version < SchemaVersion lands here, and there is nothing below 1 to bring forward. A
-            // future bump adds its forward step here: additive DDL, then update the row.
+            // Forward steps, additive only. A file written by version 1 has the guilds table without
+            // the status columns; `CREATE TABLE IF NOT EXISTS` above did nothing to it, so the
+            // columns are added here. Losing this file loses every channel binding, which is why it
+            // is migrated in place and never recreated.
+            if (version < 2)
+            {
+                Execute(connection, """
+                    ALTER TABLE guilds ADD COLUMN status_channel_id TEXT NULL;
+                    ALTER TABLE guilds ADD COLUMN status_message_id TEXT NULL;
+                    """, transaction);
+            }
+
+            if (version < SchemaVersion)
+            {
+                Execute(connection, "UPDATE schema_version SET version = $v;", transaction,
+                    ("$v", SchemaVersion));
+
+                _logger.LogInformation(
+                    "Guild store migrated from schema version {From} to {To}.", version, SchemaVersion);
+            }
         }
 
         transaction.Commit();
@@ -225,7 +246,7 @@ public sealed class SqliteGuildStore : IGuildStore
             string now = Now();
             Execute(connection, $"""
                 INSERT INTO guilds ({GuildColumns})
-                VALUES ($g, $c, NULL, $by, $now, $now)
+                VALUES ($g, $c, NULL, $by, $now, $now, NULL, NULL)
                 ON CONFLICT(guild_id) DO UPDATE SET
                     announce_channel_id = excluded.announce_channel_id,
                     configured_by       = excluded.configured_by,
@@ -253,6 +274,39 @@ public sealed class SqliteGuildStore : IGuildStore
                     "this guild has no announcement channel yet — run /setup announce first");
             }
         });
+
+    /// <inheritdoc />
+    public Result SetStatusChannel(ulong guildId, ulong? statusChannelId)
+        => Write($"set the status message channel for guild {guildId}", connection =>
+        {
+            // The message id goes with the channel. A message id kept across a move would name a
+            // message in the channel it was moved away from, and the next refresh would edit that
+            // one — leaving a stale board somewhere nobody is looking.
+            int changed = Execute(connection, """
+                UPDATE guilds
+                SET status_channel_id = $ch, status_message_id = NULL, updated_utc = $now
+                WHERE guild_id = $g;
+                """,
+                transaction: null,
+                ("$g", Id(guildId)),
+                ("$ch", statusChannelId is ulong c ? Id(c) : DBNull.Value),
+                ("$now", Now()));
+
+            if (changed == 0)
+            {
+                throw new InvalidOperationException(
+                    "this guild has no announcement channel yet — run /setup announce first");
+            }
+        });
+
+    /// <inheritdoc />
+    public Result SetStatusMessage(ulong guildId, ulong statusMessageId)
+        => Write($"record the status message for guild {guildId}", connection =>
+            Execute(connection, """
+                UPDATE guilds SET status_message_id = $m WHERE guild_id = $g;
+                """,
+                transaction: null,
+                ("$g", Id(guildId)), ("$m", Id(statusMessageId))));
 
     /// <inheritdoc />
     public Result Forget(ulong guildId)
@@ -390,7 +444,9 @@ public sealed class SqliteGuildStore : IGuildStore
         BoardCategoryId: reader.IsDBNull(2) ? null : ParseId(reader.GetString(2)),
         ConfiguredBy: reader.GetString(3),
         ConfiguredUtc: ParseTime(reader.GetString(4)),
-        UpdatedUtc: ParseTime(reader.GetString(5)));
+        UpdatedUtc: ParseTime(reader.GetString(5)),
+        StatusChannelId: reader.IsDBNull(6) ? null : ParseId(reader.GetString(6)),
+        StatusMessageId: reader.IsDBNull(7) ? null : ParseId(reader.GetString(7)));
 
     private static string Id(ulong snowflake) => snowflake.ToString(CultureInfo.InvariantCulture);
 

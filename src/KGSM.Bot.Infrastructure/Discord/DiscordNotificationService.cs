@@ -97,7 +97,12 @@ public class DiscordNotificationService : IDiscordNotificationService
             if (_discordClient.GetChannel(channelId) is not ITextChannel channel)
                 return Result.Failure($"channel {channelId} cannot be seen");
 
-            IUserMessage message = await channel.SendMessageAsync(text, allowedMentions: AllowedMentions.None);
+            IUserMessage message = await channel.SendMessageAsync(
+                text,
+                allowedMentions: AllowedMentions.None,
+                components: ActionsFor(announcement));
+
+            await OpenIncidentThreadAsync(channel, message, announcement);
 
             if (_options.DeleteStatusMessageAfterDelay)
                 ScheduleDeletion(message, announcement.InstanceName);
@@ -110,6 +115,96 @@ public class DiscordNotificationService : IDiscordNotificationService
                 announcement.Kind, announcement.InstanceName, topology.GuildId);
             return Result.Failure(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// The buttons an announcement carries, or <see langword="null"/> when it carries none.
+    /// </summary>
+    /// <remarks>
+    /// Which announcements are worth acting on is <see cref="AnnouncementActions"/>'s decision. The
+    /// button itself grants nothing: it is a shortcut to <c>/restart</c>, authorized at the click
+    /// against the same account store, and a name too long to fit an id simply gets no button rather
+    /// than a truncated one pointing at a different server.
+    /// </remarks>
+    private MessageComponent? ActionsFor(ServerAnnouncement announcement)
+    {
+        if (!_options.ActionButtons)
+            return null;
+
+        if (!AnnouncementActions.OffersRestart(announcement.Kind))
+            return null;
+
+        if (!ServerActionIds.Fits(announcement.InstanceName))
+        {
+            _logger.LogDebug(
+                "No restart button for {InstanceName}: the name does not fit a Discord component id.",
+                announcement.InstanceName);
+            return null;
+        }
+
+        return new ComponentBuilder()
+            .WithButton("Restart", ServerActionIds.Restart(announcement.InstanceName), ButtonStyle.Primary)
+            .Build();
+    }
+
+    /// <summary>
+    /// Opens a thread under a crash announcement, so the conversation about it stays with it.
+    /// </summary>
+    /// <remarks>
+    /// A crash is the one announcement people reply to, and a reply in a busy channel is a reply that
+    /// scrolls away from the thing it is about. The thread is also where the assistant can be asked
+    /// about it — the @-mention surface keys its conversation on the channel, so a thread is its own
+    /// context rather than one more voice in the channel's.
+    /// <para>
+    /// <b>A missing permission costs the thread and nothing else.</b> The announcement is already
+    /// posted by the time this runs, and it is the part that matters.
+    /// </para>
+    /// </remarks>
+    private async Task OpenIncidentThreadAsync(
+        ITextChannel channel, IUserMessage message, ServerAnnouncement announcement)
+    {
+        if (!_options.IncidentThreads)
+            return;
+
+        if (!AnnouncementActions.OpensThread(announcement.Kind))
+            return;
+
+        try
+        {
+            // Checked before asking rather than after failing: a guild that has not granted this says
+            // so once in the log, instead of throwing on every crash.
+            if (channel is SocketTextChannel socket
+                && !socket.Guild.CurrentUser.GetPermissions(socket).CreatePublicThreads)
+            {
+                _logger.LogDebug(
+                    "No thread for {InstanceName}'s {Kind} in guild {GuildId}: the bot cannot create threads there.",
+                    announcement.InstanceName, announcement.Kind, socket.Guild.Id);
+                return;
+            }
+
+            await channel.CreateThreadAsync(
+                ThreadName(announcement),
+                ThreadType.PublicThread,
+                ThreadArchiveDuration.OneDay,
+                message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Could not open a thread for {InstanceName}'s {Kind}; the announcement itself was posted.",
+                announcement.InstanceName, announcement.Kind);
+        }
+    }
+
+    /// <summary>
+    /// Names the thread after the server and the moment, so a second crash the same day does not
+    /// produce two threads nobody can tell apart. Discord caps a thread name at 100 characters.
+    /// </summary>
+    private static string ThreadName(ServerAnnouncement announcement)
+    {
+        string verb = announcement.Kind == AnnouncementKind.Failed ? "down" : "crash";
+        string name = $"{announcement.InstanceName} {verb} · {DateTimeOffset.UtcNow:MMM d HH:mm} UTC";
+        return name.Length <= 100 ? name : name[..100];
     }
 
     /// <summary>

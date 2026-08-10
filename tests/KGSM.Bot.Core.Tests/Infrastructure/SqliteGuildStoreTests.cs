@@ -162,6 +162,97 @@ public sealed class SqliteGuildStoreTests : IDisposable
     }
 
     /// <summary>
+    /// The live status message is on because there is a channel, the same way the board is on because
+    /// there is a category — and the message id goes with the channel, because an id kept across a
+    /// move names a message in the channel it was moved away from.
+    /// </summary>
+    [Fact]
+    public void TheStatusMessageIsTheChannelAndMovingItForgetsTheOldMessage()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 2, "heisen");
+
+        store.Find(1)!.KeepsStatus.Should().BeFalse("nothing is kept current until an admin asks");
+
+        store.SetStatusChannel(1, 7).IsSuccess.Should().BeTrue();
+        store.SetStatusMessage(1, BigSnowflake).IsSuccess.Should().BeTrue();
+
+        GuildTopology topology = store.Find(1)!;
+        topology.KeepsStatus.Should().BeTrue();
+        topology.StatusChannelId.Should().Be(7ul);
+        topology.StatusMessageId.Should().Be(BigSnowflake);
+
+        // Moved: the message that was being kept current is in the old channel, so it is forgotten
+        // rather than carried over and edited where nobody is looking.
+        store.SetStatusChannel(1, 8).IsSuccess.Should().BeTrue();
+        store.Find(1)!.StatusChannelId.Should().Be(8ul);
+        store.Find(1)!.StatusMessageId.Should().BeNull();
+
+        store.SetStatusChannel(1, null).IsSuccess.Should().BeTrue();
+        store.Find(1)!.KeepsStatus.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// A store written by version 1 is migrated in place. Losing this file loses every channel
+    /// binding, and a binding is the only thing tying a server to the channel holding its history —
+    /// so the forward step adds columns to the file that is there, and never recreates it.
+    /// </summary>
+    [Fact]
+    public void AVersionOneStoreIsMigratedWithoutLosingItsBindings()
+    {
+        WriteVersionOneStore();
+
+        SqliteGuildStore store = Open();
+
+        store.Available.Should().BeTrue();
+
+        GuildTopology topology = store.Find(1)!;
+        topology.AnnounceChannelId.Should().Be(2ul);
+        topology.BoardCategoryId.Should().Be(3ul);
+        topology.ConfiguredBy.Should().Be("heisen");
+        topology.KeepsStatus.Should().BeFalse("version 1 knew nothing about a status message");
+
+        store.ChannelFor(1, "factorio").Should().Be(BigSnowflake);
+
+        // And the new columns work on the migrated file, not only on a fresh one.
+        store.SetStatusChannel(1, 9).IsSuccess.Should().BeTrue();
+        store.Find(1)!.StatusChannelId.Should().Be(9ul);
+    }
+
+    /// <summary>
+    /// The schema exactly as version 1 wrote it: no status columns, and the version row saying so.
+    /// </summary>
+    private void WriteVersionOneStore()
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath}");
+        connection.Open();
+        using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            INSERT INTO schema_version (version) VALUES (1);
+
+            CREATE TABLE guilds (
+                guild_id            TEXT PRIMARY KEY,
+                announce_channel_id TEXT NOT NULL,
+                board_category_id   TEXT NULL,
+                configured_by       TEXT NOT NULL,
+                configured_utc      TEXT NOT NULL,
+                updated_utc         TEXT NOT NULL);
+
+            CREATE TABLE guild_channels (
+                guild_id    TEXT NOT NULL,
+                instance    TEXT NOT NULL,
+                channel_id  TEXT NOT NULL,
+                created_utc TEXT NOT NULL,
+                PRIMARY KEY (guild_id, instance));
+
+            INSERT INTO guilds VALUES ('1', '2', '3', 'heisen', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+            INSERT INTO guild_channels VALUES ('1', 'factorio', '{BigSnowflake}', '2026-01-01T00:00:00Z');
+            """;
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
     /// A file written by a newer kgsm-bot is refused rather than read at whatever this build happens
     /// to understand — and refused into an unavailable store, not out of the constructor, so the rest
     /// of the bot keeps working and says why nothing is being announced.

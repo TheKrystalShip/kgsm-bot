@@ -47,19 +47,29 @@
       "order": 5
     },
     {
+      "id": "status",
+      "label": "Live status message",
+      "order": 6
+    },
+    {
+      "id": "connect",
+      "label": "Joining a server",
+      "order": 7
+    },
+    {
       "id": "kgsm",
       "label": "KGSM connection",
-      "order": 6
+      "order": 8
     },
     {
       "id": "cache",
       "label": "Inventory cache",
-      "order": 7
+      "order": 9
     },
     {
       "id": "assistant",
       "label": "Assistant",
-      "order": 8
+      "order": 10
     }
   ],
   "fields": [
@@ -127,6 +137,26 @@
       "type": "string",
       "default": "/var/lib/kgsm/auth/users.db",
       "risk": "wiring"
+    },
+    {
+      "key": "announcementActions",
+      "env": "Discord__ActionButtons",
+      "label": "Buttons on announcements",
+      "description": "Whether an announcement about a server that is down carries a button to restart it. Pressing it needs the same permission the command does.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "incidentThreads",
+      "env": "Discord__IncidentThreads",
+      "label": "Threads for crashes",
+      "description": "Whether a crash opens a thread under its announcement, so the conversation about it stays with it instead of scrolling the channel. Needs permission to create threads.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
     },
     {
       "key": "announceStarted",
@@ -332,6 +362,40 @@
       "dependsOn": "deleteStatusMessages"
     },
     {
+      "key": "statusMessageMinIntervalSec",
+      "env": "Discord__StatusMessageMinIntervalSeconds",
+      "label": "Status message floor",
+      "description": "How long the bot waits before editing the live status message again, so a burst of changes becomes one edit instead of one each.",
+      "group": "status",
+      "type": "int",
+      "default": "15",
+      "min": 5,
+      "unit": "s",
+      "risk": "safe"
+    },
+    {
+      "key": "statusMessageRefreshSec",
+      "env": "Discord__StatusMessageRefreshSeconds",
+      "label": "Status message refresh",
+      "description": "How often the live status message is refreshed even when nothing has happened, to catch anything no event reported.",
+      "group": "status",
+      "type": "int",
+      "default": "900",
+      "min": 60,
+      "unit": "s",
+      "risk": "safe"
+    },
+    {
+      "key": "publicAddress",
+      "env": "Discord__PublicAddress",
+      "label": "Public address",
+      "description": "The address the bot tells people to connect to — a domain name, if this host has one. Left blank, it uses the external IP address the host measures for itself.",
+      "group": "connect",
+      "type": "string",
+      "default": "",
+      "risk": "safe"
+    },
+    {
       "key": "kgsmPath",
       "env": "KGSM__Path",
       "label": "KGSM executable",
@@ -369,6 +433,16 @@
       "group": "kgsm",
       "type": "path",
       "default": "/run/kgsm-bot/status.sock",
+      "risk": "wiring"
+    },
+    {
+      "key": "firewallSocketPath",
+      "env": "KGSM__FirewallSocketPath",
+      "label": "Firewall socket",
+      "description": "The firewall authority's control socket, which the bot asks whether a server's ports are actually reachable. It only ever reads.",
+      "group": "kgsm",
+      "type": "path",
+      "default": "/run/kgsm-firewall/firewall.sock",
       "risk": "wiring"
     },
     {

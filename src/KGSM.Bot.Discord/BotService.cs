@@ -20,6 +20,7 @@ public class BotService : BackgroundService
     private readonly InteractionHandler _interactionHandler;
     private readonly MessageHandler _messageHandler;
     private readonly ServerEventCoordinatorService _serverEventCoordinator;
+    private readonly IStatusBoard _statusBoard;
     private readonly DiscordOptions _discordOptions;
     private readonly IKgsmAccounts _accounts;
     private readonly IGuildStore _guilds;
@@ -30,6 +31,7 @@ public class BotService : BackgroundService
         InteractionHandler interactionHandler,
         MessageHandler messageHandler,
         ServerEventCoordinatorService serverEventCoordinator,
+        IStatusBoard statusBoard,
         IOptions<DiscordOptions> discordOptions,
         IKgsmAccounts accounts,
         IGuildStore guilds,
@@ -39,6 +41,7 @@ public class BotService : BackgroundService
         _interactionHandler = interactionHandler;
         _messageHandler = messageHandler;
         _serverEventCoordinator = serverEventCoordinator;
+        _statusBoard = statusBoard;
         _discordOptions = discordOptions.Value;
         _accounts = accounts;
         _guilds = guilds;
@@ -153,6 +156,10 @@ public class BotService : BackgroundService
 
             // Initialize event coordinator
             _serverEventCoordinator.Initialize();
+
+            // Nothing can be edited before the gateway is ready, and the board's own guard makes a
+            // reconnect's second READY a no-op rather than a second publishing loop.
+            _statusBoard.Start();
 
             _logger.LogInformation("KGSM Bot fully initialized");
         }

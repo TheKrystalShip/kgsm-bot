@@ -51,6 +51,26 @@
   "Discord": {
     "Token": "",
     "RemoveChannelOnInstanceDeletion": false,
+
+    // The address /connect hands out. A host cannot discover the name people actually type, so set it
+    // when this one is reached by a domain name; left blank, the bot uses the external IP the host
+    // measures for itself.
+    "PublicAddress": "",
+
+    // What an announcement about a server that is down carries with it. A button is a shortcut to the
+    // slash command — authorized at the click, against the same account store — so turning it off
+    // costs the shortcut and never the safety. A thread needs "Create Public Threads"; without the
+    // permission the announcement posts plainly and nothing else changes.
+    "ActionButtons": true,
+    "IncidentThreads": true,
+
+    // The live status message, kept current by EDITING one message — the channel-edit rate limit is
+    // what makes a name-based status board unbuildable, and a message edit is a different bucket
+    // entirely. The floor turns a burst (a host reboot is one event per server) into a single edit;
+    // the refresh is only a backstop for what no event describes.
+    "StatusMessageMinIntervalSeconds": 15,
+    "StatusMessageRefreshSeconds": 900,
+
     "Status": {
       "Online": "🟢",
       "Offline": "🔴",
@@ -92,6 +112,7 @@
     "JournalDir": "/var/lib/kgsm/events",
     "WatchdogSocketPath": "/run/kgsm-watchdog/control.sock",
     "StatusSocketPath": "/run/kgsm-bot/status.sock",
+    "FirewallSocketPath": "/run/kgsm-firewall/firewall.sock",
     "Blueprints": {
       "7dtd": {
         "OnlineTrigger": "INF StartGame done"

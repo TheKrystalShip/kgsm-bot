@@ -48,6 +48,8 @@ public sealed class CommandManifestTests
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
         services.AddSingleton(Substitute.For<IKgsmAccounts>());
         services.AddSingleton(Substitute.For<IGuildStore>());
+        services.AddSingleton(Substitute.For<IStatusBoard>());
+        services.AddSingleton(Substitute.For<IServerConnectionService>());
         return services.BuildServiceProvider();
     }
 
@@ -169,7 +171,8 @@ public sealed class CommandManifestTests
         // not [Mutating] — it changes no server — so nothing but the tier puts it in this bucket.
         manifest.Gates[KgsmTiers.Admin].Select(c => c.Name)
             .Should().BeEquivalentTo(
-                ["setup show", "setup announce", "setup board", "setup board-off", "setup forget"]);
+                ["setup show", "setup announce", "setup board", "setup board-off",
+                 "setup status", "setup status-off", "setup forget"]);
         manifest.Gates[KgsmTiers.Admin].Should().OnlyContain(c => !c.Mutates);
 
         IEnumerable<MethodInfo> mutating = BotAssembly.GetTypes()

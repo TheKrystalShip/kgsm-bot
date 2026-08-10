@@ -67,6 +67,22 @@ public class KgsmOptions
         Risk = LeafRisk.Wiring)]
     public string StatusSocketPath { get; set; } = "/run/kgsm-bot/status.sock";
 
+    /// <summary>
+    /// Control-socket path for the kgsm-firewall authority, which the bot asks whether a server's
+    /// ports are actually reachable. Read-only: the bot opens nothing and closes nothing — ports are
+    /// opened when a server starts and closed when it stops, and that is the watchdog's and the
+    /// authority's business, not a chat surface's.
+    /// </summary>
+    /// <remarks>
+    /// The authority is an optional sibling. An absent or unreachable socket costs the reachability
+    /// half of <c>/connect</c> and nothing else, and is reported as unknown rather than as closed.
+    /// </remarks>
+    /// <panel>The firewall authority's control socket, which the bot asks whether a server's ports are
+    /// actually reachable. It only ever reads.</panel>
+    [LeafField("firewallSocketPath", "Firewall socket", Group = "kgsm", Type = LeafType.Path,
+        Risk = LeafRisk.Wiring)]
+    public string FirewallSocketPath { get; set; } = "/run/kgsm-firewall/firewall.sock";
+
     public Dictionary<string, BlueprintSettings> Blueprints { get; set; } = new();
 }
 

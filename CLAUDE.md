@@ -64,9 +64,10 @@ same pattern. If some *other* operation seems to need root, stop and ask; don't 
 surface with its defaults, and is committed — it holds no secret and names no Discord server.
 Key sections: `KgsmAuth` (the host's shared sign-in application), `Auth` (the account store — see
 *Authorization*), `Guilds` (`DbPath` — the guild store, see *Where it announces*), `Discord`
-(token, status markers, `RemoveChannelOnInstanceDeletion`, the message-cleanup pair, and the
-`Announce` switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`,
-`StatusSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant leaf is + the
+(token, status markers, `PublicAddress`, `RemoveChannelOnInstanceDeletion`, `ActionButtons`,
+`IncidentThreads`, the status-message cadence pair, the message-cleanup pair, and the `Announce`
+switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, `StatusSocketPath`,
+`FirewallSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant leaf is + the
 shared relay secret), `KgsmCache` (inventory TTLs).
 
 An environment variable **overrides one key** of that file by spelling the key's path with
@@ -104,6 +105,20 @@ commands are registered globally and authorize from the account store, so this i
   configured guilds and posts once in each; the only variable is which channel — the server's own
   where the guild runs a board and bound one, else the guild's announcement channel. `Render` names
   the server (`🟢 **factorio** started — … (heisen)`), so a message reads correctly out of either.
+- **Run state lives in a message, never in a channel name.** Nothing here renames a channel, and
+  nothing may: Discord rate-limits channel edits hard enough that a name cannot be kept in step with
+  a server's state, and a bot that tries is throttled off the API — losing the announcements too. A
+  marker in a channel name is a human's label; the bot's report of run state is the message it posts.
+- **The live status message is the ambient board, and it is one message per guild.**
+  `/setup status <channel>` starts keeping it and pins it; `/setup status-off` stops, leaving the
+  message standing. It carries every server, whether it is up, and how to reach it, and
+  `StatusBoardService` keeps it current by **editing** — the generous bucket the channel-name version
+  could not use. Three rules hold it: an event marks it **dirty** and a floor
+  (`StatusMessageMinIntervalSeconds`) decides when to spend an edit, so a host reboot's fifteen
+  events cost **one**; a periodic republish (`StatusMessageRefreshSeconds`) is a backstop for what no
+  event describes, never the mechanism; and the message id is **stored**, because a restart that
+  posts a second board and keeps the wrong one current is a fabricated status with a timestamp on it.
+  A run state that could not be read is marked unread (`❔`), never stopped.
 - **`/setup announce <channel>` alone is a working configuration.** The board — a channel per
   server, under a category — is opt-in per guild because it needs `Manage Channels`, which is the
   permission people reasonably think twice about granting. Enabled by *having a category*
@@ -290,6 +305,17 @@ kind that the Control Panel renders as its own section. Three rules hold the sur
   happen whether or not anything is announced, so they keep their own registrations. Install
   announces *after* its channel exists; uninstall announces *before* its channel is taken away.
 
+**An announcement about a server that is down is something you act from.** `AnnouncementActions`
+owns which ones, and the two sets are deliberately different. A **restart button** goes on
+`instance_failed` only — a crash announcement says the supervisor is already restarting it, so a
+button there races the supervisor over the same server and blames whoever pressed it for the attempt
+that loses. A **thread** opens on both crash kinds, so the conversation about an incident stays with
+it; the @-mention surface keys on the channel, which makes a thread its own context rather than one
+more voice in the channel's. The button grants nothing: it is a shortcut to `/restart`, re-resolved
+against the account store **at the click** (an announcement has no caller to authorize at the post)
+and stamped with the clicker's provenance. `Discord:ActionButtons` and `Discord:IncidentThreads`
+switch each off; a missing `Create Public Threads` costs the thread and nothing else.
+
 **Crashes are announced once per crash, not once per restart attempt.** The supervisor emits an
 `instance_crashed` per attempt, so a restart loop produces a run of them seconds apart. The
 first attempt is the news; the outcome arrives separately as `instance_failed`. An unreadable
@@ -330,6 +356,30 @@ and missing a restart window here costs nothing.
   says so and goes quiet while slash commands, announcements and channel status carry on.
   There is deliberately **no fallback engine**: answering from a second one would split a
   person's history across two memories exactly when things are going wrong.
+  The **firewall authority** is optional in the same way, and read-only from here: it answers
+  `/connect`'s "can you actually reach it", and an unreachable one costs that one line. Ports open
+  when a server starts and close when it stops — the watchdog's and the authority's business, never
+  a chat surface's.
+
+## `/connect`: the question a game Discord actually asks
+
+`ServerConnectionService` composes three sources that fail independently — the engine (the instance
+and its `Ports`, already canonical `[{start,end,protocol}]`), the host (`HostAddressService`), and
+the firewall authority (`FirewallReport`) — and a failure of one is reported on the piece it belongs
+to. The ports are worth having when the external IP could not be read; the address is worth having
+when no firewall answered.
+
+- **An operator-set address wins over a measured one.** A host cannot discover the name people
+  actually type — a DNS record pointing at it is a fact about the world, not about the machine — so
+  `Discord:PublicAddress` is used verbatim. Blank, the host's measured external IP is the fallback,
+  and the reply says it can change without notice. Neither answering is stated as not knowing.
+- **`PortExposure` has three ways of not knowing and none of them is "closed".** The one that matters:
+  a backend installed but **not enforcing** filters nothing, so its empty rule set means every port is
+  reachable — `Unfiltered`, which is the opposite of what that set naively reads as. `Unknown` is the
+  authority saying it cannot tell, `Unavailable` is no authority at all. kgsm-lib reports enforcement
+  separately from the rules precisely so the distinction survives.
+- **A server with no declared ports gets no connect string.** A guessed port is a wrong answer that
+  looks like a right one.
 
 ## Tests
 
