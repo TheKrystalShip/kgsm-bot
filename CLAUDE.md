@@ -283,6 +283,10 @@ a new option reaches the panel with no second edit. Commit what the build produc
   the attribute that puts a command in the "acts" column is the one that gates it.
   `CommandManifestTests` pins the set by name, so a new acting command that is not marked fails the
   build rather than being listed to an operator as read-only.
+- **The operator bucket is not only the acting commands.** A command can need operator without
+  changing anything — `/logs` shows the inside of the machine — so the test asserts the direction
+  that protects (everything marked `[Mutating]` is gated at operator) and names the reads that sit
+  there, rather than asserting the reverse and forcing a read to be mislabelled as an action.
 - **The tests compare against Discord.Net itself** — the same `InteractionService.AddModulesAsync`
   scan the bot runs at startup, command for command and option for option. The manifest is read by a
   process that never talks to Discord, so agreeing with what is actually registered is the only thing
@@ -352,6 +356,35 @@ and the live sessions from the supervisor (`IWatchdogClient.GetPlayerPresenceAsy
 - **An unnamed session is counted but not labelled.** The network address is deliberately not a
   fallback label: it identifies a connection rather than a person, and putting one in a chat message
   publishes a player's IP to the channel.
+- **The run state it read is handed back on the answer** (`ServerRoster.Running`, null where the
+  engine could not be asked). Deciding what a roster means costs a kgsm process per server, and the
+  board and the presence both want that fact as well — asking twice would pay twice for one thing and
+  could return two answers about the same moment. Nothing else in the bot calls `IsActiveAsync` per
+  server to build a picture of the host.
+
+### The bot's presence: the one thing it says with no channel to say it in
+
+`Watching 6 servers · 3 online · 12 playing`, on the bot itself. It reaches a guild that has never
+run `/setup`, and one update covers every guild at once, which no other surface here can do.
+
+- **A gateway presence update is not REST, and `IDiscordSendQueue` does not pace it.** The limit is a
+  handful per twenty seconds for the whole session. `PresenceRefreshSeconds` is the only thing
+  protecting that budget, which is why the line is recomposed on a **fixed tick and never driven by
+  an event** — a host reboot must not be able to spend it — and is sent only when it changed.
+- **It never claims more than was read.** A host that could not be read says so instead of showing
+  the last good numbers; an incomplete count is written as a floor (`3+ online`, `12+ playing`); and
+  "0 playing" is never said, because it is noise on a quiet host and a lie on one whose games report
+  nobody. The inventory is read separately from the roster for exactly one reason: an empty roster
+  means both "no servers" and "could not be read", and those are opposite things to show somebody.
+
+### `/logs`: the tail, as a file, to the person who asked
+
+Operator-gated, and **ephemeral — which is a privacy decision, not a tidiness one**. A game server's
+log routinely carries the network address of everyone who connected; this bot already refuses to put
+an address in a roster for that reason, and posting the raw log into the channel would publish the
+same thing with more of it. A file rather than a code block because Discord truncates a long one and
+wraps every line of it on a phone. Oversized logs are trimmed **from the front** — the end is the part
+somebody asked for — and the budget is counted in bytes, since that is what Discord's limit is in.
 
 ### One queue out to Discord
 

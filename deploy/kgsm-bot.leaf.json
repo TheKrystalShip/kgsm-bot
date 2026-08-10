@@ -48,7 +48,7 @@
     },
     {
       "id": "status",
-      "label": "Live status message",
+      "label": "Live status",
       "order": 6
     },
     {
@@ -399,6 +399,29 @@
       "min": 60,
       "unit": "s",
       "risk": "safe"
+    },
+    {
+      "key": "presence",
+      "env": "Discord__Presence",
+      "label": "Show the host in the member list",
+      "description": "Whether the bot shows how many servers are up beside its name in the member list. It needs no channel and no setup, and every Discord server sees the same line.",
+      "group": "status",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
+      "key": "presenceRefreshSec",
+      "env": "Discord__PresenceRefreshSeconds",
+      "label": "Presence refresh",
+      "description": "How often the bot re-checks the host to update the line beside its name. Set it low and Discord will start refusing the updates.",
+      "group": "status",
+      "type": "int",
+      "default": "60",
+      "min": 20,
+      "unit": "s",
+      "risk": "safe",
+      "dependsOn": "presence"
     },
     {
       "key": "sendQueueMinIntervalMs",

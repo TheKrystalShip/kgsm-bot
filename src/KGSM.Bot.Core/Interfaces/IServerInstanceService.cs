@@ -68,6 +68,19 @@ public interface IServerInstanceService
     Task<Result<string>> GetInfoAsync(string instanceName);
 
     /// <summary>
+    /// Gets the tail of an instance's log, newest last.
+    /// </summary>
+    /// <remarks>
+    /// The engine owns where a server's output lands and how far back it goes; this asks for the last
+    /// <paramref name="lines"/> of it and nothing more. An empty list is a real answer — a server that
+    /// has written nothing yet — and is not a failure.
+    /// </remarks>
+    /// <param name="instanceName">Name of the instance</param>
+    /// <param name="lines">How many lines from the end to read</param>
+    /// <returns>The lines, or a failure if the log could not be read.</returns>
+    Task<Result<IReadOnlyList<string>>> GetLogsAsync(string instanceName, int lines);
+
+    /// <summary>
     /// Checks if the instance is currently active (running)
     /// </summary>
     /// <param name="instanceName">Name of the instance</param>

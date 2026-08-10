@@ -71,6 +71,15 @@
     "StatusMessageMinIntervalSeconds": 15,
     "StatusMessageRefreshSeconds": 900,
 
+    // The line beside the bot's own name — "Watching 6 servers · 3 online". The only thing this bot
+    // says with no channel to say it in: it reaches a Discord server that has never run /setup, and one
+    // update covers every one of them at once. A gateway presence update is limited to a handful per
+    // twenty seconds for the WHOLE session, and that budget is not the one the send queue paces below,
+    // so the cadence here is the only thing protecting it — which is why the line is recomposed on a
+    // fixed tick, never in response to an event, and sent only when it actually changed.
+    "Presence": true,
+    "PresenceRefreshSeconds": 60,
+
     // Everything the bot says on its own initiative goes out through one paced queue: announcements
     // across guilds, the board's per-guild edits, channels created with an install, expiring messages
     // cleaned up. Four producers that know nothing of each other are one stream by the time they

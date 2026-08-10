@@ -43,7 +43,6 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildStore _guilds;
     private readonly IKgsmStateCache _cache;
-    private readonly IServerInstanceService _instances;
     private readonly IHostAddressService _addresses;
     private readonly IPlayerRoster _roster;
     private readonly IDiscordSendQueue _queue;
@@ -61,7 +60,6 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         DiscordSocketClient discordClient,
         IGuildStore guilds,
         IKgsmStateCache cache,
-        IServerInstanceService instances,
         IHostAddressService addresses,
         IPlayerRoster roster,
         IDiscordSendQueue queue,
@@ -71,7 +69,6 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         _discordClient = discordClient;
         _guilds = guilds;
         _cache = cache;
-        _instances = instances;
         _addresses = addresses;
         _roster = roster;
         _queue = queue;
@@ -186,9 +183,11 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
             return new Snapshot([], HostAddresses.Unknown, Readable: false);
         }
 
-        // Who is playing, read once for the whole board through the same service /players uses —
-        // there is exactly one place a player count comes from, so the board and the command cannot
-        // print different numbers about the same moment.
+        // Run state and who is playing, read once for the whole board through the same service
+        // /players uses — there is exactly one place either number comes from, so the board and the
+        // command cannot print different things about the same moment. It reads each server's run
+        // state to decide what its roster means, and hands that back, so the board joins to it rather
+        // than spawning a second kgsm process per server for a fact already in hand.
         Dictionary<string, ServerRoster> rosters;
         try
         {
@@ -197,30 +196,28 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         }
         catch (Exception e)
         {
-            // The board is a picture of run state first; losing the player counts costs those
-            // columns and nothing else.
-            _logger.LogWarning(e, "Player counts could not be read for the status message.");
+            // Every row falls back to unread rather than to stopped: a board that cannot see the host
+            // says so, and saying "offline" on the strength of a failed read is the fabrication.
+            _logger.LogWarning(e, "Run state and player counts could not be read for the status message.");
             rosters = [];
         }
 
-        // Each check spawns a kgsm process, so they run together rather than in sequence — the
-        // message is as old as the slowest one, not as old as their sum.
-        ServerRow[] rows = await Task.WhenAll(instances
+        ServerRow[] rows = [.. instances
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(async pair =>
+            .Select(pair =>
             {
-                Result<bool> active = await _instances.IsActiveAsync(pair.Key);
+                rosters.TryGetValue(pair.Key, out ServerRoster? roster);
                 return new ServerRow(
                     Name: pair.Key,
                     Blueprint: pair.Value.Blueprint,
                     Ports: pair.Value.Ports ?? [],
                     // Three states, not two: a run state that could not be read is reported as
                     // unread rather than as stopped, which is a different fact about the server.
-                    Running: active.IsSuccess ? active.Value : null,
+                    Running: roster?.Running,
                     // Null wherever the count is not knowable, which the renderer prints as nothing
                     // at all rather than as a zero.
-                    Players: rosters.TryGetValue(pair.Key, out ServerRoster? roster) ? roster.Count : null);
-            }));
+                    Players: roster?.Count);
+            })];
 
         HostAddresses addresses = await _addresses.ResolveAsync(cancellationToken);
 

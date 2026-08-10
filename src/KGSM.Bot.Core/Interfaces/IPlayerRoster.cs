@@ -33,7 +33,7 @@ public interface IPlayerRoster
 }
 
 /// <summary>
-/// One server's answer to "who is playing".
+/// One server's answer to "who is playing", and the run state that answer was decided against.
 /// </summary>
 /// <param name="Server">The server, as kgsm names it.</param>
 /// <param name="Knowledge">What can honestly be said about it.</param>
@@ -42,10 +42,21 @@ public interface IPlayerRoster
 /// <see cref="RosterKnowledge.Known"/> — every other state carries no players, because a list under
 /// them would be a claim this host cannot make.
 /// </param>
+/// <param name="Running">
+/// Whether the server is up, or <see langword="null"/> when that could not be read.
+/// </param>
+/// <remarks>
+/// <b>Run state is carried rather than re-read.</b> Deciding whether a roster means anything requires
+/// asking the engine whether the server is even running, and that answer costs a kgsm process per
+/// server. A surface that wants both — the live status board wants exactly both — would otherwise ask
+/// the same question a second time, paying twice for one fact and able to get two answers about the
+/// same moment.
+/// </remarks>
 public sealed record ServerRoster(
     string Server,
     RosterKnowledge Knowledge,
-    IReadOnlyList<RosterPlayer> Players)
+    IReadOnlyList<RosterPlayer> Players,
+    bool? Running)
 {
     /// <summary>
     /// How many are connected, or <see langword="null"/> when that is not known.

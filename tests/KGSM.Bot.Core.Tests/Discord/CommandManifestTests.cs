@@ -51,6 +51,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IStatusBoard>());
         services.AddSingleton(Substitute.For<IServerConnectionService>());
         services.AddSingleton(Substitute.For<IPlayerRoster>());
+        services.AddSingleton(Substitute.For<IServerInstanceService>());
         return services.BuildServiceProvider();
     }
 
@@ -158,11 +159,18 @@ public sealed class CommandManifestTests
     {
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
-        // Every command that acts sits under the operator bucket, and no command that only reads does —
-        // the bucket IS the claim, so a mutating command landing anywhere else is the drift this catches.
-        manifest.Gates[KgsmTiers.Operator].Should().OnlyContain(c => c.Mutates);
+        // Every command that acts sits under the operator bucket — the bucket IS the claim, so a
+        // mutating command landing anywhere else is the drift this catches.
         AllCommands(manifest).Where(c => c.Mutates).Select(c => c.Name)
-            .Should().BeEquivalentTo(manifest.Gates[KgsmTiers.Operator].Select(c => c.Name));
+            .Should().BeEquivalentTo(manifest.Gates[KgsmTiers.Operator].Where(c => c.Mutates).Select(c => c.Name));
+
+        // The reverse does not hold, and must not be asserted: a command can need operator without
+        // changing anything. Reading a server's log is the case — it changes nothing and still shows
+        // the inside of the machine, including the network address of everyone who connected. The
+        // reads that sit at operator are named here, the same way the admin bucket names its own, so
+        // adding another is a decision somebody made rather than a gate that drifted.
+        manifest.Gates[KgsmTiers.Operator].Where(c => !c.Mutates).Select(c => c.Name)
+            .Should().BeEquivalentTo(["logs"]);
 
         // Nothing is gated at "none": every slash module requires an account here, which is the
         // property the test below pins, and this is the manifest saying the same thing.

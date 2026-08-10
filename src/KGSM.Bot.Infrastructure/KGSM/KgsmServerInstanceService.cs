@@ -262,6 +262,27 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    public async Task<Result<IReadOnlyList<string>>> GetLogsAsync(string instanceName, int lines)
+    {
+        try
+        {
+            _logger.LogInformation("Reading the last {Lines} log lines for server instance {InstanceName}",
+                lines, instanceName);
+
+            ICollection<string> log = await _kgsmClient.Instances.GetLogsAsync(instanceName, lines);
+
+            return Result.Success<IReadOnlyList<string>>([.. log]);
+        }
+        catch (Exception ex)
+        {
+            // kgsm-lib throws rather than returning a failure here, so an unreadable log arrives as an
+            // exception and becomes a failed Result like every other answer this service gives.
+            _logger.LogError(ex, "Error reading logs for server instance {InstanceName}", instanceName);
+            return Result.Failure<IReadOnlyList<string>>(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<Result<bool>> IsActiveAsync(string instanceName)
     {
         try

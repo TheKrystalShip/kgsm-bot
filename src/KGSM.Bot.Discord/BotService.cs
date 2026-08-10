@@ -21,6 +21,7 @@ public class BotService : BackgroundService
     private readonly MessageHandler _messageHandler;
     private readonly ServerEventCoordinatorService _serverEventCoordinator;
     private readonly IStatusBoard _statusBoard;
+    private readonly IBotPresence _presence;
     private readonly DiscordOptions _discordOptions;
     private readonly IKgsmAccounts _accounts;
     private readonly IGuildStore _guilds;
@@ -32,6 +33,7 @@ public class BotService : BackgroundService
         MessageHandler messageHandler,
         ServerEventCoordinatorService serverEventCoordinator,
         IStatusBoard statusBoard,
+        IBotPresence presence,
         IOptions<DiscordOptions> discordOptions,
         IKgsmAccounts accounts,
         IGuildStore guilds,
@@ -42,6 +44,7 @@ public class BotService : BackgroundService
         _messageHandler = messageHandler;
         _serverEventCoordinator = serverEventCoordinator;
         _statusBoard = statusBoard;
+        _presence = presence;
         _discordOptions = discordOptions.Value;
         _accounts = accounts;
         _guilds = guilds;
@@ -151,15 +154,17 @@ public class BotService : BackgroundService
         {
             _logger.LogInformation("Discord client is ready");
 
-            // Set bot activity
-            await _discordClient.SetActivityAsync(new Game("over servers 👀", ActivityType.Watching));
-
             // Initialize event coordinator
             _serverEventCoordinator.Initialize();
 
             // Nothing can be edited before the gateway is ready, and the board's own guard makes a
             // reconnect's second READY a no-op rather than a second publishing loop.
             _statusBoard.Start();
+
+            // What the bot says with no channel to say it in. Started here for the same reason as the
+            // board — nothing can be sent before the gateway is ready — and guarded the same way, so a
+            // reconnect's second READY does not become a second loop against a per-session limit.
+            _presence.Start();
 
             _logger.LogInformation("KGSM Bot fully initialized");
         }

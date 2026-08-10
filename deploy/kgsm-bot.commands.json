@@ -108,6 +108,27 @@
         ]
       },
       {
+        "name": "logs",
+        "description": "The tail of a server\u0027s log, as a file only you can see",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          },
+          {
+            "name": "lines",
+            "description": "How many lines from the end. Default 200.",
+            "type": "integer",
+            "required": false,
+            "autocomplete": false
+          }
+        ]
+      },
+      {
         "name": "restart",
         "description": "Restart a game server",
         "mutates": true,

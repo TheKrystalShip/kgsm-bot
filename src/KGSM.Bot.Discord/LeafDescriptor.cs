@@ -25,7 +25,9 @@ using TheKrystalShip.KGSM.LeafConfig;
 [assembly: LeafGroup("authorization", "Who may act", 3)]
 [assembly: LeafGroup("announcements", "Announcements", 4)]
 [assembly: LeafGroup("channels", "Server channels", 5)]
-[assembly: LeafGroup("status", "Live status message", 6)]
+// The two ambient surfaces: the message kept current in a channel, and the line beside the bot's own
+// name. Both say what the host is doing without being asked, and both are paced rather than driven.
+[assembly: LeafGroup("status", "Live status", 6)]
 // Beside the status message, because the two answer the same question from opposite ends: that one
 // is how a burst becomes a single edit, this one is what paces everything the bot sends regardless.
 [assembly: LeafGroup("limits", "Sending to Discord", 7)]

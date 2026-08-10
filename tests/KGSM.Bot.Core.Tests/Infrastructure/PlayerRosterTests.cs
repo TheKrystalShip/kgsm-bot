@@ -259,6 +259,71 @@ public sealed class PlayerRosterTests
         roster.Players.Single().Label.Should().Be("76561198000000000");
     }
 
+    // ── run state, carried ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The run state this join already had to read is handed back with the answer, so a caller that
+    /// wants both — the live status board wants exactly both — does not ask the engine a second time
+    /// and cannot get a second answer about the same moment.
+    /// </summary>
+    [Fact]
+    public async Task TheRunStateBehindTheAnswerIsCarriedWithIt()
+    {
+        Inventory("minecraft", "terraria");
+        Running("minecraft", true);
+        Running("terraria", false);
+        Presence(("minecraft", "log", ["alice"]), ("terraria", "log", []));
+
+        IReadOnlyList<ServerRoster> rosters = await Roster().GetAllAsync();
+
+        rosters.Single(r => r.Server == "minecraft").Running.Should().BeTrue();
+        rosters.Single(r => r.Server == "terraria").Running.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnUnreadRunStateIsCarriedAsUnknownRatherThanAsStopped()
+    {
+        Inventory("minecraft");
+        RunStateUnreadable("minecraft");
+        Presence(("minecraft", "log", ["alice"]));
+
+        ServerRoster roster = (await Roster().GetAllAsync()).Single();
+
+        roster.Running.Should().BeNull();
+        roster.Knowledge.Should().Be(RosterKnowledge.Known);
+    }
+
+    /// <summary>
+    /// Every state carries it, not just the measured one — a caller reading run state must not have to
+    /// know which roster answers happen to include it.
+    /// </summary>
+    [Fact]
+    public async Task ARunningServerNobodyCanSeeIntoStillReportsThatItIsRunning()
+    {
+        Inventory("starbound");
+        Running("starbound", true);
+        Presence(("starbound", "none", []));
+
+        ServerRoster roster = (await Roster().GetAllAsync()).Single();
+
+        roster.Knowledge.Should().Be(RosterKnowledge.NotObservable);
+        roster.Running.Should().BeTrue();
+        roster.Count.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ARunningServerReportsThatWithTheSupervisorDown()
+    {
+        Inventory("minecraft");
+        Running("minecraft", true);
+        SupervisorDown();
+
+        ServerRoster roster = (await Roster().GetAllAsync()).Single();
+
+        roster.Knowledge.Should().Be(RosterKnowledge.Unavailable);
+        roster.Running.Should().BeTrue();
+    }
+
     // ── lookup ────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

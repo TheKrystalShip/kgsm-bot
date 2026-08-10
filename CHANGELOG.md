@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The bot's own Discord presence — `Watching 6 servers · 3 online · 12 playing`.** The one thing
+  this bot says with no channel to say it in: it reaches a Discord server that has never run
+  `/setup`, one update covers every one of them at once, and it is visible in the member list without
+  opening anything.
+
+  A gateway presence update is limited to a handful per twenty seconds for the whole session, and
+  that budget is not the one `IDiscordSendQueue` paces, so `Discord:PresenceRefreshSeconds` (60s,
+  floor 20) is the only thing protecting it: the line is recomposed on a **fixed tick, never in
+  response to an event**, and sent only when it actually changed. `Discord:Presence` turns it off.
+
+  It claims nothing it did not read. A host that could not be read says so rather than showing the
+  last good numbers, an incomplete count is written as a floor (`3+ online`, `12+ playing`), and
+  "0 playing" is never said — noise on a quiet host, and a lie on one whose games report nobody.
+
+- **`/logs <server> [lines]` — the tail of a server's log, as a file.** Operator-gated, 200 lines by
+  default. Diagnosing anything used to mean leaving Discord.
+
+  **The reply is ephemeral, and that is a privacy decision rather than a tidiness one.** A game
+  server's log routinely carries the network address of every player who connected; this bot already
+  refuses to put an address in a roster for that reason, and posting the raw log into the channel
+  would publish the same thing with more of it. A file rather than a code block because Discord
+  truncates a long one and wraps every line of it on a phone. A log too big to upload is trimmed
+  **from the front** — the end is the part somebody asked for — and the budget is counted in bytes,
+  which is what Discord's limit is in.
+
 - **`/players [server]` — who is playing, on one server or across the host.** Viewer-gated. The
   single most-asked question in a game Discord after "how do I join", and the bot could not answer it.
 
@@ -119,6 +144,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the store. Dry-run by default; `--from <settings.json>` names the file holding the old map and
   `--announce-channel <id>` supplies the guild's channel when the old configuration left it at zero.
   It refuses a guild that already has a row rather than merging.
+
+### Changed
+
+- **`ServerRoster` carries the run state it was decided against** (`Running`, null where the engine
+  could not be asked). Working out what a roster means already requires asking the engine whether the
+  server is up, at the cost of a kgsm process per server, and the live status message wants that fact
+  too — it was spawning a second process per server per publish to ask the same question, and could
+  have got a different answer about the same moment. The board now joins to the roster for both.
 
 ### Fixed
 

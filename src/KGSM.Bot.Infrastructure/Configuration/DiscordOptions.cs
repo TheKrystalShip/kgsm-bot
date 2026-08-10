@@ -99,6 +99,34 @@ public class DiscordOptions
     public int StatusMessageRefreshSeconds { get; set; } = 900;
 
     /// <summary>
+    /// Whether the bot shows this host in its own Discord presence.
+    /// </summary>
+    /// <remarks>
+    /// The one thing this bot says without a channel to say it in: it reaches a guild that has never
+    /// run <c>/setup</c>, and one update covers every guild at once. Off, the bot appears with no
+    /// activity and nothing else changes.
+    /// </remarks>
+    /// <panel>Whether the bot shows how many servers are up beside its name in the member list. It
+    /// needs no channel and no setup, and every Discord server sees the same line.</panel>
+    [LeafField("presence", "Show the host in the member list", Group = "status")]
+    public bool Presence { get; set; } = true;
+
+    /// <summary>
+    /// How often the presence is recomposed.
+    /// </summary>
+    /// <remarks>
+    /// A gateway presence update is limited to a handful per twenty seconds for the whole session, and
+    /// that budget is not the one the send queue paces. This cadence is the only thing protecting it,
+    /// which is why the presence is never driven by an event: the line is recomposed on the tick and
+    /// sent only when it changed.
+    /// </remarks>
+    /// <panel>How often the bot re-checks the host to update the line beside its name. Set it low and
+    /// Discord will start refusing the updates.</panel>
+    [LeafField("presenceRefreshSec", "Presence refresh", Group = "status",
+        Min = 20, Unit = "s", DependsOn = "presence")]
+    public int PresenceRefreshSeconds { get; set; } = 60;
+
+    /// <summary>
     /// The floor between two calls the bot makes to Discord on its own initiative.
     /// </summary>
     /// <remarks>

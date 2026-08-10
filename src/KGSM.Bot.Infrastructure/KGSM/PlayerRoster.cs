@@ -121,29 +121,33 @@ public sealed class PlayerRoster : IPlayerRoster
     {
         Result<bool> active = await _instances.IsActiveAsync(name);
 
+        // Null where the engine could not be asked, which is a third state and not a false. Carried on
+        // every answer below so a caller that wants both facts pays for this check once.
+        bool? running = active.IsSuccess ? active.Value : null;
+
         // A run state that could not be read is not a stopped server, so this deliberately does not
         // shortcut to Stopped on a failed check — it falls through to whatever presence can say.
-        if (active.IsSuccess && !active.Value)
-            return new ServerRoster(name, RosterKnowledge.Stopped, []);
+        if (running == false)
+            return new ServerRoster(name, RosterKnowledge.Stopped, [], running);
 
         if (presence is null)
-            return new ServerRoster(name, RosterKnowledge.Unavailable, []);
+            return new ServerRoster(name, RosterKnowledge.Unavailable, [], running);
 
         if (!presence.TryGetValue(name, out WatchdogInstancePresence? instance))
         {
             // The supervisor answered but does not carry this instance — installed since it last read
             // the inventory, or an inventory it could not read. Either way it has said nothing about
             // this server, which is not the same as saying nobody is on it.
-            return new ServerRoster(name, RosterKnowledge.Unavailable, []);
+            return new ServerRoster(name, RosterKnowledge.Unavailable, [], running);
         }
 
         if (!instance.IsDetected)
-            return new ServerRoster(name, RosterKnowledge.NotObservable, []);
+            return new ServerRoster(name, RosterKnowledge.NotObservable, [], running);
 
         RosterPlayer[] players = [.. instance.Players
             .Select(p => new RosterPlayer(p.Name, p.Id))
             .OrderBy(p => p.Label ?? "￿", StringComparer.OrdinalIgnoreCase)];
 
-        return new ServerRoster(name, RosterKnowledge.Known, players);
+        return new ServerRoster(name, RosterKnowledge.Known, players, running);
     }
 }
