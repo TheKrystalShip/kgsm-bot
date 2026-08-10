@@ -331,6 +331,28 @@ The switches, the status markers and the two message-cleanup keys are **host pol
 what this host announces is its own business, and only where each announcement lands is a guild's.
 Splitting them per guild is deferred until a second guild actually wants a different set.
 
+### `/players`: who is on, and the four ways of answering it
+
+`IPlayerRoster` is **the one place a player count comes from** — `/players` and the live status
+message both read it, because two derivations are two numbers that can disagree in front of the same
+person. It joins three facts from two authorities: run state from the engine, and both observability
+and the live sessions from the supervisor (`IWatchdogClient.GetPlayerPresenceAsync`).
+
+- **`RosterKnowledge` has one measured state and three refusals**, and `Count` is null for all three.
+  A caller reads `Count`, never `Players.Count` — the latter is 0 in every state and would quietly
+  turn "nobody can tell" into "nobody is here". `Known` is the only zero worth printing.
+- **Stopped is decided before observability.** A stopped server has nobody on it whatever a stale
+  session map holds, and that is a real answer to give even about a game this host can never see
+  into.
+- **A run state that could not be read is not a stopped server**, so a failed check falls through to
+  whatever presence can say rather than short-cutting to `Stopped`.
+- **Whether a game reports its players is the supervisor's answer, never derived here.** The
+  predicate spans log patterns, RCON, and whether each pattern *compiles*; a surface deriving it from
+  the instance's regex fields calls every RCON-polled game unknowable while its roster is being read.
+- **An unnamed session is counted but not labelled.** The network address is deliberately not a
+  fallback label: it identifies a connection rather than a person, and putting one in a chat message
+  publishes a player's IP to the channel.
+
 ### One queue out to Discord
 
 **Everything the bot says unprompted goes through `IDiscordSendQueue`.** Announcements fanning out

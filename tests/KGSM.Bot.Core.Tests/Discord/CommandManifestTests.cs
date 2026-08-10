@@ -50,6 +50,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IGuildStore>());
         services.AddSingleton(Substitute.For<IStatusBoard>());
         services.AddSingleton(Substitute.For<IServerConnectionService>());
+        services.AddSingleton(Substitute.For<IPlayerRoster>());
         return services.BuildServiceProvider();
     }
 

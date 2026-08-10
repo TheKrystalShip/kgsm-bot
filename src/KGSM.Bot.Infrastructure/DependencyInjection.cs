@@ -149,6 +149,12 @@ public static class DependencyInjection
         services.AddSingleton<IHostAddressService, HostAddressService>();
         services.AddSingleton<IServerConnectionService, ServerConnectionService>();
 
+        // Who is playing, joined from the engine's run state and the supervisor's live session map.
+        // One registration because there must be exactly one place a player count comes from — the
+        // command and the status board both read this, and two derivations would be two numbers that
+        // can disagree in front of the same person.
+        services.AddSingleton<IPlayerRoster, PlayerRoster>();
+
         // Cached inventory (avoids spawning kgsm per message)
         services.AddSingleton<IKgsmStateCache, KgsmStateCache>();
 

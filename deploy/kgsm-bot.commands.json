@@ -212,6 +212,20 @@
         "options": []
       },
       {
+        "name": "players",
+        "description": "Who is playing \u2014 on one server, or across the whole host",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance. Leave empty for every server.",
+            "type": "string",
+            "required": false,
+            "autocomplete": true
+          }
+        ]
+      },
+      {
         "name": "status",
         "description": "Get a detailed status of a game server",
         "mutates": false,

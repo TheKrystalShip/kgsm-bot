@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`/players [server]` — who is playing, on one server or across the host.** Viewer-gated. The
+  single most-asked question in a game Discord after "how do I join", and the bot could not answer it.
+
+  The roster comes from the supervisor's live session map through `IPlayerRoster` (kgsm-lib 4.6.0),
+  which joins three facts that have to agree before a number means anything: whether the server is
+  running (the engine), whether its players can be observed at all (the supervisor), and who is
+  connected. **Every way of not knowing is said out loud, and none of them is "0 online":**
+
+  | | what it says |
+  |---|---|
+  | running, observed | the names, or "nobody is connected right now" — a measured zero |
+  | stopped | "stopped, so nobody is on it" |
+  | game reports no players | "this game doesn't report its players" — the server may be full |
+  | supervisor unreachable | "I couldn't ask the supervisor" |
+
+  A host summary sums only what was actually counted, and says how many servers it could not speak
+  for rather than leaving them out of a total that would then read as complete. A player the game
+  named is listed; **an unnamed session is counted but not labelled — the network address is
+  deliberately not a fallback**, because it identifies a connection rather than a person and would
+  publish a player's IP to the channel.
+
+  Presence is detected from log output for some games and an RCON poll for others; which applies is
+  the supervisor's business, and this surface never asks a game directly.
+
+- **The live status message carries player counts**, from that same service — there is exactly one
+  place a count comes from, so the board and the command cannot print different numbers about the
+  same moment. A count appears only where it was measured and only when somebody is on; a server
+  whose players cannot be seen gets no number rather than a zero, and the host total is written as a
+  floor (`12+ playing`) whenever any server could not be counted.
+
 - **One paced queue in front of everything the bot says unprompted.** Announcements fanning out
   across guilds, the status board's per-guild edits, channels created and retired with an install,
   and expiring messages cleaned up were four producers each able to burst, none aware of the others.

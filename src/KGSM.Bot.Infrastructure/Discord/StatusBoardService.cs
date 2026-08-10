@@ -45,6 +45,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     private readonly IKgsmStateCache _cache;
     private readonly IServerInstanceService _instances;
     private readonly IHostAddressService _addresses;
+    private readonly IPlayerRoster _roster;
     private readonly IDiscordSendQueue _queue;
     private readonly DiscordOptions _options;
     private readonly ILogger<StatusBoardService> _logger;
@@ -62,6 +63,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         IKgsmStateCache cache,
         IServerInstanceService instances,
         IHostAddressService addresses,
+        IPlayerRoster roster,
         IDiscordSendQueue queue,
         IOptions<DiscordOptions> options,
         ILogger<StatusBoardService> logger)
@@ -71,6 +73,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         _cache = cache;
         _instances = instances;
         _addresses = addresses;
+        _roster = roster;
         _queue = queue;
         _options = options.Value;
         _logger = logger;
@@ -183,6 +186,23 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
             return new Snapshot([], HostAddresses.Unknown, Readable: false);
         }
 
+        // Who is playing, read once for the whole board through the same service /players uses —
+        // there is exactly one place a player count comes from, so the board and the command cannot
+        // print different numbers about the same moment.
+        Dictionary<string, ServerRoster> rosters;
+        try
+        {
+            rosters = (await _roster.GetAllAsync(cancellationToken))
+                .ToDictionary(r => r.Server, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception e)
+        {
+            // The board is a picture of run state first; losing the player counts costs those
+            // columns and nothing else.
+            _logger.LogWarning(e, "Player counts could not be read for the status message.");
+            rosters = [];
+        }
+
         // Each check spawns a kgsm process, so they run together rather than in sequence — the
         // message is as old as the slowest one, not as old as their sum.
         ServerRow[] rows = await Task.WhenAll(instances
@@ -196,7 +216,10 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
                     Ports: pair.Value.Ports ?? [],
                     // Three states, not two: a run state that could not be read is reported as
                     // unread rather than as stopped, which is a different fact about the server.
-                    Running: active.IsSuccess ? active.Value : null);
+                    Running: active.IsSuccess ? active.Value : null,
+                    // Null wherever the count is not knowable, which the renderer prints as nothing
+                    // at all rather than as a zero.
+                    Players: rosters.TryGetValue(pair.Key, out ServerRoster? roster) ? roster.Count : null);
             }));
 
         HostAddresses addresses = await _addresses.ResolveAsync(cancellationToken);
@@ -365,7 +388,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         }
 
         int online = snapshot.Servers.Count(s => s.Running == true);
-        embed.WithDescription($"**{online} of {snapshot.Servers.Count}** online.");
+        embed.WithDescription($"**{online} of {snapshot.Servers.Count}** online.{Playing(snapshot)}");
 
         var body = new StringBuilder();
         foreach (ServerRow server in snapshot.Servers)
@@ -374,6 +397,11 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
 
             if (!string.IsNullOrWhiteSpace(server.Blueprint))
                 body.Append(" · ").Append(server.Blueprint);
+
+            // Only where the count is a measurement, and only when somebody is on — an empty server
+            // does not need saying twice, and a server nobody can see into must not be given a zero.
+            if (server.Players is > 0)
+                body.Append(" · 👥 ").Append(server.Players);
 
             if (Join(snapshot.Addresses.Public, server) is string join)
                 body.Append(" · `").Append(join).Append('`');
@@ -393,6 +421,25 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         }
 
         return embed.Build();
+    }
+
+    /// <summary>
+    /// The host's player total, or nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// Said only when somebody is actually playing: a board that reads "0 playing" on a quiet host is
+    /// noise, and on a host whose games report no players it would be a lie. A total is also only ever
+    /// a sum of the servers that could be counted, so it is phrased as a floor rather than a fact when
+    /// any of them could not.
+    /// </remarks>
+    private static string Playing(Snapshot snapshot)
+    {
+        int total = snapshot.Servers.Sum(s => s.Players ?? 0);
+        if (total == 0)
+            return string.Empty;
+
+        bool complete = snapshot.Servers.All(s => s.Players is not null || s.Running != true);
+        return complete ? $" **{total}** playing." : $" **{total}+** playing.";
     }
 
     private string Marker(bool? running) => running switch
@@ -439,6 +486,11 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     private sealed record Snapshot(
         IReadOnlyList<ServerRow> Servers, HostAddresses Addresses, bool Readable);
 
+    /// <summary>
+    /// One row of the board. <c>Players</c> is null wherever the count is not knowable — a game that
+    /// reports no players, a supervisor that could not be asked, a server that is not running — and
+    /// null prints as nothing, because printing it as 0 would claim an empty server.
+    /// </summary>
     private sealed record ServerRow(
-        string Name, string Blueprint, IReadOnlyList<PortMapping> Ports, bool? Running);
+        string Name, string Blueprint, IReadOnlyList<PortMapping> Ports, bool? Running, int? Players);
 }
