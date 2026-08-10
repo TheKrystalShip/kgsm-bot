@@ -3,23 +3,21 @@
   //
   // This file declares the bot's WHOLE configurable surface, each key with its default. It is the
   // floor; an environment variable overrides one key of it by spelling that key's path with "__" —
-  // Discord__GuildId, KGSM__Path, Logging__LogLevel__Default. A variable naming a key that is not
+  // Discord__Token, KGSM__Path, Logging__LogLevel__Default. A variable naming a key that is not
   // declared here binds to nothing.
   //
   // Every key here maps onto a property of the options class the bot binds that section into, and a
   // test fails the build if the two ever disagree, in either direction, or if the leaf descriptor
   // (deploy/kgsm-bot.leaf.json — what the Control Panel renders) drifts from either.
   //
-  // SECRETS AND HOST IDENTITY ARE DECLARED HERE, NEVER SET HERE. The Discord token, the guild, and
-  // the category and role ids are this host's own — they are declared blank or zero so the Control
-  // Panel can see they exist, and their real values belong in the root-owned
+  // SECRETS ARE DECLARED HERE, NEVER SET HERE. The Discord token is this host's own — it is declared
+  // blank so the Control Panel can see it exists, and its real value belongs in the root-owned
   // /etc/kgsm-bot/kgsm-bot.env, which is not in version control.
   //
-  // The "Instances" map below is the one exception, and it is a hard one: systemd refuses an
-  // environment variable whose name contains a hyphen, and a server may legitimately be named
-  // "minecraft-homestead". Delivered through the env file, those entries are dropped with an
-  // "Ignoring invalid environment assignment" in the journal and the server is given a new channel
-  // on its next event. This file is the only source that can express every name, so the map lives here.
+  // NO DISCORD SERVER IS NAMED IN THIS FILE. Which Discord servers hear about this host, the channel
+  // each takes announcements in, and whether it keeps a channel per server are set with /setup from
+  // inside Discord and recorded in the guild store (Guilds:DbPath) — one admin, no file to edit, no
+  // restart. What this host announces at all is host policy and is below.
   // The Discord application the host signs people in through, shared with the Control Panel API and
   // the assistant. The bot signs nobody in and needs neither key; it declares them so the Control
   // Panel can show the host's whole sign-in block in one place. The secret is delivered by the
@@ -42,11 +40,16 @@
     "UsersDbPath": "/var/lib/kgsm/auth/users.db"
   },
 
+  // Which Discord servers the bot announces into, and the channel each server reports in. Written by
+  // /setup, never by hand: it is the bot's own file, it holds the binding that ties a server to the
+  // channel carrying its history, and it deliberately sits OUTSIDE /opt/kgsm-bot, which the deploy
+  // syncs with rsync --delete.
+  "Guilds": {
+    "DbPath": "/var/lib/kgsm-bot/bot.db"
+  },
+
   "Discord": {
     "Token": "",
-    "GuildId": 0,
-    "InstancesCategoryId": 0,
-    "AnnouncementChannelId": 0,
     "RemoveChannelOnInstanceDeletion": false,
     "Status": {
       "Online": "🟢",
@@ -81,11 +84,9 @@
   },
 
   // Where the engine is and where its event journal lives. "Blueprints" gives the per-game log line
-  // that means "the server finished starting", and "Instances" maps a server to the Discord channel
-  // it reports in. Both are maps keyed by name: an entry binds from its own key
-  // (KGSM__Instances__factorio__ChannelId), so a single variable cannot express one, and the
-  // Control Panel does not render them. A name with a hyphen in it cannot be spelled as an
-  // environment variable at all, so this file is where these entries have to live.
+  // that means "the server finished starting" — a map keyed by name, so an entry binds from its own
+  // key (KGSM__Blueprints__factorio__OnlineTrigger), a single variable cannot express one, and the
+  // Control Panel does not render it.
   "KGSM": {
     "Path": "/usr/local/bin/kgsm",
     "JournalDir": "/var/lib/kgsm/events",
@@ -136,68 +137,6 @@
       },
       "vrising": {
         "OnlineTrigger": "Startup Completed - Disabling Scene Loading Systems"
-      }
-    },
-    "Instances": {
-      "barotrauma": {
-        "ChannelId": "1277668743601717378",
-        "Blueprint": "barotrauma"
-      },
-      "corekeeper": {
-        "ChannelId": "1179580060571807775",
-        "Blueprint": "corekeeper"
-      },
-      "dontstarvetogether": {
-        "ChannelId": "1295485803949985812",
-        "Blueprint": "dontstarvetogether"
-      },
-      "empyrion": {
-        "ChannelId": "1384460784557621278",
-        "Blueprint": "empyrion"
-      },
-      "factorio": {
-        "ChannelId": "1176992508237070376",
-        "Blueprint": "factorio"
-      },
-      "lotrrtm": {
-        "ChannelId": "1340655871461556285",
-        "Blueprint": "lotrrtm"
-      },
-      "minecraft": {
-        "ChannelId": "911747779704008745",
-        "Blueprint": "minecraft"
-      },
-      "minecraft-homestead": {
-        "ChannelId": "1381184910751961161",
-        "Blueprint": "minecraft"
-      },
-      "projectzomboid": {
-        "ChannelId": "1177396282038423561",
-        "Blueprint": "projectzomboid"
-      },
-      "projectzomboid-lisa": {
-        "ChannelId": "1380175468371644516",
-        "Blueprint": "projectzomboid"
-      },
-      "starbound": {
-        "ChannelId": "1177637279263641661",
-        "Blueprint": "starbound"
-      },
-      "starmade": {
-        "ChannelId": "1250457986468675747",
-        "Blueprint": "starmade"
-      },
-      "terraria": {
-        "ChannelId": "1177396264153923584",
-        "Blueprint": "terraria"
-      },
-      "valheim": {
-        "ChannelId": "812414286021787671",
-        "Blueprint": "valheim"
-      },
-      "veloren": {
-        "ChannelId": "1250462874275676231",
-        "Blueprint": "veloren"
       }
     }
   },

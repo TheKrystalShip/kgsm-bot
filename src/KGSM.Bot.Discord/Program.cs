@@ -27,6 +27,18 @@ public class Program
             return;
         }
 
+        // Moving a host that was wired to one Discord server into the guild store: it reads the old
+        // keys, prints every row it would write, and touches nothing without --apply. A one-off, so it
+        // runs here rather than behind a host it does not need.
+        if (args is [_, ..] && args[0] == "--adopt-guild-config")
+        {
+            Environment.ExitCode = GuildConfigAdoption.Run(
+                settingsPath: ValueAfter(args, "--from") ?? Path.Combine(AppContext.BaseDirectory, SettingsFile),
+                announceChannelOverride: ulong.TryParse(ValueAfter(args, "--announce-channel"), out ulong c) ? c : 0,
+                apply: args.Contains("--apply"));
+            return;
+        }
+
         // Create and configure the host
         using var host = CreateHostBuilder(args).Build();
 
@@ -36,6 +48,13 @@ public class Program
 
     /// <summary>The file declaring the bot's whole configurable surface, shipped beside the binary.</summary>
     private const string SettingsFile = "kgsm-bot.settings.json";
+
+    /// <summary>The value of a <c>--flag value</c> pair, or null when the flag is absent.</summary>
+    private static string? ValueAfter(string[] args, string flag)
+    {
+        int at = Array.IndexOf(args, flag);
+        return at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
+    }
 
     /// <summary>
     /// Creates and configures the host builder

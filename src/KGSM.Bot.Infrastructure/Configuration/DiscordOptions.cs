@@ -5,8 +5,14 @@ using TheKrystalShip.KGSM.LeafConfig;
 namespace KGSM.Bot.Infrastructure.Configuration;
 
 /// <summary>
-/// Configuration options for Discord
+/// Configuration options for Discord — this host's own policy, not any one Discord server's.
 /// </summary>
+/// <remarks>
+/// Where announcements land is not here: which guilds hear about this host, the channel each of them
+/// takes announcements in, and whether it keeps a channel per server are all set with <c>/setup</c>
+/// from inside Discord and held in the guild store. What this host announces at all, and how a
+/// message looks when it does, is host policy and lives here.
+/// </remarks>
 [LeafSection(Section)]
 public class DiscordOptions
 {
@@ -17,28 +23,6 @@ public class DiscordOptions
     [LeafField("discordToken", "Bot token", Group = "discord", Type = LeafType.Secret,
         Risk = LeafRisk.Wiring, NoDefault = true)]
     public string Token { get; set; } = string.Empty;
-    /// <panel>The Discord server this bot operates in. Pointing it at another server abandons the
-    /// channels it made in this one.</panel>
-    [LeafField("discordGuildId", "Discord server id", Group = "discord", Type = LeafType.Int,
-        Min = 0, Risk = LeafRisk.Wiring)]
-    public ulong GuildId { get; set; }
-    /// <panel>Category the bot creates each server's channel under. Zero leaves new channels
-    /// uncategorised.</panel>
-    [LeafField("instancesCategoryId", "Channel category id", Group = "channels", Type = LeafType.Int, Min = 0)]
-    public ulong InstancesCategoryId { get; set; }
-
-    /// <summary>
-    /// Channel that receives an announcement about a server the bot has no channel for. A server
-    /// only gets its own channel when the bot sees it installed or finds it in the
-    /// <c>KGSM:Instances</c> map, so a host with servers older than the map has instances that
-    /// route nowhere; without this they are dropped with a warning and nobody in Discord hears
-    /// about them.
-    /// </summary>
-    /// <panel>Channel for announcements about servers that have no channel of their own. Zero drops
-    /// them instead, and the reason is logged.</panel>
-    [LeafField("announcementChannelId", "Fallback announcement channel", Group = "channels",
-        Type = LeafType.Int, Min = 0)]
-    public ulong AnnouncementChannelId { get; set; }
 
     /// <panel>Whether uninstalling a server also deletes its Discord channel, taking that channel's
     /// history with it. Off, the channel is left behind.</panel>

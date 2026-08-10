@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Infrastructure.Authorization;
 
 namespace KGSM.Bot.Discord;
@@ -21,6 +22,7 @@ public class BotService : BackgroundService
     private readonly ServerEventCoordinatorService _serverEventCoordinator;
     private readonly DiscordOptions _discordOptions;
     private readonly IKgsmAccounts _accounts;
+    private readonly IGuildStore _guilds;
     private readonly ILogger<BotService> _logger;
 
     public BotService(
@@ -30,6 +32,7 @@ public class BotService : BackgroundService
         ServerEventCoordinatorService serverEventCoordinator,
         IOptions<DiscordOptions> discordOptions,
         IKgsmAccounts accounts,
+        IGuildStore guilds,
         ILogger<BotService> logger)
     {
         _discordClient = discordClient;
@@ -38,6 +41,7 @@ public class BotService : BackgroundService
         _serverEventCoordinator = serverEventCoordinator;
         _discordOptions = discordOptions.Value;
         _accounts = accounts;
+        _guilds = guilds;
         _logger = logger;
     }
 
@@ -60,6 +64,22 @@ public class BotService : BackgroundService
                     "authorization will refuse, and questions go unanswered. Announcements, channel " +
                     "status and the journal reader are unaffected.",
                     _accounts.UnavailableReason);
+
+            // Where this host broadcasts, said once at startup. A bot in ten guilds and set up in
+            // none is silent by design, and that is indistinguishable from broken without this line.
+            if (!_guilds.Available)
+                _logger.LogError(
+                    "The guild store is unavailable ({Reason}) — nothing will be announced anywhere " +
+                    "and /setup will refuse. Slash commands and questions are unaffected.",
+                    _guilds.UnavailableReason);
+            else if (_guilds.Configured().Count is int configured and > 0)
+                _logger.LogInformation(
+                    "Announcing into {Configured} Discord server(s). An admin adds another with /setup.",
+                    configured);
+            else
+                _logger.LogWarning(
+                    "No Discord server has been set up here yet, so nothing will be announced. An " +
+                    "admin runs /setup announce in the server that should hear about this host.");
 
             // Add Discord client logging
             _discordClient.Log += OnDiscordClientLogAsync;
@@ -132,7 +152,7 @@ public class BotService : BackgroundService
             await _discordClient.SetActivityAsync(new Game("over servers 👀", ActivityType.Watching));
 
             // Initialize event coordinator
-            _serverEventCoordinator.Initialize(_discordOptions.GuildId);
+            _serverEventCoordinator.Initialize();
 
             _logger.LogInformation("KGSM Bot fully initialized");
         }

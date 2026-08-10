@@ -98,13 +98,6 @@ public interface IServerInstanceService
     Task<Result> CreateBackupAsync(string instanceName);
 
     /// <summary>
-    /// Gets the Discord channel ID associated with an instance, if any
-    /// </summary>
-    /// <param name="instanceName">Name of the instance</param>
-    /// <returns>Channel ID, if configured</returns>
-    Task<Result<ulong?>> GetChannelIdAsync(string instanceName);
-
-    /// <summary>
     /// Sets a single key=value in an instance's .config.ini. kgsm owns the safety
     /// policy and refuses identity/path/structural/toggle keys, surfacing that as a
     /// failed <see cref="Result"/> (the refusal text in <c>Error</c>).

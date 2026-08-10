@@ -286,29 +286,6 @@ public sealed class ServerService : IServerService
         }
     }
 
-    public async Task<InstanceChannelIdResult> GetChannelIdAsync(string instanceName, CancellationToken ct = default)
-    {
-        try
-        {
-            _logger.LogInformation("Getting channel ID for instance {InstanceName}", instanceName);
-            var result = await _serverInstanceService.GetChannelIdAsync(instanceName);
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Failed to get channel ID for instance {InstanceName}: {Error}",
-                    instanceName, result.Error);
-                return InstanceChannelIdResult.Failure(result.Error ?? "Unknown error");
-            }
-            _logger.LogInformation("Successfully retrieved channel ID for instance {InstanceName}: {ChannelId}",
-                instanceName, result.Value?.ToString() ?? "null");
-            return InstanceChannelIdResult.Success(result.Value);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting channel ID for instance {InstanceName}", instanceName);
-            return InstanceChannelIdResult.Failure($"An error occurred: {ex.Message}");
-        }
-    }
-
     public async Task<WatchdogStatusResult> GetWatchdogStatusAsync(string instanceName, CancellationToken ct = default)
     {
         try

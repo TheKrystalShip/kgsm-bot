@@ -38,6 +38,12 @@ public static class DependencyInjection
         services.Configure<AssistantOptions>(
             configuration.GetSection(AssistantOptions.Section));
 
+        // Which Discord servers this host announces into. A singleton because it holds the open
+        // store, and — like the account store — opening it is what can fail, so it fails into an
+        // unavailable store rather than out of the constructor and takes the whole bot with it.
+        services.Configure<GuildOptions>(configuration.GetSection(GuildOptions.Section));
+        services.AddSingleton<IGuildStore, Guilds.SqliteGuildStore>();
+
         // The line to the assistant leaf. Registered whether or not this host has one: the client
         // reports itself unconfigured and the conversational surface stays off, which is what
         // "a leaf runs standalone" means for an optional sibling.

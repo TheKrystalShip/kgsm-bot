@@ -61,20 +61,19 @@ same pattern. If some *other* operation seems to need root, stop and ask; don't 
 ## Configuration
 
 `src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's **whole** configurable
-surface with its defaults, and is committed — it holds no secret and no host identity.
+surface with its defaults, and is committed — it holds no secret and names no Discord server.
 Key sections: `KgsmAuth` (the host's shared sign-in application), `Auth` (the account store — see
-*Authorization*), `Discord` (token, `GuildId`,
-`InstancesCategoryId`, `AnnouncementChannelId`, status markers, and the `Announce` switches),
-`KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, and the
-`Blueprints`/`Instances` maps), `Assistant` (where the assistant leaf is + the shared relay
-secret), `KgsmCache` (inventory TTLs).
+*Authorization*), `Guilds` (`DbPath` — the guild store, see *Where it announces*), `Discord`
+(token, status markers, `RemoveChannelOnInstanceDeletion`, the message-cleanup pair, and the
+`Announce` switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`,
+`StatusSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant leaf is + the
+shared relay secret), `KgsmCache` (inventory TTLs).
 
 An environment variable **overrides one key** of that file by spelling the key's path with
-`__` (`Discord__GuildId`), and a variable naming a key the file does not declare binds to
-nothing. That is where the token and this host's own scalars live
-(`/etc/kgsm-bot/kgsm-bot.env`). The descriptor generator fails the build when the settings
-file and the annotated options classes disagree in either direction, so a key added to one
-without the other never ships.
+`__` (`Discord__Token`), and a variable naming a key the file does not declare binds to
+nothing. That is where the token lives (`/etc/kgsm-bot/kgsm-bot.env`). The descriptor generator
+fails the build when the settings file and the annotated options classes disagree in either
+direction, so a key added to one without the other never ships.
 
 **`deploy/kgsm-bot.leaf.json` is generated, not written.** `TheKrystalShip.KGSM.LeafConfig`
 rewrites it on every build from `[LeafField]` attributes and `<panel>` doc tags — so edit the
@@ -86,11 +85,51 @@ picks up because it scans every assembly beside the built binary. `KgsmAuth` is 
 has to live with the surface that shows it. Format:
 `../leaf-config-descriptor.md`; mechanism: `../kgsm-leafconfig/README.md`.
 
-**The `KGSM:Instances` channel map is the one host-specific thing that stays in the settings
-file**, because systemd refuses an environment variable whose name contains a hyphen — an
-instance called `minecraft-homestead` is dropped with *"Ignoring invalid environment
-assignment"* and given a new channel on its next event. Nothing else persists that map, so a
-server missing from it loses its channel history.
+## Where it announces: `/setup` owns the topology
+
+**The bot is guild-agnostic.** Nothing in configuration names a Discord server, and inviting the bot
+somewhere grants that guild nothing: a guild hears about this host because an admin ran `/setup`
+there, and a guild with no row in the store gets nothing whatever the bot's membership. The slash
+commands are registered globally and authorize from the account store, so this is safe.
+
+- **The store** is `Guilds:DbPath` — SQLite at `/var/lib/kgsm-bot/bot.db`, `0600`, the bot's own
+  file and its only writer. **It is deliberately not under `/opt/kgsm-bot`**: `deploy.sh` syncs the
+  prefix with `rsync -a --delete`, which would take it every deploy. `setup.sh` creates the
+  directory and nothing ever overwrites the file. **Additive-only**, with a `schema_version` row and
+  a startup floor check that refuses a file a newer build wrote — losing this file loses every
+  channel binding, and a binding is the only thing tying a server to the channel holding its
+  history. Snowflakes are `TEXT`: a 64-bit unsigned id in a signed `INTEGER` column is a parse
+  waiting to be got wrong.
+- **One announcement mechanism, with the board as a layer on it.** `AnnounceAsync` iterates the
+  configured guilds and posts once in each; the only variable is which channel — the server's own
+  where the guild runs a board and bound one, else the guild's announcement channel. `Render` names
+  the server (`🟢 **factorio** started — … (heisen)`), so a message reads correctly out of either.
+- **`/setup announce <channel>` alone is a working configuration.** The board — a channel per
+  server, under a category — is opt-in per guild because it needs `Manage Channels`, which is the
+  permission people reasonably think twice about granting. Enabled by *having a category*
+  (`board_category_id NOT NULL`), never by a boolean beside one, because a flag and a category can
+  disagree. `/setup board-off` and `/setup forget` **never delete a channel**: deleting one with
+  history because a setting changed is not a decision a bot gets to make, and the reply says so.
+- **`[RequireTier(KgsmTier.Admin)]`, never a Discord permission.** ⚠ Gating `/setup` on *Manage
+  Server* would let anyone who can add the bot to a guild of their own point this host's
+  announcements — including player joins and leaves — into it, and authorizing correctly would not
+  help: an announcement has no caller to authorize. **Two questions, two refusals**: the tier
+  (*may you configure this host*) and the bot's own Discord permission, checked **before** anything
+  is recorded (*can I actually do it here*) — recording a channel it cannot post in is how a guild
+  gets configured and then silently receives nothing. Not `[Mutating]`: it changes no server.
+- **A per-guild failure is logged and the rest proceed**, and the result counts guilds reached
+  against guilds configured. A bare success with one guild silently missed is a fabricated status.
+- **Adopting a host that predates this**: `kgsm-bot --adopt-guild-config [--apply]` reads the old
+  `Discord:GuildId` / `AnnouncementChannelId` / `InstancesCategoryId` and `KGSM:Instances` and
+  writes the store. Dry-run by default, `--from <settings.json>` names the file to read (the
+  shipped one no longer carries the map), `--announce-channel <id>` supplies the guild's channel
+  when the old configuration left it at zero. **It refuses a guild that already has a row** rather
+  than merging — a second run that re-pointed bindings is how live channels get orphaned and
+  duplicated beside fresh ones, splitting every server's history in two.
+
+The old `KGSM:Instances` map could not be delivered by environment variable at all — systemd drops
+a variable whose name contains a hyphen, and an instance may be called `minecraft-homestead`. In a
+database that constraint does not exist: it is a row.
 
 ## Architecture
 
@@ -116,7 +155,7 @@ Everything that mutates a server funnels through the **same MediatR pipeline**
 which front end triggered it:
 
 1. **Slash commands** (`Commands/*Module.cs`, Discord.Net `InteractionModuleBase`) —
-   `/start`, `/stop`, `/list`, `/status`, `/supervision`, blueprints, etc. The full list is
+   `/start`, `/stop`, `/list`, `/status`, `/supervision`, blueprints, `/setup`, etc. The full list is
    published, not written — see *The command manifest* below.
 2. **Natural language** (`MessageHandler.cs` + `Infrastructure/Assistant/`) — triggered by
    @-mentioning the bot. The message goes to the **kgsm-assistant leaf** over its HTTP
@@ -220,10 +259,15 @@ a new option reaches the panel with no second edit. Commit what the build produc
   `/var/lib/kgsm/leaves/commands/bot.json` — a subdirectory, because the descriptor scan globs `*.json`
   at the level above and would read it as a malformed descriptor. Format:
   `../leaf-command-manifest.md`.
+- **The bucket is the tier the command is actually refused below** — its own `RequireTier`, else its
+  module's, taking the higher of the two because Discord.Net evaluates both. So the panel prints the
+  word the precondition enforces rather than one derived from it, and `/setup` lands in `admin` on
+  the strength of changing no server at all.
 - **`[Mutating]` is the one thing reflection cannot see.** It marks a command that changes something,
-  which is what splits the panel into what reads and what acts. `CommandManifestTests` pins the set by
-  name, so a new acting command that is not marked fails the build rather than being listed to an
-  operator as read-only.
+  which is what splits the panel into what reads and what acts. It *is* `RequireTier(Operator)`, so
+  the attribute that puts a command in the "acts" column is the one that gates it.
+  `CommandManifestTests` pins the set by name, so a new acting command that is not marked fails the
+  build rather than being listed to an operator as read-only.
 - **The tests compare against Discord.Net itself** — the same `InteractionService.AddModulesAsync`
   scan the bot runs at startup, command for command and option for option. The manifest is read by a
   process that never talks to Discord, so agreeing with what is actually registered is the only thing
@@ -251,8 +295,13 @@ kind that the Control Panel renders as its own section. Three rules hold the sur
 first attempt is the news; the outcome arrives separately as `instance_failed`. An unreadable
 restart count is announced rather than dropped.
 
-A server with no channel of its own — one predating the `KGSM:Instances` map — falls back to
-`Discord:AnnouncementChannelId`, or is dropped with the reason logged when that is zero.
+A server with no channel of its own in a guild — every server in a guild running no board, and one
+installed before a board was turned on — reports in that guild's announcement channel. Which is why
+that channel is the required half of `/setup` and the board is not. See *Where it announces*.
+
+The switches, the status markers and the two message-cleanup keys are **host policy, not per-guild**:
+what this host announces is its own business, and only where each announcement lands is a guild's.
+Splitting them per guild is deferred until a second guild actually wants a different set.
 
 ### State cache & events
 

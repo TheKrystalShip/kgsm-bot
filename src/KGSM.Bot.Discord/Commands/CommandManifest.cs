@@ -1,3 +1,4 @@
+using Discord;
 using Discord.Interactions;
 
 using TheKrystalShip.KGSM.Auth;
@@ -52,10 +53,11 @@ internal sealed record BotCommand(
 /// command cannot be listed that does not exist or renamed without the list following.
 /// </para>
 /// <para>
-/// The catalog is <strong>keyed by the gate that admits each command</strong> — the tier from the
-/// caller's KGSM account, so the panel prints the same word that decides the answer everywhere
-/// else. Keying by gate means a command cannot be added without landing in a bucket, which is the
-/// same property that makes <see cref="MutatingAttribute"/> both the mark and the gate.
+/// The catalog is <strong>keyed by the gate that admits each command</strong> — the tier the
+/// command's own <see cref="RequireTierAttribute"/> demands, the method's where it carries one and
+/// otherwise its module's. That is the attribute the bot actually enforces, so the panel prints the
+/// word that decides the answer rather than one derived from it: a command that changes no server
+/// but configures the host still lands in <c>admin</c>, where it belongs.
 /// </para>
 /// </summary>
 internal sealed record CommandManifest(
@@ -75,14 +77,13 @@ internal sealed record CommandManifest(
 
     /// <summary>
     /// A mutating slash command requires <see cref="KgsmTier.Operator"/>, enforced by
-    /// <see cref="MutatingAttribute"/> before the command body runs. Read commands require an account
-    /// on this host, which is <see cref="KgsmTier.Viewer"/> at its lowest.
+    /// <see cref="MutatingAttribute"/> before the command body runs.
     /// </summary>
     public const string SlashCommandGate = KgsmTiers.Operator;
 
     /// <summary>
     /// The bucket a command sits in when this bot checks nothing of its own before running it. Not a
-    /// gap — a statement, so the panel can say plainly that the only restriction on a read command is
+    /// gap — a statement, so the panel can say plainly that the only restriction on such a command is
     /// whatever Discord itself imposes.
     /// </summary>
     public const string NoGate = "none";
@@ -102,10 +103,7 @@ internal sealed record CommandManifest(
         Gates: assembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
             .SelectMany(CommandsIn)
-            // A command that ACTS is refused below the slash-command gate before its body runs; one that
-            // only reads needs no more than an account on this host, which is viewer at its lowest — so
-            // this bot states no check of its own for those.
-            .GroupBy(c => c.Mutates ? SlashCommandGate : NoGate, StringComparer.Ordinal)
+            .GroupBy(c => c.Gate, c => c.Command, StringComparer.Ordinal)
             .OrderBy(g => g.Key, StringComparer.Ordinal)
             .ToDictionary(
                 g => g.Key,
@@ -124,10 +122,9 @@ internal sealed record CommandManifest(
         File.WriteAllText(path, json + Environment.NewLine);
     }
 
-    private static IEnumerable<BotCommand> CommandsIn(Type module)
+    private static IEnumerable<(string Gate, BotCommand Command)> CommandsIn(Type module)
     {
         // A module may nest its commands under a group word, which becomes part of what a user types.
-        // None does today; reading it is what keeps the manifest correct if one starts to.
         string prefix = module.GetCustomAttribute<GroupAttribute>() is { Name: string g } && g.Length > 0
             ? g + " "
             : string.Empty;
@@ -137,12 +134,35 @@ internal sealed record CommandManifest(
             if (method.GetCustomAttribute<SlashCommandAttribute>() is not { } slash)
                 continue;
 
-            yield return new BotCommand(
+            yield return (GateOf(module, method), new BotCommand(
                 Name: prefix + slash.Name,
                 Description: slash.Description,
                 Mutates: method.GetCustomAttribute<MutatingAttribute>() is not null,
-                Options: [.. method.GetParameters().Select(OptionOf)]);
+                Options: [.. method.GetParameters().Select(OptionOf)]));
         }
+    }
+
+    /// <summary>
+    /// The tier this command is actually refused below: its own <see cref="RequireTierAttribute"/>
+    /// where it carries one, otherwise the module's.
+    /// </summary>
+    /// <remarks>
+    /// Discord.Net evaluates a method's preconditions and its module's, so a method attribute never
+    /// replaces the module's — it raises the bar, which is what makes taking the higher of the two the
+    /// honest answer. A command under no attribute at all reports <see cref="NoGate"/> rather than
+    /// being quietly filed under a tier nothing enforces.
+    /// </remarks>
+    private static string GateOf(Type module, MethodInfo method)
+    {
+        KgsmTier? onMethod = method.GetCustomAttribute<RequireTierAttribute>()?.Minimum;
+        KgsmTier? onModule = module.GetCustomAttribute<RequireTierAttribute>()?.Minimum;
+
+        return (onMethod, onModule) switch
+        {
+            (null, null) => NoGate,
+            _ => KgsmTiers.ToWire((KgsmTier)Math.Max((int)(onMethod ?? KgsmTier.None),
+                                                     (int)(onModule ?? KgsmTier.None))),
+        };
     }
 
     private static CommandOption OptionOf(ParameterInfo p)
@@ -168,6 +188,13 @@ internal sealed record CommandManifest(
         var x when x == typeof(int) || x == typeof(long) => "integer",
         var x when x == typeof(double) || x == typeof(decimal) => "number",
         var x when x.IsEnum => "string",
+        // Discord's entity options: the user picks one from a list rather than typing it, and every
+        // kind of channel — text, category — is the one "channel" option to Discord.
+        var x when typeof(IChannel).IsAssignableFrom(x) => "channel",
+        var x when typeof(IRole).IsAssignableFrom(x) => "role",
+        var x when typeof(IUser).IsAssignableFrom(x) => "user",
+        var x when typeof(IMentionable).IsAssignableFrom(x) => "mentionable",
+        var x when typeof(IAttachment).IsAssignableFrom(x) => "attachment",
         var x => x.Name.ToLowerInvariant(),
     };
 }

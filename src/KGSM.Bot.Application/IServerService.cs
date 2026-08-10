@@ -25,7 +25,6 @@ public interface IServerService
     Task<BlueprintsResult> GetAllBlueprintsAsync(CancellationToken ct = default);
     Task<ServerStatusResult> GetStatusAsync(string instanceName, CancellationToken ct = default);
     Task<ServerActiveResult> IsActiveAsync(string instanceName, CancellationToken ct = default);
-    Task<InstanceChannelIdResult> GetChannelIdAsync(string instanceName, CancellationToken ct = default);
     Task<WatchdogStatusResult> GetWatchdogStatusAsync(string instanceName, CancellationToken ct = default);
 }
 
@@ -123,24 +122,6 @@ public record ServerActiveResult
 
     public static ServerActiveResult Success(bool isActive) => new(true, isActive, null);
     public static ServerActiveResult Failure(string errorMessage) => new(false, false, errorMessage);
-}
-
-/// <summary>Result for GetChannelIdAsync.</summary>
-public record InstanceChannelIdResult
-{
-    public bool IsSuccess { get; }
-    public ulong? ChannelId { get; }
-    public string? ErrorMessage { get; }
-
-    private InstanceChannelIdResult(bool isSuccess, ulong? channelId, string? errorMessage)
-    {
-        IsSuccess = isSuccess;
-        ChannelId = channelId;
-        ErrorMessage = errorMessage;
-    }
-
-    public static InstanceChannelIdResult Success(ulong? channelId) => new(true, channelId, null);
-    public static InstanceChannelIdResult Failure(string errorMessage) => new(false, null, errorMessage);
 }
 
 /// <summary>Result for GetWatchdogStatusAsync.</summary>

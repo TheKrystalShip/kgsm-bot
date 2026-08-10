@@ -29,8 +29,9 @@ Environment=DOTNET_ENVIRONMENT=Production
 Environment=KGSM__Path=/usr/local/bin/kgsm
 Environment=KGSM__JournalDir=/var/lib/kgsm/events
 
-# REQUIRED: the Discord bot token (Discord__Token) and this host's Discord identity live here, NOT
-# in the committed settings file, which ships in the /opt artifact.
+# REQUIRED: the Discord bot token (Discord__Token) lives here, NOT in the committed settings file,
+# which ships in the /opt artifact. No Discord server is named in either — which guilds hear about
+# this host is set with /setup from inside Discord and kept in /var/lib/kgsm-bot/bot.db.
 # A SECRET — keep this file chmod 600. The deploy script creates it from kgsm-bot.env.example.
 # Who may do what on this host, shared with every other KGSM surface. Loaded FIRST so the per-leaf
 # file below can still override a value deliberately; setting one there is how a host ends up

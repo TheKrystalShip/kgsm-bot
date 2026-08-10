@@ -36,18 +36,16 @@ public class ServerEventCoordinatorService
     // IServerEventHandler.Initialize, starting a second journal reader over the same cursor state.
     private bool _initialized;
 
-    public void Initialize(ulong guildId)
+    public void Initialize()
     {
         if (_initialized)
         {
-            _logger.LogDebug(
-                "Server event coordinator already initialized for guild {GuildId} — skipping re-registration",
-                guildId);
+            _logger.LogDebug("Server event coordinator already initialized — skipping re-registration");
             return;
         }
         _initialized = true;
 
-        _logger.LogInformation("Initializing server event coordinator for guild {GuildId}", guildId);
+        _logger.LogInformation("Initializing server event coordinator");
 
         // The reporting side: one handler for every announceable event. Which of them reaches a
         // channel is the notification service's decision, made against the operator's toggles —
@@ -64,7 +62,9 @@ public class ServerEventCoordinatorService
             // Inventory changed — drop the cached instance list.
             _stateCache.InvalidateInstances();
 
-            var result = await _channelRegistry.AddOrUpdateChannelAsync(guildId, blueprintName, instanceName);
+            // Which guilds get a channel is the registry's business: it is whoever turned a board on,
+            // and that is a fact about the store rather than about this event.
+            var result = await _channelRegistry.AddOrUpdateChannelAsync(instanceName);
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to add channel for instance {InstanceName}: {Error}",
@@ -79,7 +79,7 @@ public class ServerEventCoordinatorService
             // Inventory changed — drop the cached instance list.
             _stateCache.InvalidateInstances();
 
-            var result = await _channelRegistry.RemoveChannelAsync(guildId, instanceName);
+            var result = await _channelRegistry.RemoveChannelAsync(instanceName);
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to remove channel for instance {InstanceName}: {Error}",

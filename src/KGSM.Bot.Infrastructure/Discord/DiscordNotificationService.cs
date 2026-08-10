@@ -15,23 +15,32 @@ namespace KGSM.Bot.Infrastructure.Discord;
 public class DiscordNotificationService : IDiscordNotificationService
 {
     private readonly DiscordSocketClient _discordClient;
-    private readonly IDiscordChannelRegistry _channelRegistry;
+    private readonly IGuildStore _guilds;
     private readonly DiscordOptions _options;
     private readonly ILogger<DiscordNotificationService> _logger;
 
     public DiscordNotificationService(
         DiscordSocketClient discordClient,
-        IDiscordChannelRegistry channelRegistry,
+        IGuildStore guilds,
         IOptions<DiscordOptions> options,
         ILogger<DiscordNotificationService> logger)
     {
         _discordClient = discordClient;
-        _channelRegistry = channelRegistry;
+        _guilds = guilds;
         _options = options.Value;
         _logger = logger;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Posts the announcement in every configured guild.
+    /// </summary>
+    /// <remarks>
+    /// <b>A guild hears about this host because an admin ran <c>/setup</c> there</b>, never because
+    /// the bot happens to be a member. One resolve and one send each, so a guild that has revoked a
+    /// permission, lost its channel or gone unreachable is logged and the rest still hear about it —
+    /// and the result counts the guilds reached against the guilds configured, because a bare success
+    /// with one guild silently missed would be a fabricated status.
+    /// </remarks>
     public async Task<Result> AnnounceAsync(ServerAnnouncement announcement)
     {
         if (!_options.Announce.IsEnabled(announcement.Kind))
@@ -41,69 +50,80 @@ public class DiscordNotificationService : IDiscordNotificationService
             return Result.Success();
         }
 
+        IReadOnlyList<GuildTopology> guilds = _guilds.Configured();
+        if (guilds.Count == 0)
+        {
+            _logger.LogDebug(
+                "Not announcing {Kind} for {InstanceName}: no Discord server has been set up here yet",
+                announcement.Kind, announcement.InstanceName);
+            return Result.Success();
+        }
+
+        string text = Render(announcement);
+        List<string> failures = [];
+        int reached = 0;
+
+        foreach (GuildTopology topology in guilds)
+        {
+            Result result = await AnnounceInAsync(topology, announcement, text);
+            if (result.IsSuccess)
+                reached++;
+            else
+                failures.Add($"{topology.GuildId}: {result.Error}");
+        }
+
+        if (failures.Count == 0)
+        {
+            _logger.LogInformation("Announced {Kind} for instance {InstanceName} in {Reached} guild(s)",
+                announcement.Kind, announcement.InstanceName, reached);
+            return Result.Success();
+        }
+
+        _logger.LogWarning(
+            "Announced {Kind} for instance {InstanceName} in {Reached} of {Configured} guild(s) — {Failures}",
+            announcement.Kind, announcement.InstanceName, reached, guilds.Count, string.Join("; ", failures));
+
+        return Result.Failure(
+            $"announced in {reached} of {guilds.Count} guilds — {string.Join("; ", failures)}");
+    }
+
+    private async Task<Result> AnnounceInAsync(
+        GuildTopology topology, ServerAnnouncement announcement, string text)
+    {
         try
         {
-            var channelResult = await ResolveChannelAsync(announcement.InstanceName);
-            if (channelResult.IsFailure)
-            {
-                _logger.LogWarning("Not announcing {Kind} for {InstanceName}: {Error}",
-                    announcement.Kind, announcement.InstanceName, channelResult.Error);
-                return Result.Failure(channelResult.Error ?? "No channel to announce in");
-            }
+            ulong channelId = ResolveChannel(topology, announcement.InstanceName);
 
-            if (_discordClient.GetChannel(channelResult.Value) is not ITextChannel channel)
-            {
-                _logger.LogWarning("Could not find channel {ChannelId} for instance {InstanceName}",
-                    channelResult.Value, announcement.InstanceName);
-                return Result.Failure($"Could not find channel for instance {announcement.InstanceName}");
-            }
+            if (_discordClient.GetChannel(channelId) is not ITextChannel channel)
+                return Result.Failure($"channel {channelId} cannot be seen");
 
-            var message = await channel.SendMessageAsync(
-                Render(announcement),
-                allowedMentions: AllowedMentions.None);
+            IUserMessage message = await channel.SendMessageAsync(text, allowedMentions: AllowedMentions.None);
 
             if (_options.DeleteStatusMessageAfterDelay)
-            {
                 ScheduleDeletion(message, announcement.InstanceName);
-            }
 
-            _logger.LogInformation("Announced {Kind} for instance {InstanceName}",
-                announcement.Kind, announcement.InstanceName);
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error announcing {Kind} for instance {InstanceName}",
-                announcement.Kind, announcement.InstanceName);
+            _logger.LogError(ex, "Error announcing {Kind} for instance {InstanceName} in guild {GuildId}",
+                announcement.Kind, announcement.InstanceName, topology.GuildId);
             return Result.Failure(ex.Message);
         }
     }
 
     /// <summary>
-    /// The server's own channel, or the fallback announcement channel when it has none.
+    /// The server's own channel in this guild, or the guild's announcement channel when it has none.
     /// </summary>
     /// <remarks>
-    /// A server only has a channel of its own if the bot saw it installed or found it in the
-    /// <c>KGSM:Instances</c> map. Anything older than that map routes nowhere, which is what the
-    /// fallback is for; with no fallback configured the announcement is dropped and the reason is
-    /// logged, rather than being posted somewhere it does not belong.
+    /// A server has a channel of its own only in a guild running a board, and only from the point the
+    /// bot created it. Everything else — every server in a guild that announces into one channel, and
+    /// a server that predates a board being turned on — routes to the channel the guild configured,
+    /// which is why that one is required and the board is not. The message names the server, so it
+    /// reads correctly either way.
     /// </remarks>
-    private async Task<Result<ulong>> ResolveChannelAsync(string instanceName)
-    {
-        var channelResult = await _channelRegistry.GetChannelIdAsync(instanceName);
-        if (channelResult.IsSuccess)
-        {
-            return channelResult;
-        }
-
-        if (_options.AnnouncementChannelId != 0)
-        {
-            return Result.Success(_options.AnnouncementChannelId);
-        }
-
-        return Result.Failure<ulong>(
-            $"instance {instanceName} has no channel and no fallback announcement channel is configured");
-    }
+    private ulong ResolveChannel(GuildTopology topology, string instanceName) =>
+        _guilds.ChannelFor(topology.GuildId, instanceName) ?? topology.AnnounceChannelId;
 
     private void ScheduleDeletion(IUserMessage message, string instanceName)
     {
@@ -146,8 +166,9 @@ public class DiscordNotificationService : IDiscordNotificationService
     }
 
     /// <summary>
-    /// The status markers the operator configured, reused so one guild's chosen symbols apply
-    /// everywhere. A kind with no configured marker of its own gets a literal.
+    /// The status markers the operator configured, host-wide rather than per guild: what this host
+    /// announces is its own policy, and only where it lands is a guild's business. A kind with no
+    /// configured marker of its own gets a literal.
     /// </summary>
     private string MarkerFor(AnnouncementKind kind) => kind switch
     {

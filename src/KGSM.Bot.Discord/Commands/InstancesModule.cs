@@ -3,6 +3,7 @@ using Discord.Interactions;
 
 using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
+using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
@@ -18,13 +19,19 @@ namespace KGSM.Bot.Discord.Commands;
 public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerService _server;
+    private readonly IGuildStore _guilds;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<InstancesModule> _logger;
     private const string SUMMARY = "Game server instance";
 
-    public InstancesModule(IServerService server, IInvocationContext invocation, ILogger<InstancesModule> logger)
+    public InstancesModule(
+        IServerService server,
+        IGuildStore guilds,
+        IInvocationContext invocation,
+        ILogger<InstancesModule> logger)
     {
         _server = server;
+        _guilds = guilds;
         _invocation = invocation;
         _logger = logger;
     }
@@ -275,9 +282,13 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                 var isActive = await _server.IsActiveAsync(name);
                 string status = isActive.IsSuccess && isActive.IsActive ? "🟢 Online" : "🔴 Offline";
 
-                var channelIdResult = await _server.GetChannelIdAsync(name);
-                string channelInfo = channelIdResult.IsSuccess && channelIdResult.ChannelId.HasValue ?
-                    $"<#{channelIdResult.ChannelId}>" : "No channel";
+                // The channel THIS Discord server reports it in. A server has one only where a board
+                // is on, and the answer is per-guild — the same instance reports in a different
+                // channel in each guild that runs one, and in none at all in a guild that doesn't.
+                string channelInfo = Context.Guild is not null
+                    && _guilds.ChannelFor(Context.Guild.Id, name) is ulong channelId
+                        ? $"<#{channelId}>"
+                        : "No channel";
 
                 return new EmbedFieldBuilder()
                     .WithName(name)

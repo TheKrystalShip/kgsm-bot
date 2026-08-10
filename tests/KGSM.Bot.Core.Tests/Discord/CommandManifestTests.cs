@@ -47,6 +47,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IAssistantTurnClient>());
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
         services.AddSingleton(Substitute.For<IKgsmAccounts>());
+        services.AddSingleton(Substitute.For<IGuildStore>());
         return services.BuildServiceProvider();
     }
 
@@ -144,22 +145,32 @@ public sealed class CommandManifestTests
     }
 
     /// <summary>
-    /// The manifest states what the bot enforces before running a mutating command, and the modules
-    /// have to actually enforce it — the panel prints this word and cannot verify it. Every mutating
-    /// command carries the operator gate, and it is the same attribute that marks it mutating, so the
-    /// two cannot drift apart.
+    /// The manifest states what the bot enforces before running each command, and the modules have to
+    /// actually enforce it — the panel prints this word and cannot verify it. The bucket is read from
+    /// the same <c>RequireTier</c> attribute the precondition runs, so the two cannot drift apart; what
+    /// this pins is that every command lands in the bucket its attributes put it in.
     /// </summary>
     [Fact]
-    public void EveryMutatingCommandIsGatedAtTheTierTheManifestClaims()
+    public void EveryCommandIsBucketedAtTheTierTheModulesEnforce()
     {
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
         // Every command that acts sits under the operator bucket, and no command that only reads does —
         // the bucket IS the claim, so a mutating command landing anywhere else is the drift this catches.
         manifest.Gates[KgsmTiers.Operator].Should().OnlyContain(c => c.Mutates);
-        manifest.Gates[CommandManifest.NoGate].Should().OnlyContain(c => !c.Mutates);
         AllCommands(manifest).Where(c => c.Mutates).Select(c => c.Name)
             .Should().BeEquivalentTo(manifest.Gates[KgsmTiers.Operator].Select(c => c.Name));
+
+        // Nothing is gated at "none": every slash module requires an account here, which is the
+        // property the test below pins, and this is the manifest saying the same thing.
+        manifest.Gates.Should().NotContainKey(CommandManifest.NoGate);
+
+        // Configuring where this host broadcasts is a host setting, and host settings are admin. It is
+        // not [Mutating] — it changes no server — so nothing but the tier puts it in this bucket.
+        manifest.Gates[KgsmTiers.Admin].Select(c => c.Name)
+            .Should().BeEquivalentTo(
+                ["setup show", "setup announce", "setup board", "setup board-off", "setup forget"]);
+        manifest.Gates[KgsmTiers.Admin].Should().OnlyContain(c => !c.Mutates);
 
         IEnumerable<MethodInfo> mutating = BotAssembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))

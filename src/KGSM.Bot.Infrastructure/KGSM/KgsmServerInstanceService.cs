@@ -349,36 +349,6 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
-    public async Task<Result<ulong?>> GetChannelIdAsync(string instanceName)
-    {
-        try
-        {
-            _logger.LogInformation("Getting channel ID for instance {InstanceName}", instanceName);
-
-            // The channel id comes purely from local bot config — no kgsm involvement.
-            // We deliberately do NOT spawn a full `GetAll()` enumeration just to existence-
-            // check the instance: an unknown/unconfigured instance simply has no channel,
-            // and the only caller (/list) already iterates instances it knows exist.
-            ulong? channelId = null;
-
-            if (_options.Instances.TryGetValue(instanceName, out var instanceConfig) &&
-                ulong.TryParse(instanceConfig.ChannelId, out var parsedChannelId))
-            {
-                channelId = parsedChannelId;
-            }
-
-            _logger.LogInformation("Retrieved channel ID for instance {InstanceName}: {ChannelId}",
-                instanceName, channelId?.ToString() ?? "null");
-            return await Task.FromResult(Result.Success(channelId));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting channel ID for instance {InstanceName}", instanceName);
-            return Result.Failure<ulong?>(ex.Message);
-        }
-    }
-
-    /// <inheritdoc />
     public async Task<Result> SetConfigValueAsync(string instanceName, string key, string value)
     {
         try

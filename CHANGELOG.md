@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`/setup` — the bot works in any Discord server, and each one is configured from inside Discord.**
+  `/setup announce <channel>` is the whole of a working setup; `/setup board <category>` additionally
+  gives each game server its own channel; `/setup board-off`, `/setup forget` and `/setup show`
+  complete the surface. Gated at **KGSM admin** — deciding where a host broadcasts is a host setting,
+  and gating it on Discord's *Manage Server* would let anyone who can invite the bot redirect this
+  host's announcements into a server of their own. The bot's own Discord permission is a separate
+  answer and is checked **before** anything is recorded, so a guild cannot be configured into
+  silence.
+- **A guild store**, SQLite at `/var/lib/kgsm-bot/bot.db` (`Guilds__DbPath`, mode `0600`), holding
+  which Discord servers this host announces into and the channel each game server reports in.
+  Deliberately outside `/opt/kgsm-bot`, which the deploy syncs with `rsync --delete`. Additive-only,
+  with a schema-version floor check that refuses a file a newer build wrote.
+- **`kgsm-bot --adopt-guild-config [--apply]`** moves a host configured for one Discord server into
+  the store. Dry-run by default; `--from <settings.json>` names the file holding the old map and
+  `--announce-channel <id>` supplies the guild's channel when the old configuration left it at zero.
+  It refuses a guild that already has a row rather than merging.
+
+### Fixed
+
+- **A channel the bot created on install is no longer forgotten at the next restart.** The binding
+  was written to the in-memory options dictionary and nothing ever serialised it back, so after a
+  restart the server fell back to the announcement channel and its channel was orphaned. Bindings
+  live in the store.
+- **Announcing no longer stops at the first guild that fails.** Each guild is resolved and sent to
+  on its own; a failure is logged and the rest proceed, and the result counts guilds reached against
+  guilds configured rather than reporting a bare success.
+
+### Removed
+
+- **`Discord__GuildId`, `Discord__InstancesCategoryId`, `Discord__AnnouncementChannelId` and the
+  `KGSM:Instances` channel map.** ⚠ **A host upgrading past this must run
+  `deploy/deploy.sh`'s new binary with `--adopt-guild-config --apply` *before* redeploying**, while
+  the old settings file is still in place — otherwise the 15-odd channel bindings it holds are gone
+  and every server is given a fresh channel beside the one carrying its history. Back up
+  `/opt/kgsm-bot/kgsm-bot.settings.json` first.
+- `InstanceSettings.Blueprint`, which was written and never read, and
+  `IServerInstanceService.GetChannelIdAsync`, which asked the kgsm chokepoint a question only
+  Discord topology could answer. `/list` reads the channel for the guild it was typed in.
+
+### Changed
+
+- **The status socket reports a row per configured Discord server** — resolution, the announcement
+  channel's reachability, whether the board's permission is still held, and that guild's channel
+  bindings — replacing the single `guildConfigured`/`guildResolved`/`channels` triple. It also
+  carries whether the guild store could be opened at all, which is the one condition under which
+  nothing is announced anywhere however healthy everything else reads.
+- **The command manifest buckets each command by the tier its `RequireTier` actually demands** (the
+  method's, else its module's) rather than inferring `operator`-or-`none` from `[Mutating]`. Read
+  commands move from `none` to `viewer`, which is what the modules have always enforced, and
+  `/setup` lands in `admin` despite changing no server.
+- The manifest's option-type vocabulary covers Discord's entity options (`channel`, `role`, `user`,
+  `mentionable`, `attachment`), so `/setup`'s channel and category options are listed as what
+  Discord will ask for.
+
 ### Removed
 
 - **The bot no longer binds the shared `KgsmAuth` section.** It signs nobody in and nothing read the

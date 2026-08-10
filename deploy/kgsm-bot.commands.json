@@ -3,66 +3,52 @@
   "leaf": "bot",
   "surface": "discord",
   "gates": {
-    "none": [
+    "admin": [
       {
-        "name": "about",
-        "description": "Show information about the bot",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "is-active",
-        "description": "Check if an instance is currently running",
+        "name": "setup announce",
+        "description": "Set the channel this Discord server hears about KGSM servers in",
         "mutates": false,
         "options": [
           {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
+            "name": "channel",
+            "description": "Channel announcements are posted in",
+            "type": "channel",
             "required": true,
-            "autocomplete": true
+            "autocomplete": false
           }
         ]
       },
       {
-        "name": "list",
-        "description": "List all game server instances",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "ping",
-        "description": "Check if the bot is responsive",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "status",
-        "description": "Get a detailed status of a game server",
+        "name": "setup board",
+        "description": "Give each game server its own channel, under a category",
         "mutates": false,
         "options": [
           {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
+            "name": "category",
+            "description": "Category the per-server channels are created under",
+            "type": "channel",
             "required": true,
-            "autocomplete": true
+            "autocomplete": false
           }
         ]
       },
       {
-        "name": "supervision",
-        "description": "Show the watchdog supervision state of a game server",
+        "name": "setup board-off",
+        "description": "Stop making a channel per game server here",
         "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
+        "options": []
+      },
+      {
+        "name": "setup forget",
+        "description": "Stop announcing in this Discord server entirely",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "setup show",
+        "description": "What this Discord server is set up with, and what the bot can do here",
+        "mutates": false,
+        "options": []
       }
     ],
     "operator": [
@@ -147,6 +133,68 @@
         "name": "uninstall",
         "description": "Uninstall a game server",
         "mutates": true,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
+      }
+    ],
+    "viewer": [
+      {
+        "name": "about",
+        "description": "Show information about the bot",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "is-active",
+        "description": "Check if an instance is currently running",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
+      },
+      {
+        "name": "list",
+        "description": "List all game server instances",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "ping",
+        "description": "Check if the bot is responsive",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "status",
+        "description": "Get a detailed status of a game server",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
+      },
+      {
+        "name": "supervision",
+        "description": "Show the watchdog supervision state of a game server",
+        "mutates": false,
         "options": [
           {
             "name": "instance",

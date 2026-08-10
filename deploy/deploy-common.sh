@@ -66,10 +66,21 @@ health_probe() {
 # the units are live; deploy.sh never does. Keep it idempotent — setup.sh is re-runnable. Use
 # "$SUDO" for privileged steps.
 #
-# This bot keeps no state of its own: conversations live with the assistant leaf that holds them,
-# and the channel map lives in the settings file. There is nothing to provision.
+# The bot's one piece of state: the guild store, holding which Discord servers this host announces
+# into and the channel each game server reports in. It lives OUTSIDE ${PREFIX} deliberately —
+# deploy.sh syncs the prefix with rsync --delete, which would take it on every deploy — and it is
+# never created or touched here beyond its directory: the bot creates the file, /setup writes it,
+# and losing it loses every channel a server's history is in.
+STATE_DIR="/var/lib/${PROJECT}"
+
 setup_project_extras() {
-    :
+    if [[ ! -d "$STATE_DIR" ]]; then
+        log "creating ${STATE_DIR} (owned by ${DEPLOY_USER}) — the bot's guild store lives here"
+        $SUDO install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$STATE_DIR"
+    elif [[ "$(stat -c '%U' "$STATE_DIR")" != "$DEPLOY_USER" ]]; then
+        log "chowning ${STATE_DIR} → ${DEPLOY_USER}:${DEPLOY_GROUP}"
+        $SUDO chown -R "${DEPLOY_USER}:${DEPLOY_GROUP}" "$STATE_DIR"
+    fi
 }
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 

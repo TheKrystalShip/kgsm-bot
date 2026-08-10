@@ -5,6 +5,8 @@ using System.Text.Json;
 
 using Discord;
 using Discord.WebSocket;
+using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
 using KGSM.Bot.Infrastructure.Configuration;
 
@@ -19,9 +21,9 @@ namespace KGSM.Bot.Discord;
 /// <para>
 /// The same NDJSON-over-unix-socket shape kgsm-scheduler serves, and deliberately not HTTP — a Discord
 /// bot has no web stack and there is exactly one consumer. Reading a line is also the leaf's health
-/// check: it proves the gateway and the resolved guild, where systemd liveness proves only that the
+/// check: it proves the gateway and each configured guild, where systemd liveness proves only that the
 /// process exists. Those come apart in practice, and when they do this bot is running, connected, and
-/// unable to post anything.
+/// unable to post anything in the guild that came apart.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -31,11 +33,13 @@ namespace KGSM.Bot.Discord;
 /// </remarks>
 public sealed class StatusSocketServer(
     DiscordSocketClient client,
+    IGuildStore guilds,
     IOptions<KgsmOptions> kgsmOptions,
     IOptions<DiscordOptions> discordOptions,
     ILogger<StatusSocketServer> logger) : BackgroundService
 {
     private readonly DiscordSocketClient _client = client;
+    private readonly IGuildStore _guilds = guilds;
     private readonly KgsmOptions _kgsm = kgsmOptions.Value;
     private readonly DiscordOptions _discord = discordOptions.Value;
     private readonly ILogger<StatusSocketServer> _logger = logger;
@@ -113,41 +117,58 @@ public sealed class StatusSocketServer(
 
     private BotStatus Snapshot()
     {
-        // The guild the client actually holds, not the one it was told to hold. Null here with a
-        // non-null configured id is the whole point of this endpoint: connected, configured, no guild.
-        SocketGuild? guild = _discord.GuildId != 0 ? _client.GetGuild(_discord.GuildId) : null;
-
         // Latency is only meaningful once a heartbeat has completed; Discord.Net reports 0 until then,
         // and a 0ms gateway link would read as impossibly good rather than as unmeasured.
         int? latency = _client.ConnectionState == ConnectionState.Connected && _client.Latency > 0
             ? _client.Latency
             : null;
 
-        List<BotChannel> channels = [];
-        foreach ((string instance, InstanceSettings settings) in _kgsm.Instances.OrderBy(kv => kv.Key, StringComparer.Ordinal))
-        {
-            if (string.IsNullOrWhiteSpace(settings.ChannelId))
-                continue;
+        return new BotStatus(
+            ConnectionState: _client.ConnectionState.ToString(),
+            LatencyMs: latency,
+            CommandCount: CommandManifest.Build(Assembly.GetExecutingAssembly()).Gates.Sum(g => g.Value.Count),
+            StoreAvailable: _guilds.Available,
+            StoreUnavailableReason: _guilds.UnavailableReason,
+            Guilds: [.. _guilds.Configured().Select(Describe)],
+            Announcements: Switches());
+    }
 
-            SocketChannel? channel = ulong.TryParse(settings.ChannelId, out ulong channelId)
-                ? _client.GetChannel(channelId)
-                : null;
+    /// <summary>
+    /// What one configured guild looks like from inside the gateway. Every field about Discord is read
+    /// off the live client rather than repeated back out of the store: the store says what was asked
+    /// for, and the interesting rows are the ones where the client disagrees with it.
+    /// </summary>
+    private BotGuild Describe(GuildTopology topology)
+    {
+        // The guild the client actually holds, not the one it was told to hold. Null here is the whole
+        // point of this endpoint: connected, configured, no guild — and silent.
+        SocketGuild? guild = _client.GetGuild(topology.GuildId);
+        SocketChannel? announce = _client.GetChannel(topology.AnnounceChannelId);
+
+        List<BotChannel> channels = [];
+        foreach (GuildChannel binding in _guilds.ChannelsIn(topology.GuildId))
+        {
+            SocketChannel? channel = _client.GetChannel(binding.ChannelId);
             channels.Add(new BotChannel(
-                Instance: instance,
-                ChannelId: settings.ChannelId,
+                Instance: binding.Instance,
+                ChannelId: binding.ChannelId.ToString(),
                 ChannelName: (channel as SocketTextChannel)?.Name,
                 Visible: channel is not null));
         }
 
-        return new BotStatus(
-            ConnectionState: _client.ConnectionState.ToString(),
-            LatencyMs: latency,
-            GuildConfigured: _discord.GuildId != 0 ? _discord.GuildId.ToString() : null,
-            GuildResolved: guild?.Name,
-            GuildMemberCount: guild?.MemberCount,
-            CommandCount: CommandManifest.Build(Assembly.GetExecutingAssembly()).Gates.Sum(g => g.Value.Count),
-            Channels: channels,
-            Announcements: Switches());
+        return new BotGuild(
+            GuildId: topology.GuildId.ToString(),
+            Name: guild?.Name,
+            MemberCount: guild?.MemberCount,
+            AnnounceChannelId: topology.AnnounceChannelId.ToString(),
+            AnnounceChannelName: (announce as SocketTextChannel)?.Name,
+            AnnounceChannelVisible: announce is not null,
+            BoardCategoryId: topology.BoardCategoryId?.ToString(),
+            // Unresolved guild, unknown permission — reported as not held, because the consequence of
+            // not holding it (no new server gets a channel) is exactly what an unresolved guild means.
+            CanManageChannels: guild?.CurrentUser.GuildPermissions.ManageChannels ?? false,
+            ConfiguredBy: topology.ConfiguredBy,
+            Channels: channels);
     }
 
     // The announcement switches, read off the bound options rather than re-declared, so this list cannot

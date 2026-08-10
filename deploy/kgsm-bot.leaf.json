@@ -91,14 +91,13 @@
       "risk": "wiring"
     },
     {
-      "key": "discordGuildId",
-      "env": "Discord__GuildId",
-      "label": "Discord server id",
-      "description": "The Discord server this bot operates in. Pointing it at another server abandons the channels it made in this one.",
+      "key": "guildsDbPath",
+      "env": "Guilds__DbPath",
+      "label": "Guild store",
+      "description": "The file the bot records each Discord server's setup in — its announcement channel and its per-server channels. Written by /setup in Discord, not here. Losing it loses every channel a server's history is in.",
       "group": "discord",
-      "type": "int",
-      "default": "0",
-      "min": 0,
+      "type": "path",
+      "default": "/var/lib/kgsm-bot/bot.db",
       "risk": "wiring"
     },
     {
@@ -270,28 +269,6 @@
       "risk": "safe"
     },
     {
-      "key": "instancesCategoryId",
-      "env": "Discord__InstancesCategoryId",
-      "label": "Channel category id",
-      "description": "Category the bot creates each server's channel under. Zero leaves new channels uncategorised.",
-      "group": "channels",
-      "type": "int",
-      "default": "0",
-      "min": 0,
-      "risk": "safe"
-    },
-    {
-      "key": "announcementChannelId",
-      "env": "Discord__AnnouncementChannelId",
-      "label": "Fallback announcement channel",
-      "description": "Channel for announcements about servers that have no channel of their own. Zero drops them instead, and the reason is logged.",
-      "group": "channels",
-      "type": "int",
-      "default": "0",
-      "min": 0,
-      "risk": "safe"
-    },
-    {
       "key": "removeChannelOnUninstall",
       "env": "Discord__RemoveChannelOnInstanceDeletion",
       "label": "Delete channel with the server",
@@ -388,7 +365,7 @@
       "key": "statusSocketPath",
       "env": "KGSM__StatusSocketPath",
       "label": "Status socket",
-      "description": "Where the bot publishes its status for the Control Panel to read — gateway state, the resolved guild, and its channel map. Leave blank to serve no status at all.",
+      "description": "Where the bot publishes its status for the Control Panel to read — gateway state, each Discord server it is set up in, and its channel map. Leave blank to serve no status at all.",
       "group": "kgsm",
       "type": "path",
       "default": "/run/kgsm-bot/status.sock",

@@ -28,22 +28,24 @@ with Windows, try at your own risk.
 ### Configuration
 
 `src/KGSM.Bot.Discord/kgsm-bot.settings.json` declares the bot's whole configurable surface with
-its defaults, and ships beside the binary. It holds no secret: the token and this host's Discord
-server and category belong in the environment file, which overrides one key of that file at a
-time by spelling the key's path with `__`. (The per-server channel map stays in the settings file —
-systemd refuses an environment variable whose name contains a hyphen, and a server may be called
-`minecraft-homestead`.)
+its defaults, and ships beside the binary. It holds no secret: the token belongs in the environment
+file, which overrides one key of that file at a time by spelling the key's path with `__`.
 
 Copy `deploy/kgsm-bot.env.example` to `/etc/kgsm-bot/kgsm-bot.env` (chmod 600) and fill it in:
 
 ```sh
 Discord__Token=YOUR_DISCORD_TOKEN_HERE_DO_NOT_SHARE
-Discord__GuildId=385730677141929985
 KGSM__Path=/usr/local/bin/kgsm
 ```
 
 A variable naming a key the settings file does not declare binds to nothing, so check the spelling
 against that file — a test fails the build if the template ever names one that is not declared.
+
+**No Discord server is named in either file.** Invite the bot, then run `/setup announce` in the
+Discord server that should hear about this host — anyone holding KGSM admin can, and it takes effect
+at once. That one channel is a working setup; `/setup board` additionally gives each game server its
+own channel under a category, and needs **Manage Channels**. The bot records all of it in its own
+store at `/var/lib/kgsm-bot/bot.db`, outside the install prefix the deploy overwrites.
 
 ### Project Architecture
 
