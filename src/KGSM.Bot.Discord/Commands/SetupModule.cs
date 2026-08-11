@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
+using KGSM.Bot.Discord.Autocomplete;
 using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
@@ -95,6 +96,12 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
                 inline: true);
             embed.AddField("Set up by",
                 $"{topology.ConfiguredBy}, {topology.ConfiguredUtc:yyyy-MM-dd}", inline: true);
+
+            IReadOnlyList<string> follows = _guilds.FollowedServers(guild.Id);
+            embed.AddField("Hears about",
+                follows.Count == 0
+                    ? "every server on this host — `/setup follow` narrows it"
+                    : string.Join(", ", follows.Select(s => $"`{s}`")));
 
             IReadOnlyList<GuildChannel> channels = _guilds.ChannelsIn(guild.Id);
             if (channels.Count > 0)
@@ -296,6 +303,115 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
             "changing, so unpin or delete it whenever you like.");
     }
 
+    // ── which servers this guild follows ──────────────────────────────────────────────────────
+
+    [SlashCommand("follow", "Hear about only this game server here (and any others you add)")]
+    public async Task FollowAsync(
+        [Summary(description: "Game server to follow")]
+        [Autocomplete(typeof(InstancesAutocompleteHandler))]
+        string instance)
+    {
+        if (await ConfiguredGuildOrRefuseAsync() is not SocketGuild guild)
+            return;
+
+        IReadOnlyList<string> before = _guilds.FollowedServers(guild.Id);
+
+        Result result = _guilds.Follow(guild.Id, instance);
+        if (result.IsFailure)
+        {
+            await RespondAsync($"⚠️ I couldn't record that: {result.Error}", ephemeral: true);
+            return;
+        }
+
+        _logger.LogInformation("Guild {GuildId} now follows {Instance}", guild.Id, instance);
+
+        // The first one is the one that changes the rule, and it narrows rather than widens. Somebody
+        // adding a server they like should not discover by silence that they just muted fourteen more.
+        await RespondAsync(before.Count == 0
+            ? $"✅ This server now hears about **{instance}** only. Add more with `/setup follow`, or " +
+              "go back to hearing about everything with `/setup follow-all`."
+            : $"✅ This server now also hears about **{instance}**.");
+    }
+
+    [SlashCommand("unfollow", "Stop hearing about one game server here")]
+    public async Task UnfollowAsync(
+        [Summary(description: "Game server to stop hearing about")]
+        [Autocomplete(typeof(InstancesAutocompleteHandler))]
+        string instance)
+    {
+        if (await ConfiguredGuildOrRefuseAsync() is not SocketGuild guild)
+            return;
+
+        IReadOnlyList<string> following = _guilds.FollowedServers(guild.Id);
+
+        if (following.Count == 0)
+        {
+            await RespondAsync(
+                $"This server follows everything, so there's no list to take **{instance}** out of. " +
+                "Run `/setup follow` with the servers you *do* want and it'll hear about only those.",
+                ephemeral: true);
+            return;
+        }
+
+        if (!following.Contains(instance, StringComparer.OrdinalIgnoreCase))
+        {
+            await RespondAsync($"This server doesn't follow **{instance}** anyway.", ephemeral: true);
+            return;
+        }
+
+        // An empty list means "everything", so taking away the last one would turn a guild that hears
+        // about one server into a guild that hears about all of them — the opposite of what somebody
+        // unfollowing their last server is asking for. Refused, with both real choices named.
+        if (following.Count == 1)
+        {
+            await RespondAsync(
+                $"🚫 **{instance}** is the only server this Discord server follows, and an empty list " +
+                "means *everything* — so this would turn the announcements back on for every server " +
+                "on this host. If that's what you want, run `/setup follow-all`. If you want silence, " +
+                "run `/setup forget`.",
+                ephemeral: true);
+            return;
+        }
+
+        Result result = _guilds.Unfollow(guild.Id, instance);
+        if (result.IsFailure)
+        {
+            await RespondAsync($"⚠️ I couldn't record that: {result.Error}", ephemeral: true);
+            return;
+        }
+
+        _logger.LogInformation("Guild {GuildId} no longer follows {Instance}", guild.Id, instance);
+
+        await RespondAsync(
+            $"✅ This server will hear nothing more about **{instance}**. " +
+            "**Its channel, if it has one, is left standing** — the history in it is yours.");
+    }
+
+    [SlashCommand("follow-all", "Hear about every game server on this host again")]
+    public async Task FollowAllAsync()
+    {
+        if (await ConfiguredGuildOrRefuseAsync() is not SocketGuild guild)
+            return;
+
+        if (_guilds.FollowedServers(guild.Id).Count == 0)
+        {
+            await RespondAsync("This server already hears about every server on this host.",
+                ephemeral: true);
+            return;
+        }
+
+        Result result = _guilds.FollowEverything(guild.Id);
+        if (result.IsFailure)
+        {
+            await RespondAsync($"⚠️ I couldn't record that: {result.Error}", ephemeral: true);
+            return;
+        }
+
+        _logger.LogInformation("Guild {GuildId} cleared its server filter", guild.Id);
+
+        await RespondAsync("✅ This server hears about every game server on this host again.");
+    }
+
     [SlashCommand("forget", "Stop announcing in this Discord server entirely")]
     public async Task ForgetAsync()
     {
@@ -323,6 +439,26 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     // ── shared ────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The guild this was run in, having already refused unless it is set up. For the subcommands
+    /// that adjust an existing configuration rather than create one.
+    /// </summary>
+    private async Task<SocketGuild?> ConfiguredGuildOrRefuseAsync()
+    {
+        if (await GuildOrRefuseAsync() is not SocketGuild guild)
+            return null;
+
+        if (_guilds.Find(guild.Id) is null)
+        {
+            await RespondAsync(
+                "🚫 This server hears nothing from KGSM yet, so there is nothing to narrow. Run " +
+                "`/setup announce` first.", ephemeral: true);
+            return null;
+        }
+
+        return guild;
+    }
 
     /// <summary>
     /// The guild this was run in, or null having already refused. Every subcommand configures a

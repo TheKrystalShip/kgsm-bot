@@ -181,7 +181,8 @@ public sealed class CommandManifestTests
         manifest.Gates[KgsmTiers.Admin].Select(c => c.Name)
             .Should().BeEquivalentTo(
                 ["setup show", "setup announce", "setup board", "setup board-off",
-                 "setup status", "setup status-off", "setup forget"]);
+                 "setup status", "setup status-off", "setup follow", "setup unfollow",
+                 "setup follow-all", "setup forget"]);
         manifest.Gates[KgsmTiers.Admin].Should().OnlyContain(c => !c.Mutates);
 
         IEnumerable<MethodInfo> mutating = BotAssembly.GetTypes()

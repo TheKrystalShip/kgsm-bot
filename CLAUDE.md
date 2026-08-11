@@ -102,7 +102,8 @@ commands are registered globally and authorize from the account store, so this i
   history. Snowflakes are `TEXT`: a 64-bit unsigned id in a signed `INTEGER` column is a parse
   waiting to be got wrong.
 - **One announcement mechanism, with the board as a layer on it.** `AnnounceAsync` iterates the
-  configured guilds and posts once in each; the only variable is which channel — the server's own
+  configured guilds that follow the server in question and posts once in each; the only variable is
+  which channel — the server's own
   where the guild runs a board and bound one, else the guild's announcement channel. `Render` names
   the server (`🟢 **factorio** started — … (heisen)`), so a message reads correctly out of either.
 - **Run state lives in a message, never in a channel name.** Nothing here renames a channel, and
@@ -118,7 +119,10 @@ commands are registered globally and authorize from the account store, so this i
   events cost **one**; a periodic republish (`StatusMessageRefreshSeconds`) is a backstop for what no
   event describes, never the mechanism; and the message id is **stored**, because a restart that
   posts a second board and keeps the wrong one current is a fabricated status with a timestamp on it.
-  A run state that could not be read is marked unread (`❔`), never stopped.
+  A run state that could not be read is marked unread (`❔`), never stopped. The snapshot is read
+  **once for the host and narrowed per guild**, so a board cannot list a server the guild sitting
+  beside it has unfollowed — and a guild following none of what is installed is told that, rather
+  than being told the host is empty.
 - **`/setup announce <channel>` alone is a working configuration.** The board — a channel per
   server, under a category — is opt-in per guild because it needs `Manage Channels`, which is the
   permission people reasonably think twice about granting. Enabled by *having a category*
@@ -132,8 +136,36 @@ commands are registered globally and authorize from the account store, so this i
   (*may you configure this host*) and the bot's own Discord permission, checked **before** anything
   is recorded (*can I actually do it here*) — recording a channel it cannot post in is how a guild
   gets configured and then silently receives nothing. Not `[Mutating]`: it changes no server.
+- **Each guild follows the servers it chooses, and `empty means all`.** `guild_servers` holds a
+  guild's allowlist; **no rows is no filter**, which is what every guild configured before the filter
+  existed already has — so nothing goes silent by upgrading, and a guild that wants silence runs
+  `/setup forget` instead. `/setup follow` narrows (the *first* one narrows to that server alone, and
+  the reply says so), `/setup unfollow` widens, `/setup follow-all` clears it. **Unfollowing the last
+  one is refused**: emptying the list means *everything*, which is the opposite of what somebody
+  removing their last server is asking for, so both real choices are named instead.
+- **The filter governs what the bot says unprompted, never what it answers when asked.**
+  Announcements, the per-server channel an install creates, and the rows on the live status message
+  are filtered; slash commands are not. ⚠ Authority in this ecosystem is the KGSM account, host-wide
+  — filtering *reads* by which guild they were typed in would be a second, per-guild authority model,
+  which is exactly what `KgsmRoleMap` was and is banned (`auth-internal-users`). A viewer is trusted
+  with this host's inventory wherever they ask from.
+- **An unreadable filter follows everything.** Reading no rows and failing to read are both "no
+  filter": the failure is loud in the log, and a guild an admin set up keeps hearing what it expected
+  rather than going quiet for a reason invisible from inside Discord.
+- **A server uninstalled is not unfollowed.** The stale row is correct in every case — the guild
+  hears nothing about a server that no longer exists, hears nothing about the others it never
+  followed, and hears about that name again if it is reinstalled. Dropping the row would empty a
+  one-server list and silently switch that guild to following all of them.
 - **A per-guild failure is logged and the rest proceed**, and the result counts guilds reached
-  against guilds configured. A bare success with one guild silently missed is a fabricated status.
+  against the guilds that **follow this server**. A bare success with one guild silently missed is a
+  fabricated status; counting a guild that opted out as missed is the same fault inverted, and would
+  report a working filter as a partial failure on every announcement.
+- **Joining a guild says one thing, once.** A guild with no row hears nothing by design, and from
+  inside Discord that is indistinguishable from a broken bot — so `GuildGreeterService` posts an
+  introduction on `JoinedGuild` naming `/setup` and who may run it. System channel, else the first
+  channel it can actually post in, else the owner's DM, each **checked rather than attempted**; a
+  guild that is already configured is not greeted, because that is a reconnection and it is already
+  working. It grants nothing: `/setup` still needs KGSM admin.
 - **Adopting a host that predates this**: `kgsm-bot --adopt-guild-config [--apply]` reads the old
   `Discord:GuildId` / `AnnouncementChannelId` / `InstancesCategoryId` and `KGSM:Instances` and
   writes the store. Dry-run by default, `--from <settings.json>` names the file to read (the

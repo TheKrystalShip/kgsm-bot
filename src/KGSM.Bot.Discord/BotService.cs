@@ -22,6 +22,7 @@ public class BotService : BackgroundService
     private readonly ServerEventCoordinatorService _serverEventCoordinator;
     private readonly IStatusBoard _statusBoard;
     private readonly IBotPresence _presence;
+    private readonly IGuildGreeter _greeter;
     private readonly DiscordOptions _discordOptions;
     private readonly IKgsmAccounts _accounts;
     private readonly IGuildStore _guilds;
@@ -34,6 +35,7 @@ public class BotService : BackgroundService
         ServerEventCoordinatorService serverEventCoordinator,
         IStatusBoard statusBoard,
         IBotPresence presence,
+        IGuildGreeter greeter,
         IOptions<DiscordOptions> discordOptions,
         IKgsmAccounts accounts,
         IGuildStore guilds,
@@ -45,6 +47,7 @@ public class BotService : BackgroundService
         _serverEventCoordinator = serverEventCoordinator;
         _statusBoard = statusBoard;
         _presence = presence;
+        _greeter = greeter;
         _discordOptions = discordOptions.Value;
         _accounts = accounts;
         _guilds = guilds;
@@ -165,6 +168,11 @@ public class BotService : BackgroundService
             // board — nothing can be sent before the gateway is ready — and guarded the same way, so a
             // reconnect's second READY does not become a second loop against a per-session limit.
             _presence.Start();
+
+            // A guild added while the bot was down is not greeted: JoinedGuild fires on the join, not
+            // on the next connect. That is the right trade — one missed introduction against greeting
+            // every guild again on every reconnect.
+            _greeter.Start();
 
             _logger.LogInformation("KGSM Bot fully initialized");
         }

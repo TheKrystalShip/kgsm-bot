@@ -35,14 +35,16 @@ public class DiscordNotificationService : IDiscordNotificationService
     }
 
     /// <summary>
-    /// Posts the announcement in every configured guild.
+    /// Posts the announcement in every configured guild that follows the server it is about.
     /// </summary>
     /// <remarks>
     /// <b>A guild hears about this host because an admin ran <c>/setup</c> there</b>, never because
-    /// the bot happens to be a member. One resolve and one send each, so a guild that has revoked a
-    /// permission, lost its channel or gone unreachable is logged and the rest still hear about it —
-    /// and the result counts the guilds reached against the guilds configured, because a bare success
-    /// with one guild silently missed would be a fabricated status.
+    /// the bot happens to be a member, and <b>only about the servers it follows</b>. One resolve and
+    /// one send each, so a guild that has revoked a permission, lost its channel or gone unreachable
+    /// is logged and the rest still hear about it — and the result counts the guilds reached against
+    /// the guilds that <i>follow this server</i>. A bare success with one guild silently missed would
+    /// be a fabricated status; counting a guild that opted out as missed is the same fault inverted,
+    /// and would report a working filter as a partial failure on every announcement.
     /// </remarks>
     public async Task<Result> AnnounceAsync(ServerAnnouncement announcement)
     {
@@ -62,11 +64,27 @@ public class DiscordNotificationService : IDiscordNotificationService
             return Result.Success();
         }
 
+        // A guild only hears about the servers it follows. Counted separately from the guilds
+        // configured, because a guild that deliberately does not follow this server is not a guild
+        // that was missed — folding the two together would report a working filter as a partial
+        // failure on every announcement.
+        List<GuildTopology> following =
+            [.. guilds.Where(g => _guilds.Follows(g.GuildId, announcement.InstanceName))];
+
+        if (following.Count == 0)
+        {
+            _logger.LogDebug(
+                "Not announcing {Kind} for {InstanceName}: none of the {Configured} configured " +
+                "Discord server(s) follow it",
+                announcement.Kind, announcement.InstanceName, guilds.Count);
+            return Result.Success();
+        }
+
         string text = Render(announcement);
         List<string> failures = [];
         int reached = 0;
 
-        foreach (GuildTopology topology in guilds)
+        foreach (GuildTopology topology in following)
         {
             Result result = await AnnounceInAsync(topology, announcement, text);
             if (result.IsSuccess)
@@ -77,17 +95,18 @@ public class DiscordNotificationService : IDiscordNotificationService
 
         if (failures.Count == 0)
         {
-            _logger.LogInformation("Announced {Kind} for instance {InstanceName} in {Reached} guild(s)",
+            _logger.LogInformation(
+                "Announced {Kind} for instance {InstanceName} in {Reached} guild(s) that follow it",
                 announcement.Kind, announcement.InstanceName, reached);
             return Result.Success();
         }
 
         _logger.LogWarning(
-            "Announced {Kind} for instance {InstanceName} in {Reached} of {Configured} guild(s) — {Failures}",
-            announcement.Kind, announcement.InstanceName, reached, guilds.Count, string.Join("; ", failures));
+            "Announced {Kind} for instance {InstanceName} in {Reached} of {Following} guild(s) — {Failures}",
+            announcement.Kind, announcement.InstanceName, reached, following.Count, string.Join("; ", failures));
 
         return Result.Failure(
-            $"announced in {reached} of {guilds.Count} guilds — {string.Join("; ", failures)}");
+            $"announced in {reached} of {following.Count} guilds — {string.Join("; ", failures)}");
     }
 
     private async Task<Result> AnnounceInAsync(

@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Each Discord server follows only the game servers it chooses.** A guild running one game was
+  hearing about all sixteen on this host, which is the real multi-tenancy gap now that more than one
+  guild is possible. `/setup follow <server>` narrows, `/setup unfollow <server>` widens,
+  `/setup follow-all` clears it, and `/setup show` lists what a guild follows.
+
+  **Empty means all**, and that is the load-bearing decision: no rows is no filter, which is exactly
+  what every guild configured before this existed already has — so a host upgrading keeps hearing
+  what it heard yesterday rather than going silent for a reason nobody in Discord can see. It also
+  means **unfollowing the last server is refused**: emptying the list would turn a guild that hears
+  about one game into a guild that hears about all of them. The refusal names both real choices
+  (`/setup follow-all`, or `/setup forget` for silence).
+
+  The filter reaches everything the bot says **unprompted** — announcements, the per-server channel
+  an install would create, and the rows on the live status message, which is read once for the host
+  and narrowed per guild so a board cannot contradict the filter sitting beside it. It deliberately
+  does **not** reach slash commands: authority here is the KGSM account and it is host-wide, so
+  filtering reads by which guild they were typed in would be a second per-guild authority model —
+  the thing `KgsmRoleMap` was, and which is banned ecosystem-wide.
+
+  Two failure modes were closed on the way. An **unreadable** filter follows everything, so a store
+  that cannot be read is loud in the log rather than quietly muting a guild. And a server that is
+  **uninstalled is not unfollowed** — the stale row is correct in every case, where dropping it would
+  empty a one-server list and silently switch that guild to following all of them.
+
+  Guild store schema 3: a `guild_servers` table, additive, and `/setup forget` takes a guild's filter
+  with it.
+
+- **The bot says something when it is added to a Discord server.** A guild with no row hears nothing
+  by design, and from inside Discord that is indistinguishable from a bot that is broken. It now
+  posts one introduction on joining — what it does, that the silence is deliberate, that
+  `/setup announce` alone is a working setup, and that running it needs KGSM admin rather than a
+  Discord role.
+
+  Said once, never repeated, and it grants nothing. It looks for the system channel, then the first
+  channel it can actually post in, then the owner's DM, **checking each rather than attempting it**,
+  so finding nowhere to speak costs no requests. A guild that is already set up is not greeted: that
+  is a reconnection, not an introduction.
+
 - **The bot's own Discord presence — `Watching 6 servers · 3 online · 12 playing`.** The one thing
   this bot says with no channel to say it in: it reaches a Discord server that has never run
   `/setup`, one update covers every one of them at once, and it is visible in the member list without

@@ -75,4 +75,40 @@ public interface IGuildStore
 
     /// <summary>Forget a server's channel here. The channel itself is not touched.</summary>
     Result UnbindChannel(ulong guildId, string instance);
+
+    /// <summary>
+    /// The servers this guild has chosen to follow, ordered by name. <b>Empty means no filter</b> —
+    /// the guild follows every server on this host.
+    /// </summary>
+    /// <remarks>
+    /// Empty is "all", not "none", and that is load-bearing in two directions. It is what a guild
+    /// configured before there was a filter already has, so nothing goes silent by upgrading; and a
+    /// guild wanting to hear nothing runs <c>/setup forget</c>, which is a different thing from being
+    /// set up and following an empty list.
+    /// </remarks>
+    IReadOnlyList<string> FollowedServers(ulong guildId);
+
+    /// <summary>Whether this guild is told about <paramref name="instance"/> at all.</summary>
+    /// <remarks>
+    /// True for every server when the guild has set no filter. Asked once per guild per announcement,
+    /// so it is a point query rather than a list read and a comparison.
+    /// </remarks>
+    bool Follows(ulong guildId, string instance);
+
+    /// <summary>
+    /// Follow one server here. The first call also <i>starts</i> filtering: until there is a row, the
+    /// guild follows everything, so adding the first one narrows it to that server alone.
+    /// </summary>
+    Result Follow(ulong guildId, string instance);
+
+    /// <summary>Stop following one server here.</summary>
+    /// <remarks>
+    /// Removing the last one would empty the list, which means "all" — the opposite of what somebody
+    /// unfollowing their last server intends. The caller checks for that and offers the explicit
+    /// choice; this method does what it is told.
+    /// </remarks>
+    Result Unfollow(ulong guildId, string instance);
+
+    /// <summary>Clear the filter, so this guild follows every server on this host again.</summary>
+    Result FollowEverything(ulong guildId);
 }

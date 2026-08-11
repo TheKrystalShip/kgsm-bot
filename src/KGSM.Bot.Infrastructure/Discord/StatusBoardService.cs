@@ -241,7 +241,10 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
                 return;
             }
 
-            Embed embed = Render(snapshot);
+            // Read once for the host, narrowed here: the picture is the same everywhere, but which
+            // part of it a guild is shown is that guild's own setting. A board still listing a server
+            // the guild unfollowed would contradict the filter sitting next to it in the same channel.
+            Embed embed = Render(snapshot.For(_guilds.FollowedServers(topology.GuildId)));
 
             // Background lane throughout: the board says what is true now, and a republish that
             // lands a moment later says the same thing. Anything a person is waiting to read goes
@@ -380,7 +383,12 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
 
         if (snapshot.Servers.Count == 0)
         {
-            embed.WithDescription("No servers are installed on this host.");
+            // Two different empties, and telling a guild the host is empty when it is really their
+            // own filter would send somebody looking for a fault that is not there.
+            embed.WithDescription(snapshot.Narrowed
+                ? "None of the servers this Discord server follows are installed here. " +
+                  "`/setup show` lists them."
+                : "No servers are installed on this host.");
             return embed.Build();
         }
 
@@ -481,7 +489,32 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     }
 
     private sealed record Snapshot(
-        IReadOnlyList<ServerRow> Servers, HostAddresses Addresses, bool Readable);
+        IReadOnlyList<ServerRow> Servers, HostAddresses Addresses, bool Readable)
+    {
+        /// <summary>
+        /// Whether this host has servers that this view is not showing — the difference between a
+        /// guild following none of what is installed and a host with nothing installed at all.
+        /// </summary>
+        public bool Narrowed { get; private init; }
+
+        /// <summary>
+        /// The same picture, narrowed to the servers a guild follows. An empty <paramref name="follows"/>
+        /// is no filter and returns the whole thing, which is what a guild that has never set one has.
+        /// </summary>
+        public Snapshot For(IReadOnlyList<string> follows)
+        {
+            if (follows.Count == 0)
+                return this;
+
+            var wanted = follows.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return this with
+            {
+                Servers = [.. Servers.Where(s => wanted.Contains(s.Name))],
+                Narrowed = true,
+            };
+        }
+    }
 
     /// <summary>
     /// One row of the board. <c>Players</c> is null wherever the count is not knowable — a game that

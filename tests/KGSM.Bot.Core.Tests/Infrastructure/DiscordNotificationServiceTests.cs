@@ -39,8 +39,15 @@ public sealed class DiscordNotificationServiceTests : IDisposable
     /// </summary>
     private readonly DiscordSendQueue _queue;
 
-    public DiscordNotificationServiceTests() =>
+    public DiscordNotificationServiceTests()
+    {
         _queue = new DiscordSendQueue(Options.Create(_options), NullLogger<DiscordSendQueue>.Instance);
+
+        // A guild that has set no filter follows everything, which is what the real store answers for
+        // a guild with no rows and what every test here but the filtering ones assumes. A substitute
+        // defaults a bool to false, and false here is a bot that announces nowhere.
+        _guilds.Follows(Arg.Any<ulong>(), Arg.Any<string>()).Returns(true);
+    }
 
     public void Dispose()
     {
@@ -123,5 +130,61 @@ public sealed class DiscordNotificationServiceTests : IDisposable
         // The resolution is what is under test; the send fails for both because nothing is connected.
         _guilds.Received(1).ChannelFor(1, "factorio");
         _guilds.Received(1).ChannelFor(2, "factorio");
+    }
+
+    // ── the per-guild server filter ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A guild that does not follow this server is not reached for it at all — not resolved, not sent
+    /// to, and not counted.
+    /// </summary>
+    [Fact]
+    public async Task AGuildThatDoesNotFollowTheServerHearsNothingAboutIt()
+    {
+        _guilds.Configured().Returns([Guild(1, 10), Guild(2, 20)]);
+        _guilds.Follows(2, "factorio").Returns(false);
+
+        Result result = await Service().AnnounceAsync(Started());
+
+        _guilds.Received(1).ChannelFor(1, "factorio");
+        _guilds.DidNotReceive().ChannelFor(2, "factorio");
+
+        // Counted against the guilds that follow it, not against every guild configured.
+        result.Error.Should().Contain("0 of 1");
+    }
+
+    /// <summary>
+    /// <b>A filter working is not a delivery failing.</b> Folding the two together would report every
+    /// announcement as a partial failure for the whole life of a host where one guild follows one
+    /// game, and an operator reading that log would go looking for a fault that is not there.
+    /// </summary>
+    [Fact]
+    public async Task NoGuildFollowingTheServerIsASuccess()
+    {
+        _guilds.Configured().Returns([Guild(1, 10), Guild(2, 20)]);
+        _guilds.Follows(Arg.Any<ulong>(), "factorio").Returns(false);
+
+        Result result = await Service().AnnounceAsync(Started());
+
+        result.IsSuccess.Should().BeTrue();
+        _guilds.DidNotReceive().ChannelFor(Arg.Any<ulong>(), Arg.Any<string>());
+    }
+
+    /// <summary>
+    /// The filter is per server, not per guild: the same guild that hears nothing about one game still
+    /// hears about the ones it follows.
+    /// </summary>
+    [Fact]
+    public async Task TheFilterIsAboutTheServerTheAnnouncementIsFor()
+    {
+        _guilds.Configured().Returns([Guild(1, 10)]);
+        _guilds.Follows(1, "factorio").Returns(false);
+        _guilds.Follows(1, "terraria").Returns(true);
+
+        await Service().AnnounceAsync(Started("factorio"));
+        await Service().AnnounceAsync(Started("terraria"));
+
+        _guilds.DidNotReceive().ChannelFor(1, "factorio");
+        _guilds.Received(1).ChannelFor(1, "terraria");
     }
 }

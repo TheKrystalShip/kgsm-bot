@@ -279,4 +279,141 @@ public sealed class SqliteGuildStoreTests : IDisposable
         store.SetAnnounceChannel(1, 2, "heisen").IsFailure.Should().BeTrue(
             "/setup must refuse rather than pretend it recorded something");
     }
+
+    // ── which servers a guild follows ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <b>Empty means all.</b> This is the single most consequential decision in the filter, and it is
+    /// what a guild configured before the filter existed already has — so a host upgrading keeps
+    /// hearing about everything it heard about yesterday, rather than going silent for a reason
+    /// nobody in Discord can see.
+    /// </summary>
+    [Fact]
+    public void AGuildWithNoFilterFollowsEverything()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 2, "heisen");
+
+        store.FollowedServers(1).Should().BeEmpty();
+        store.Follows(1, "factorio").Should().BeTrue();
+        store.Follows(1, "anything-at-all").Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The first server followed is the one that changes the rule: it narrows the guild to that server
+    /// rather than adding to everything it already heard about.
+    /// </summary>
+    [Fact]
+    public void FollowingTheFirstServerNarrowsToIt()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 2, "heisen");
+
+        store.Follow(1, "factorio").IsSuccess.Should().BeTrue();
+
+        store.Follows(1, "factorio").Should().BeTrue();
+        store.Follows(1, "terraria").Should().BeFalse();
+        store.FollowedServers(1).Should().Equal("factorio");
+    }
+
+    [Fact]
+    public void FollowingIsIdempotent()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 2, "heisen");
+
+        store.Follow(1, "factorio").IsSuccess.Should().BeTrue();
+        store.Follow(1, "factorio").IsSuccess.Should().BeTrue("re-running /setup follow is not an error");
+
+        store.FollowedServers(1).Should().Equal("factorio");
+    }
+
+    [Fact]
+    public void ClearingTheFilterGoesBackToEverything()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 2, "heisen");
+        store.Follow(1, "factorio");
+        store.Follow(1, "terraria");
+
+        store.FollowedServers(1).Should().Equal("factorio", "terraria");
+
+        store.FollowEverything(1).IsSuccess.Should().BeTrue();
+
+        store.FollowedServers(1).Should().BeEmpty();
+        store.Follows(1, "minecraft").Should().BeTrue();
+    }
+
+    /// <summary>
+    /// One guild narrowing itself says nothing about another. This is the whole point of the feature —
+    /// before it, every guild heard about every server on the host.
+    /// </summary>
+    [Fact]
+    public void OneGuildsFilterDoesNotReachAnother()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 10, "heisen");
+        store.SetAnnounceChannel(2, 20, "heisen");
+
+        store.Follow(1, "factorio");
+
+        store.Follows(1, "terraria").Should().BeFalse();
+        store.Follows(2, "terraria").Should().BeTrue("guild 2 has set no filter");
+    }
+
+    [Fact]
+    public void AFilterSurvivesReopeningTheStore()
+    {
+        Open().SetAnnounceChannel(1, 2, "heisen");
+        Open().Follow(1, "factorio");
+
+        SqliteGuildStore reopened = Open();
+
+        reopened.FollowedServers(1).Should().Equal("factorio");
+        reopened.Follows(1, "terraria").Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Forgetting a guild takes its filter with it, so re-running <c>/setup announce</c> later starts
+    /// from "everything" rather than from a list the new admin never chose and cannot see.
+    /// </summary>
+    [Fact]
+    public void ForgettingAGuildForgetsItsFilter()
+    {
+        SqliteGuildStore store = Open();
+        store.SetAnnounceChannel(1, 2, "heisen");
+        store.Follow(1, "factorio");
+
+        store.Forget(1).IsSuccess.Should().BeTrue();
+        store.SetAnnounceChannel(1, 2, "heisen");
+
+        store.FollowedServers(1).Should().BeEmpty();
+        store.Follows(1, "terraria").Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A store that could not be opened follows everything rather than nothing. An unreadable filter
+    /// must not be able to silence a guild an admin set up: the failure is visible in the log, and the
+    /// announcements a guild already expected keep arriving.
+    /// </summary>
+    [Fact]
+    public void AnUnreadableStoreFollowsEverything()
+    {
+        Open().SetAnnounceChannel(1, 2, "heisen");
+
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={DbPath}"))
+        {
+            connection.Open();
+            using Microsoft.Data.Sqlite.SqliteCommand command = connection.CreateCommand();
+            command.CommandText =
+                $"UPDATE schema_version SET version = {SqliteGuildStore.SchemaVersion + 1};";
+            command.ExecuteNonQuery();
+        }
+
+        SqliteGuildStore store = Open();
+
+        store.Available.Should().BeFalse();
+        store.Follows(1, "factorio").Should().BeTrue();
+        store.FollowedServers(1).Should().BeEmpty();
+    }
 }

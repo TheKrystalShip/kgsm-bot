@@ -51,6 +51,12 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
             if (topology.BoardCategoryId is not ulong categoryId)
                 continue;
 
+            // A guild that does not follow this server gets no channel for it. Making one would be
+            // the loudest possible way to ignore the filter: a channel in somebody's sidebar, named
+            // after a game they said they did not want to hear about.
+            if (!_guilds.Follows(topology.GuildId, instanceName))
+                continue;
+
             Result result = await AddOrUpdateInAsync(topology, categoryId, instanceName);
             if (result.IsFailure)
                 failures.Add($"{topology.GuildId}: {result.Error}");
@@ -120,8 +126,10 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
     {
         List<string> failures = [];
 
-        // Every configured guild, not only the ones with a board: a guild that turned its board off
-        // still holds the bindings it made while it was on, and those are what have to go.
+        // Every configured guild, not only the ones with a board and not only the ones that follow
+        // this server: a guild that turned its board off, or stopped following a server it used to,
+        // still holds the binding it made while it did — and a binding to a channel for a server that
+        // no longer exists is exactly what has to go.
         foreach (GuildTopology topology in _guilds.Configured())
         {
             if (_guilds.ChannelFor(topology.GuildId, instanceName) is not ulong channelId)

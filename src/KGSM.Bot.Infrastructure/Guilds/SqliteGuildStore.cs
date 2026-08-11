@@ -44,7 +44,7 @@ namespace KGSM.Bot.Infrastructure.Guilds;
 public sealed class SqliteGuildStore : IGuildStore
 {
     /// <summary>The schema this build writes and is willing to read.</summary>
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
 
     private const string GuildColumns =
         "guild_id, announce_channel_id, board_category_id, configured_by, configured_utc, updated_utc, " +
@@ -129,6 +129,12 @@ public sealed class SqliteGuildStore : IGuildStore
                 channel_id  TEXT NOT NULL,
                 created_utc TEXT NOT NULL,
                 PRIMARY KEY (guild_id, instance));
+
+            CREATE TABLE IF NOT EXISTS guild_servers (
+                guild_id  TEXT NOT NULL,
+                instance  TEXT NOT NULL,
+                added_utc TEXT NOT NULL,
+                PRIMARY KEY (guild_id, instance));
             """, transaction);
 
         object? found = Scalar(connection, "SELECT version FROM schema_version LIMIT 1;", transaction);
@@ -160,6 +166,10 @@ public sealed class SqliteGuildStore : IGuildStore
                     ALTER TABLE guilds ADD COLUMN status_message_id TEXT NULL;
                     """, transaction);
             }
+
+            // Version 3 adds guild_servers, which the CREATE above has already made — a new table
+            // needs no step here, only the version bump, and every existing guild lands with no rows.
+            // No rows is no filter, so an upgraded host keeps hearing about everything it did before.
 
             if (version < SchemaVersion)
             {
@@ -317,6 +327,8 @@ public sealed class SqliteGuildStore : IGuildStore
 
             Execute(connection, "DELETE FROM guild_channels WHERE guild_id = $g;", transaction,
                 ("$g", Id(guildId)));
+            Execute(connection, "DELETE FROM guild_servers WHERE guild_id = $g;", transaction,
+                ("$g", Id(guildId)));
             Execute(connection, "DELETE FROM guilds WHERE guild_id = $g;", transaction,
                 ("$g", Id(guildId)));
 
@@ -404,6 +416,100 @@ public sealed class SqliteGuildStore : IGuildStore
             Execute(connection, "DELETE FROM guild_channels WHERE guild_id = $g AND instance = $i;",
                 transaction: null,
                 ("$g", Id(guildId)), ("$i", instance)));
+
+    // ── which servers a guild follows ─────────────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> FollowedServers(ulong guildId)
+    {
+        if (_connectionString is null)
+            return [];
+
+        try
+        {
+            using SqliteConnection connection = Connect();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT instance FROM guild_servers WHERE guild_id = $g ORDER BY instance;";
+            command.Parameters.AddWithValue("$g", Id(guildId));
+
+            List<string> servers = [];
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+                servers.Add(reader.GetString(0));
+
+            return servers;
+        }
+        catch (Exception e)
+        {
+            // Reading nothing reads as "no filter", which is the state that hears everything. That is
+            // the right way to fail: a guild an admin set up keeps hearing about its servers when this
+            // file cannot be read, rather than going silent for a reason nobody can see in Discord.
+            _logger.LogError(e,
+                "Could not read the servers guild {GuildId} follows; treating it as following all.",
+                guildId);
+            return [];
+        }
+    }
+
+    /// <inheritdoc />
+    public bool Follows(ulong guildId, string instance)
+    {
+        if (_connectionString is null)
+            return true;
+
+        try
+        {
+            using SqliteConnection connection = Connect();
+            using SqliteCommand command = connection.CreateCommand();
+
+            // One query answers both halves: the guild has no filter at all, or it has one naming this
+            // server. Reading the list and comparing would be the same answer at two round trips, and
+            // this is asked once per guild per announcement.
+            command.CommandText = """
+                SELECT NOT EXISTS (SELECT 1 FROM guild_servers WHERE guild_id = $g)
+                    OR EXISTS (SELECT 1 FROM guild_servers WHERE guild_id = $g AND instance = $i);
+                """;
+            command.Parameters.AddWithValue("$g", Id(guildId));
+            command.Parameters.AddWithValue("$i", instance);
+
+            return command.ExecuteScalar() is not object result
+                || Convert.ToInt64(result, CultureInfo.InvariantCulture) != 0;
+        }
+        catch (Exception e)
+        {
+            // Same reasoning as above: an unreadable filter is no filter, never a refusal to speak.
+            _logger.LogError(e,
+                "Could not check whether guild {GuildId} follows {Instance}; assuming it does.",
+                guildId, instance);
+            return true;
+        }
+    }
+
+    /// <inheritdoc />
+    public Result Follow(ulong guildId, string instance)
+        => Write($"follow {instance} in guild {guildId}", connection =>
+            Execute(connection, """
+                INSERT INTO guild_servers (guild_id, instance, added_utc)
+                VALUES ($g, $i, $now)
+                ON CONFLICT(guild_id, instance) DO NOTHING;
+                """,
+                transaction: null,
+                ("$g", Id(guildId)), ("$i", instance), ("$now", Now())));
+
+    /// <inheritdoc />
+    public Result Unfollow(ulong guildId, string instance)
+        => Write($"unfollow {instance} in guild {guildId}", connection =>
+            Execute(connection, "DELETE FROM guild_servers WHERE guild_id = $g AND instance = $i;",
+                transaction: null,
+                ("$g", Id(guildId)), ("$i", instance)));
+
+    /// <inheritdoc />
+    public Result FollowEverything(ulong guildId)
+        => Write($"clear the server filter in guild {guildId}", connection =>
+            Execute(connection, "DELETE FROM guild_servers WHERE guild_id = $g;",
+                transaction: null,
+                ("$g", Id(guildId))));
 
     // ── plumbing ──────────────────────────────────────────────────────────────────────────────
 

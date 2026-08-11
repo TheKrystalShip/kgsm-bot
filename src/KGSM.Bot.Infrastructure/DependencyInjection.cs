@@ -101,6 +101,10 @@ public static class DependencyInjection
         // loop and the coalescing window — two of these would spend two edits on every change.
         services.AddSingleton<IStatusBoard, StatusBoardService>();
 
+        // Said once, when the bot is added to a Discord server nobody has set up. A singleton because
+        // it holds the gateway subscription; two would introduce the bot twice in the same guild.
+        services.AddSingleton<IGuildGreeter, GuildGreeterService>();
+
         // The line beside the bot's own name. A singleton for the same reason as the board and more
         // strictly: a gateway presence update is limited per session rather than per caller, so two
         // loops would be two rates against one budget with neither aware of the other.

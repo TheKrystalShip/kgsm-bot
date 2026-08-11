@@ -39,6 +39,26 @@
         "options": []
       },
       {
+        "name": "setup follow",
+        "description": "Hear about only this game server here (and any others you add)",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server to follow",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
+      },
+      {
+        "name": "setup follow-all",
+        "description": "Hear about every game server on this host again",
+        "mutates": false,
+        "options": []
+      },
+      {
         "name": "setup forget",
         "description": "Stop announcing in this Discord server entirely",
         "mutates": false,
@@ -69,6 +89,20 @@
         "description": "Stop keeping a live status message here",
         "mutates": false,
         "options": []
+      },
+      {
+        "name": "setup unfollow",
+        "description": "Stop hearing about one game server here",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server to stop hearing about",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
       }
     ],
     "operator": [
