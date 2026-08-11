@@ -114,10 +114,8 @@ public class DiscordNotificationService : IDiscordNotificationService
     {
         try
         {
-            ulong channelId = ResolveChannel(topology, announcement.InstanceName);
-
-            if (_discordClient.GetChannel(channelId) is not ITextChannel channel)
-                return Result.Failure($"channel {channelId} cannot be seen");
+            if (ResolveChannel(topology, announcement.InstanceName) is not ITextChannel channel)
+                return Result.Failure("neither this server's channel nor the announcement channel can be seen");
 
             MessageComponent? components = ActionsFor(announcement);
 
@@ -264,8 +262,38 @@ public class DiscordNotificationService : IDiscordNotificationService
     /// which is why that one is required and the board is not. The message names the server, so it
     /// reads correctly either way.
     /// </remarks>
-    private ulong ResolveChannel(GuildTopology topology, string instanceName) =>
-        _guilds.ChannelFor(topology.GuildId, instanceName) ?? topology.AnnounceChannelId;
+    /// <summary>
+    /// Where this server reports in this guild: its own channel where it has a usable one, and the
+    /// guild's announcement channel otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <b>A binding is a preference, not a requirement.</b> Somebody deleting a server's channel in
+    /// Discord leaves the binding behind pointing at nothing, and treating that as the only place the
+    /// server may report means every announcement about it is lost — silently, for as long as nobody
+    /// notices. The announcement channel is the thing every guild is required to have and everything
+    /// already falls back to, so it is what this falls back to as well.
+    /// <para>
+    /// The stale binding is <i>not</i> repaired here. Deciding a channel is really gone takes asking
+    /// Discord, and doing that on the announcement path would spend a request per announcement to fix
+    /// bookkeeping nobody is waiting on — <see cref="IDiscordChannelRegistry.ReconcileBindingsAsync"/>
+    /// does it once, at startup.
+    /// </para>
+    /// </remarks>
+    private ITextChannel? ResolveChannel(GuildTopology topology, string instanceName)
+    {
+        if (_guilds.ChannelFor(topology.GuildId, instanceName) is ulong bound)
+        {
+            if (_discordClient.GetChannel(bound) is ITextChannel own)
+                return own;
+
+            _logger.LogWarning(
+                "{InstanceName}'s channel {ChannelId} in guild {GuildId} cannot be seen; announcing in " +
+                "that guild's announcement channel instead.",
+                instanceName, bound, topology.GuildId);
+        }
+
+        return _discordClient.GetChannel(topology.AnnounceChannelId) as ITextChannel;
+    }
 
     /// <summary>
     /// Deletes the announcement once it has had its time, when the operator asked for that.

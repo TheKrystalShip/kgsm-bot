@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Infrastructure.Authorization;
 
@@ -23,6 +24,7 @@ public class BotService : BackgroundService
     private readonly IStatusBoard _statusBoard;
     private readonly IBotPresence _presence;
     private readonly IGuildGreeter _greeter;
+    private readonly IDiscordChannelRegistry _channels;
     private readonly DiscordOptions _discordOptions;
     private readonly IKgsmAccounts _accounts;
     private readonly IGuildStore _guilds;
@@ -36,6 +38,7 @@ public class BotService : BackgroundService
         IStatusBoard statusBoard,
         IBotPresence presence,
         IGuildGreeter greeter,
+        IDiscordChannelRegistry channels,
         IOptions<DiscordOptions> discordOptions,
         IKgsmAccounts accounts,
         IGuildStore guilds,
@@ -48,6 +51,7 @@ public class BotService : BackgroundService
         _statusBoard = statusBoard;
         _presence = presence;
         _greeter = greeter;
+        _channels = channels;
         _discordOptions = discordOptions.Value;
         _accounts = accounts;
         _guilds = guilds;
@@ -173,6 +177,17 @@ public class BotService : BackgroundService
             // on the next connect. That is the right trade — one missed introduction against greeting
             // every guild again on every reconnect.
             _greeter.Start();
+
+            // Bindings whose channel somebody deleted in Discord. Done here because READY is the
+            // first moment the guilds' channels are all known, and once per process because a
+            // deletion mid-session is already survived by falling back to the announcement channel —
+            // this only tidies the record afterwards.
+            Result reconciled = await _channels.ReconcileBindingsAsync();
+            if (reconciled.IsFailure)
+            {
+                _logger.LogWarning("Some channel bindings could not be checked: {Reason}",
+                    reconciled.Error);
+            }
 
             _logger.LogInformation("KGSM Bot fully initialized");
         }

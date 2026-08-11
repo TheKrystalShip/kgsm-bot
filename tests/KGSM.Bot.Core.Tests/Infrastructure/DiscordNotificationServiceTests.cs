@@ -114,6 +114,27 @@ public sealed class DiscordNotificationServiceTests : IDisposable
     }
 
     /// <summary>
+    /// A server's own channel is a preference, and a guild's announcement channel is the requirement.
+    /// A binding left pointing at a deleted channel must not be the end of the attempt — that loses
+    /// every announcement about that server, silently, for as long as nobody notices.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is connected here, so both lookups miss and the announcement fails either way. What is
+    /// under test is that the failure is about <i>both</i> channels rather than only the bound one,
+    /// which is the difference between falling back and giving up.
+    /// </remarks>
+    [Fact]
+    public async Task ABoundChannelThatCannotBeSeenFallsBackToTheAnnouncementChannel()
+    {
+        _guilds.Configured().Returns([Guild(1, 10, board: 99)]);
+        _guilds.ChannelFor(1, "factorio").Returns(111ul);
+
+        Result result = await Service().AnnounceAsync(Started());
+
+        result.Error.Should().Contain("announcement channel");
+    }
+
+    /// <summary>
     /// A server reports in its own channel where the guild runs a board and has bound one, and in the
     /// guild's announcement channel everywhere else — including in a guild that runs a board but only
     /// started doing so after that server was installed.

@@ -103,9 +103,22 @@ commands are registered globally and authorize from the account store, so this i
   waiting to be got wrong.
 - **One announcement mechanism, with the board as a layer on it.** `AnnounceAsync` iterates the
   configured guilds that follow the server in question and posts once in each; the only variable is
-  which channel — the server's own
-  where the guild runs a board and bound one, else the guild's announcement channel. `Render` names
-  the server (`🟢 **factorio** started — … (heisen)`), so a message reads correctly out of either.
+  which channel — the server's own where the guild runs a board and bound one, else the guild's
+  announcement channel. `Render` names the server (`🟢 **factorio** started — … (heisen)`), so a
+  message reads correctly out of either.
+- **A binding is a preference; the announcement channel is the requirement.** A server's own channel
+  deleted in Discord leaves a binding pointing at nothing, and the bot **falls back** to the guild's
+  announcement channel rather than losing the announcement — treating the binding as the only place a
+  server may report is how every message about it disappears silently for as long as nobody notices.
+  ⚠ The stale binding is not repaired on that path: deciding a channel is really gone takes asking
+  Discord, and doing it per announcement would spend a request fixing bookkeeping nobody is waiting
+  on. `ReconcileBindingsAsync` does it once, on `Ready`.
+- **A binding is dropped only on an answer that says the channel is gone.** ⚠ The gateway cache
+  answers "deleted" and "the bot lost `View Channel`" with the same silence, and unbinding the second
+  orphans a live channel full of a server's history with nothing pointing at it. So a cache miss is
+  confirmed with a REST fetch — Discord returns nothing for a deleted channel and refuses for one it
+  will not show — and **anything other than a clean "no such channel" leaves the binding alone**. A
+  guild the bot cannot see at all is skipped entirely, so an outage drops nothing.
 - **Run state lives in a message, never in a channel name.** Nothing here renames a channel, and
   nothing may: Discord rate-limits channel edits hard enough that a name cannot be kept in step with
   a server's state, and a bot that tries is throttled off the API — losing the announcements too. A

@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A server whose Discord channel was deleted lost every announcement about it.** The per-server
+  channel binding was treated as the only place that server could report, so once somebody deleted
+  the channel the bot resolved to it, failed, and said nothing — silently, indefinitely. Seven of the
+  sixteen bindings on this host were in that state.
+
+  Announcements now **fall back to the guild's announcement channel**, which is the one channel every
+  guild is required to have and which everything else already falls back to. A binding is a
+  preference; it is not permission to go quiet.
+
 ### Added
+
+- **Stale channel bindings are reconciled once, on connect.** `ReconcileBindingsAsync` checks every
+  binding whose channel is missing from the gateway cache and forgets the ones Discord confirms are
+  deleted, so `/setup show` stops listing channels that do not exist and a reinstall does not try to
+  reuse one.
+
+  ⚠ **"Not visible" is not "deleted", and the difference decides whether a binding is destroyed.** A
+  channel the bot has lost `View Channel` on is missing from the cache exactly like one that no longer
+  exists, and unbinding it would orphan a live channel full of a server's history with nothing
+  pointing at it. So a cache miss is confirmed against Discord — which answers nothing for a deleted
+  channel and refuses for one it will not show — and anything other than a clean "no such channel"
+  leaves the binding where it is. A guild the bot cannot see at all is skipped, so a gateway outage
+  drops nothing.
+
+  Once per process, on the cache misses only, and through the send queue like every other unprompted
+  call. A channel deleted mid-session is already survived by the fallback; this tidies the record
+  afterwards.
 
 - **Each Discord server follows only the game servers it chooses.** A guild running one game was
   hearing about all sixteen on this host, which is the real multi-tenancy gap now that more than one

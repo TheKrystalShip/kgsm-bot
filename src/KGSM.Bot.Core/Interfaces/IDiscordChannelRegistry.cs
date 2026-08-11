@@ -28,4 +28,26 @@ public interface IDiscordChannelRegistry
     /// operator's <c>Discord:RemoveChannelOnInstanceDeletion</c> switch; the binding goes either way.
     /// </summary>
     Task<Result> RemoveChannelAsync(string instanceName);
+
+    /// <summary>
+    /// Drop the bindings whose channel somebody deleted in Discord. Run once, after the gateway is
+    /// ready.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A binding outlives the channel it names: somebody deletes the channel in Discord and nothing
+    /// tells the bot. The announcement path survives that by falling back to the guild's announcement
+    /// channel, so nothing is lost — but the binding is still a lie, it is still listed by
+    /// <c>/setup show</c>, and it is what a reinstall of that server would try to reuse.
+    /// </para>
+    /// <para>
+    /// <b>"Not visible" is not "deleted", and the difference decides whether a binding is destroyed.</b>
+    /// A channel the bot has lost <c>View Channel</c> on is missing from the gateway cache exactly like
+    /// one that no longer exists, and unbinding that one would orphan a live channel full of a
+    /// server's history with nothing pointing at it. So a cache miss is <i>confirmed</i> against
+    /// Discord before anything is forgotten, and only a channel Discord itself reports as gone is
+    /// dropped.
+    /// </para>
+    /// </remarks>
+    Task<Result> ReconcileBindingsAsync();
 }

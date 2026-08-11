@@ -145,6 +145,103 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
             : Result.Failure(string.Join("; ", failures));
     }
 
+    /// <inheritdoc />
+    public async Task<Result> ReconcileBindingsAsync()
+    {
+        List<string> failures = [];
+        int unseen = 0;
+        int forgotten = 0;
+
+        foreach (GuildTopology topology in _guilds.Configured())
+        {
+            SocketGuild? guild = _discordClient.GetGuild(topology.GuildId);
+
+            // A guild the bot cannot see says nothing about its bindings. Reading a missing guild as
+            // "every channel in it is gone" would drop every binding a guild has over an outage.
+            if (guild is null)
+                continue;
+
+            foreach (GuildChannel binding in _guilds.ChannelsIn(topology.GuildId))
+            {
+                if (guild.GetTextChannel(binding.ChannelId) is not null)
+                    continue;
+
+                unseen++;
+
+                Result<bool> result = await ForgetIfGoneAsync(binding);
+                if (result.IsFailure)
+                    failures.Add($"{binding.Instance}: {result.Error}");
+                else if (result.Value)
+                    forgotten++;
+            }
+        }
+
+        if (unseen > 0)
+        {
+            _logger.LogInformation(
+                "Channel bindings: {Unseen} named a channel the bot cannot see, {Forgotten} of them " +
+                "confirmed deleted and forgotten. Those servers report in their guild's announcement " +
+                "channel from now on.",
+                unseen, forgotten);
+        }
+
+        return failures.Count == 0
+            ? Result.Success()
+            : Result.Failure(string.Join("; ", failures));
+    }
+
+    /// <summary>
+    /// Forget one binding, but only once Discord has confirmed the channel is really gone.
+    /// </summary>
+    /// <remarks>
+    /// The fetch is what separates "deleted" from "the bot cannot see it": Discord answers the first
+    /// with nothing and the second with a refusal, where the gateway cache gives the same silence for
+    /// both. Anything other than a clean "no such channel" leaves the binding exactly where it is —
+    /// this is the one operation that can orphan a channel holding a server's history, so it only acts
+    /// on the answer it asked for.
+    /// </remarks>
+    /// <returns>Whether the binding was dropped.</returns>
+    private async Task<Result<bool>> ForgetIfGoneAsync(GuildChannel binding)
+    {
+        IChannel? live = null;
+
+        // Captured rather than returned: "there is no such channel" is a successful answer of null,
+        // and Result<T> cannot carry one.
+        Result looked = await _queue.SendAsync(
+            $"check whether {binding.Instance}'s channel still exists in guild {binding.GuildId}",
+            SendLane.Background,
+            async () => { live = await _discordClient.Rest.GetChannelAsync(binding.ChannelId); });
+
+        if (looked.IsFailure)
+        {
+            _logger.LogInformation(
+                "Keeping {Instance}'s channel binding in guild {GuildId}: Discord would not say whether " +
+                "channel {ChannelId} still exists ({Reason}). A channel the bot merely cannot see is " +
+                "still that server's channel.",
+                binding.Instance, binding.GuildId, binding.ChannelId, looked.Error);
+            return Result.Failure<bool>(looked.Error ?? "the check failed");
+        }
+
+        if (live is not null)
+        {
+            _logger.LogDebug(
+                "Keeping {Instance}'s channel binding in guild {GuildId}: channel {ChannelId} exists, " +
+                "the bot just cannot see it.",
+                binding.Instance, binding.GuildId, binding.ChannelId);
+            return Result.Success(false);
+        }
+
+        Result forgotten = _guilds.UnbindChannel(binding.GuildId, binding.Instance);
+        if (forgotten.IsFailure)
+            return Result.Failure<bool>(forgotten.Error ?? "the binding could not be dropped");
+
+        _logger.LogInformation(
+            "Forgot {Instance}'s channel binding in guild {GuildId}: channel {ChannelId} was deleted.",
+            binding.Instance, binding.GuildId, binding.ChannelId);
+
+        return Result.Success(true);
+    }
+
     private async Task<Result> RemoveFromAsync(ulong guildId, ulong channelId, string instanceName)
     {
         try
