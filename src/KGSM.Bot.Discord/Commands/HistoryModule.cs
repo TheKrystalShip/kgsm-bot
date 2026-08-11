@@ -283,45 +283,58 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
     /// The three that get a marker are the three somebody is scanning <i>for</i>.
     /// </para>
     /// </remarks>
-    internal static (string Phrase, bool Completes) Describe(string type) => type switch
+    internal static (string Phrase, bool Completes) Describe(string type) =>
+        Phrases.TryGetValue(type, out (string Phrase, bool Completes) named)
+            ? named
+            // An unrecognised type is an aside by default: nothing is known about how its payload
+            // reads, and a separator is the one join that cannot produce a broken sentence.
+            : (Derived(type), false);
+
+    /// <summary>
+    /// The types worth naming, and how each one's detail attaches.
+    /// </summary>
+    /// <remarks>
+    /// A table rather than a <c>switch</c> so it can be <b>enumerated</b>: a case label with a typo in
+    /// it is dead code that silently never fires, and a phrase written for an event <c>/history</c>
+    /// never lists is the duplication the catalog exists to remove. Both are checked against
+    /// <see cref="KgsmEventCatalog"/> by the tests, which needs the keys to be readable.
+    /// </remarks>
+    internal static readonly IReadOnlyDictionary<string, (string Phrase, bool Completes)> Phrases =
+        new Dictionary<string, (string, bool)>(StringComparer.Ordinal)
     {
-        "instance_started" => ("started", false),
-        "instance_ready" => ("was ready to play", false),
-        "instance_stopped" => ("stopped", false),
-        "instance_restarted" => ("restarted", false),
-        "instance_crashed" => ("⚠️ crashed", false),
-        "instance_failed" => ("⚠️ gave up restarting", false),
+        ["instance_started"] = ("started", false),
+        ["instance_ready"] = ("was ready to play", false),
+        ["instance_stopped"] = ("stopped", false),
+        ["instance_restarted"] = ("restarted", false),
+        ["instance_crashed"] = ("⚠️ crashed", false),
+        ["instance_failed"] = ("⚠️ gave up restarting", false),
 
-        "instance_installed" => ("was installed from", true),
-        "instance_uninstalled" => ("was uninstalled", false),
-        "instance_update_available" => ("has an update available", false),
-        "instance_version_updated" => ("was updated to", true),
+        ["instance_installed"] = ("was installed from", true),
+        ["instance_uninstalled"] = ("was uninstalled", false),
+        ["instance_update_available"] = ("has an update available", false),
+        ["instance_version_updated"] = ("was updated to", true),
 
-        "instance_backup_created" => ("was backed up", false),
-        "instance_backup_restored" => ("⚠️ was restored from a backup", false),
-        "instance_backups_pruned" => ("had old backups pruned", false),
+        ["instance_backup_created"] = ("was backed up", false),
+        ["instance_backup_restored"] = ("⚠️ was restored from a backup", false),
+        ["instance_backups_pruned"] = ("had old backups pruned", false),
 
-        "instance_player_joined" => ("was joined by", true),
-        "instance_player_left" => ("was left by", true),
-        "instance_player_kicked" => ("kicked", true),
-        "instance_player_banned" => ("banned", true),
-        "instance_player_unbanned" => ("unbanned", true),
+        ["instance_player_joined"] = ("was joined by", true),
+        ["instance_player_left"] = ("was left by", true),
+        ["instance_player_kicked"] = ("kicked", true),
+        ["instance_player_banned"] = ("banned", true),
+        ["instance_player_unbanned"] = ("unbanned", true),
 
-        "instance_config_changed" => ("had a setting changed", false),
-        "instance_input_sent" => ("was sent console input", false),
+        ["instance_config_changed"] = ("had a setting changed", false),
+        ["instance_input_sent"] = ("was sent console input", false),
 
-        "instance_ports_opened" => ("had its ports opened", false),
-        "instance_ports_closed" => ("had its ports closed", false),
-        "instance_upnp_opened" => ("had a UPnP forward opened", false),
-        "instance_upnp_closed" => ("had a UPnP forward closed", false),
-        "instance_upnp_reasserted" => ("had its UPnP forward re-asserted", false),
+        ["instance_ports_opened"] = ("had its ports opened", false),
+        ["instance_ports_closed"] = ("had its ports closed", false),
+        ["instance_upnp_opened"] = ("had a UPnP forward opened", false),
+        ["instance_upnp_closed"] = ("had a UPnP forward closed", false),
+        ["instance_upnp_reasserted"] = ("had its UPnP forward re-asserted", false),
 
-        "blueprint_created" => ("blueprint created", false),
-        "blueprint_updated" => ("blueprint updated", false),
-
-        // An unrecognised type is an aside by default: nothing is known about how its payload reads,
-        // and a separator is the one join that cannot produce a broken sentence.
-        _ => (Derived(type), false),
+        ["blueprint_created"] = ("blueprint created", false),
+        ["blueprint_updated"] = ("blueprint updated", false),
     };
 
     /// <summary>
