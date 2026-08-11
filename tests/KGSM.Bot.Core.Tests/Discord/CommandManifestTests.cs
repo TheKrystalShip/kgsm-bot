@@ -54,6 +54,8 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IServerInstanceService>());
         services.AddSingleton(Substitute.For<IBackupInsight>());
         services.AddSingleton(Substitute.For<IStagedRestores>());
+        services.AddSingleton(Substitute.For<IServerHistory>());
+        services.AddSingleton(Substitute.For<IBotHealth>());
         return services.BuildServiceProvider();
     }
 
@@ -168,12 +170,13 @@ public sealed class CommandManifestTests
             .Should().BeEquivalentTo(manifest.Gates[KgsmTiers.Operator].Where(c => c.Mutates).Select(c => c.Name));
 
         // The reverse does not hold, and must not be asserted: a command can need operator without
-        // changing anything. Reading a server's log is the case — it changes nothing and still shows
-        // the inside of the machine, including the network address of everyone who connected. The
-        // reads that sit at operator are named here, the same way the admin bucket names its own, so
-        // adding another is a decision somebody made rather than a gate that drifted.
+        // changing anything. Both of these show the inside of the machine while changing nothing —
+        // a server's log carries the network address of everyone who connected, and the health page
+        // names host paths and the reasons stores could not be opened. The reads that sit at operator
+        // are named here, the same way the admin bucket names its own, so adding another is a
+        // decision somebody made rather than a gate that drifted.
         manifest.Gates[KgsmTiers.Operator].Where(c => !c.Mutates).Select(c => c.Name)
-            .Should().BeEquivalentTo(["logs"]);
+            .Should().BeEquivalentTo(["health", "logs"]);
 
         // Nothing is gated at "none": every slash module requires an account here, which is the
         // property the test below pins, and this is the manifest saying the same thing.

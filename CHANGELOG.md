@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`/history [server] [hours]` — what happened, read back out of the engine's journal.** Viewer-gated,
+  one server or the whole host, default 24 hours and up to 30 days. The durable record answers it, so
+  a window reaching back over a restart is exactly what it is for.
+
+  **Every way of failing to answer is rendered as itself.** An unreadable journal says so instead of
+  reporting a quiet host — the two look identical if you only count events. A window reaching further
+  back than the journal keeps is answered from where the record starts and says which date that is. A
+  scan that stopped at its budget says the page is a prefix. The one empty answer that means "nothing
+  happened" is the one with a readable journal behind it.
+
+  **The engine's vocabulary is bigger than the bot's, and an unrecognised type is never dropped.** A
+  measured day on this host carries deploy phases, UPnP forwards, port openings and prune results
+  that no announcement kind exists for. The types worth naming are named; everything else renders
+  from the engine's own word with its prefix stripped, which is also what a type added upstream
+  tomorrow gets with no change here.
+
+  One field is lifted verbatim off each payload — which setting changed, which player, which version.
+  **Three are deliberately not read:** a player's network address (it identifies a connection rather
+  than a person, the same rule the roster follows), console input verbatim (this surface answers a
+  viewer), and ports (`/connect` already has a renderer for those, and a second could disagree with
+  it about the same server).
+
+- **`/health` — whether everything this bot depends on is answering.** Operator-gated and always
+  private, like `/logs`: a failing check names host paths and the reasons stores could not be opened.
+
+  The state it exists for is the one nothing else shows — the unit is active, the gateway says
+  Connected, and the bot cannot do the thing somebody just asked it about. Seven checks, each run at
+  the moment it is reported: the gateway, the outbound queue, the engine (asked by actually asking
+  it, not by reading the inventory cache), the event journal, the KGSM account store, the guild
+  store, and the assistant.
+
+  **No check is inferred from another** — they fail independently in practice, and a summary that
+  took one as evidence for the next would report a state that was never measured. **Four verdicts,
+  not two:** a dependency this host was never given is not broken, and a check that could not reach
+  an answer is not a pass. An undeployed assistant is left out of the count entirely rather than
+  making a correct host read as permanently short of something.
+
 - **Backups reach Discord: `/backups`, `/backup`, `/restore`.** The biggest thing this host measured
   and never surfaced.
 

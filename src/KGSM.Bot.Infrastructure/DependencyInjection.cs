@@ -115,6 +115,11 @@ public static class DependencyInjection
         // loops would be two rates against one budget with neither aware of the other.
         services.AddSingleton<IBotPresence, BotPresenceService>();
 
+        // Whether the things the bot depends on are answering. Stateless and asked for by a person,
+        // so nothing is held between calls — every check is run at the moment it is reported, which
+        // is the only way an answer about right now can be one.
+        services.AddSingleton<IBotHealth, BotHealthService>();
+
         return services;
     }
 
@@ -173,6 +178,11 @@ public static class DependencyInjection
         // says a backup was taken or rolled back. One registration for the same reason as the roster:
         // the board and the commands must not be able to print different answers about one server.
         services.AddSingleton<IBackupInsight, BackupInsight>();
+
+        // What this host did, read back off the journal. Nothing is cached and nothing is held: the
+        // reader scans only the segments a window can touch, and a question asked at human cadence is
+        // cheaper to answer than an index would be to keep in step with the record.
+        services.AddSingleton<IServerHistory, ServerHistory>();
 
         // Cached inventory (avoids spawning kgsm per message)
         services.AddSingleton<IKgsmStateCache, KgsmStateCache>();

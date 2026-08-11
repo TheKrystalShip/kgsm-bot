@@ -329,7 +329,7 @@ a new option reaches the panel with no second edit. Commit what the build produc
   `CommandManifestTests` pins the set by name, so a new acting command that is not marked fails the
   build rather than being listed to an operator as read-only.
 - **The operator bucket is not only the acting commands.** A command can need operator without
-  changing anything — `/logs` shows the inside of the machine — so the test asserts the direction
+  changing anything — `/logs` and `/health` both show the inside of the machine — so the test asserts the direction
   that protects (everything marked `[Mutating]` is gated at operator) and names the reads that sit
   there, rather than asserting the reverse and forcing a read to be mislabelled as an action.
 - **The tests compare against Discord.Net itself** — the same `InteractionService.AddModulesAsync`
@@ -466,12 +466,75 @@ is for players.
   redeemed**, so a click that is not allowed leaves the proposal standing for whoever is. Cancelling
   is open to anyone — the asymmetry is deliberate, one direction destroys and the other does nothing.
 
+### `/history`: what happened, out of the durable record
+
+`IServerHistory` wraps kgsm-lib's `IEventJournalHistory`, and `/history [server] [hours]` renders it —
+viewer-gated, one server or the whole host. **This is a different reader from the announcement one and
+does not conflict with the no-cursor rule**: that rule is about the tail, which stores no position
+because an announcement is only meaningful while it is current. A query answers a question somebody
+just asked, and reaching back over a restart is exactly what it is for.
+
+- **Three signals qualify every answer, and all three are carried across unflattened.** An
+  **unreadable** journal is not a quiet host — they are the same empty list, and reporting the first
+  as the second tells somebody nothing happened on the strength of a permission error. **Coverage** is
+  the oldest moment the record still holds, said only when the window asked for more than that.
+  **Truncation** is a scan that stopped at its budget, so the page is a prefix. The one empty answer
+  that means *nothing happened* is the one with a readable journal behind it.
+- ⚠ **The engine emits far more event types than the bot announces, and an unrecognised one is never
+  dropped.** A measured day here carries deploy phases, UPnP forwards, port openings and prune results
+  with no announcement kind behind any of them. The types worth naming are named; everything else
+  renders from the engine's own word with its subject prefix stripped (`instance_deploy_finished` →
+  "deploy finished"). That is what makes the phrase table safe to leave incomplete — a type added
+  upstream still appears, still names its server and its actor, with no change here.
+- **One field is lifted verbatim off each payload**, chosen by a documented order so an event carrying
+  several is described by the most specific it has. Nothing is computed, and an event carrying none of
+  them shows no detail rather than a stand-in.
+- ⚠ **Three payload fields are deliberately not read.** `PlayerAddr` is a network address, which
+  identifies a connection rather than a person — the same refusal the roster makes. `Command` is
+  console input verbatim, and this surface answers a viewer; the event still appears, so *that* it
+  happened is not hidden. `Ports` already has a renderer on `/connect`, and a second could disagree
+  with it about the same server.
+- The list is capped both by line count and by the embed's own character budget, counted as each line
+  is added, and the footer says how many of how many were shown.
+
+### `/health`: the failure systemd cannot see
+
+Operator-gated, always private. The unit is active, the gateway says Connected, and the bot cannot do
+the thing somebody just asked it about — an unreadable account store refuses every command, a missing
+engine answers none of them, and neither shows up as anything but a process that is running.
+`/setup show` answers a different question (what *this guild* is configured with), and the status
+socket answers the Control Panel, which is no use to somebody who only has Discord.
+
+`IBotHealth` runs seven checks at the moment they are reported: the gateway, the outbound queue, the
+engine, the event journal, the KGSM account store, the guild store and the assistant.
+
+- **No check is inferred from another.** They fail independently — the engine and Discord have nothing
+  to do with each other — so a summary that took one as evidence for the next would report a state
+  that was never measured. A check that throws is a failing check carrying the exception's words;
+  nothing here may propagate, because the whole point is to be answerable while things are broken.
+- ⚠ **Four verdicts, not two.** A dependency this host was never given is `Off`, not broken —
+  counting an undeployed assistant against the total makes a correct host read as permanently short of
+  something. A check that reached no answer is `Unknown`, not a pass, and is deliberately not green: a
+  gateway mid-reconnect is neither connected nor faulty, and reporting it either way sends somebody
+  the wrong place.
+- **The engine is probed by asking it**, not by reading the inventory cache. A cache serves its last
+  good answer for as long as its TTL says to, which is right for a cache and wrong for a health check.
+  It costs one kgsm process, which is why a person runs this and nothing runs it on a timer.
+- **The journal's readability and the age of its newest entry are two facts and stay separate.** A
+  quiet host is not a broken one; inferring a fault from silence would call every idle weekend an
+  outage.
+- It overlaps the status socket on three facts (the gateway, the store, the queue) and **cannot
+  disagree with it**, because both read the same live objects rather than either deriving from the
+  other. Nothing is cached or held between calls.
+
 ### Read commands answer one person
 
 `/status`, `/list`, `/is-active` and `/supervision` reply ephemerally under `EphemeralReads` (on) — a
-busy channel does not need everyone's status checks in its scrollback. ⚠ **`/connect` is deliberately
-not one of them**: its whole purpose is to be read by somebody other than the person who typed it.
-`/logs` is always private whatever the switch says, because a game log carries player IP addresses.
+busy channel does not need everyone's status checks in its scrollback. `/history` follows the same
+switch. ⚠ **`/connect` is deliberately not one of them**: its whole purpose is to be read by somebody
+other than the person who typed it. `/logs` and `/health` are always private whatever the switch says
+— a game log carries player IP addresses, and a failing health check names host paths and the reasons
+stores could not be opened.
 
 ### One queue out to Discord
 

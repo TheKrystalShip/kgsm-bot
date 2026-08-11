@@ -121,6 +121,12 @@
         ]
       },
       {
+        "name": "health",
+        "description": "Whether everything this bot depends on is answering",
+        "mutates": false,
+        "options": []
+      },
+      {
         "name": "install",
         "description": "Install a new game server",
         "mutates": true,
@@ -286,6 +292,27 @@
             "type": "string",
             "required": true,
             "autocomplete": true
+          }
+        ]
+      },
+      {
+        "name": "history",
+        "description": "What happened recently \u2014 one server\u0027s, or the whole host\u0027s",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance. Leave empty for the whole host.",
+            "type": "string",
+            "required": false,
+            "autocomplete": true
+          },
+          {
+            "name": "hours",
+            "description": "How far back to look. Default 24 hours.",
+            "type": "integer",
+            "required": false,
+            "autocomplete": false
           }
         ]
       },
