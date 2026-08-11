@@ -1,4 +1,5 @@
 using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Core.Models;
 
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +15,7 @@ public class ServerEventCoordinatorService
     private readonly IDiscordChannelRegistry _channelRegistry;
     private readonly IKgsmStateCache _stateCache;
     private readonly IStatusBoard _statusBoard;
+    private readonly IBackupInsight _backups;
     private readonly ILogger<ServerEventCoordinatorService> _logger;
 
     public ServerEventCoordinatorService(
@@ -22,6 +24,7 @@ public class ServerEventCoordinatorService
         IDiscordChannelRegistry channelRegistry,
         IKgsmStateCache stateCache,
         IStatusBoard statusBoard,
+        IBackupInsight backups,
         ILogger<ServerEventCoordinatorService> logger)
     {
         _eventHandler = eventHandler;
@@ -29,6 +32,7 @@ public class ServerEventCoordinatorService
         _channelRegistry = channelRegistry;
         _stateCache = stateCache;
         _statusBoard = statusBoard;
+        _backups = backups;
         _logger = logger;
     }
 
@@ -59,6 +63,11 @@ public class ServerEventCoordinatorService
             // message is not a log of what was announced, it is what is true now. Marking it dirty is
             // a flag, so a burst costs one edit rather than one each — the board owns that decision.
             _statusBoard.Invalidate();
+
+            // The set of backups a server has changes when the engine says it did, and at no other
+            // time — so the cached summary is dropped on the event rather than expired on a timer.
+            if (announcement.Kind is AnnouncementKind.BackupCreated or AnnouncementKind.BackupRestored)
+                _backups.Invalidate(announcement.InstanceName);
 
             return _notificationService.AnnounceAsync(announcement);
         });

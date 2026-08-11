@@ -405,7 +405,8 @@ and the live sessions from the supervisor (`IWatchdogClient.GetPlayerPresenceAsy
   engine could not be asked). Deciding what a roster means costs a kgsm process per server, and the
   board and the presence both want that fact as well — asking twice would pay twice for one thing and
   could return two answers about the same moment. Nothing else in the bot calls `IsActiveAsync` per
-  server to build a picture of the host.
+  server to build a picture of the host — the board and the presence both read the roster. (`/list`
+  still checks each server itself; it answers one person and is not joined to anything.)
 
 ### The bot's presence: the one thing it says with no channel to say it in
 
@@ -430,6 +431,47 @@ an address in a roster for that reason, and posting the raw log into the channel
 same thing with more of it. A file rather than a code block because Discord truncates a long one and
 wraps every line of it on a phone. Oversized logs are trimmed **from the front** — the end is the part
 somebody asked for — and the budget is counted in bytes, since that is what Discord's limit is in.
+
+### Backups: what was captured, and how good it is
+
+`/backups <server>` lists them, `/backup <server>` takes one, `/restore <server> [backup]` rolls one
+back. `IBackupInsight` is the one place a backup fact comes from, for the same reason `IPlayerRoster`
+is for players.
+
+- **Consistency is measured per backup and is the thing worth reading.** The engine records how the
+  capture was taken: `cold` (stopped — nothing could write mid-archive), `flushed` (running, but it
+  wrote its world out first), `hot` (running with no usable save command — **the archive may be
+  torn**), or nothing at all when the run state could not be read. ⚠ A surface that flattens those
+  into "backed up ✅" hides the only part that decides whether the backup is worth having. **An
+  unrecognised value is printed as it came** — the engine owns this vocabulary, and a surface guessing
+  what a new word means is how a torn archive gets described as a good one.
+- **Nothing stores an age; the timestamp is stored and the age computed at render.** That is what
+  makes the whole-host summary cacheable — a cached timestamp still yields a correct age, where a
+  cached age would silently stop counting. The cache is dropped by the engine's own
+  `backup created`/`backup restored` events; the TTL is a backstop.
+- **A present key with a null value is "read, and has none"; an absent key is "could not look".**
+  `LatestAsync` distinguishes them and a renderer must too, and a failed read is deliberately not
+  cached.
+- **The board flags backups only when they are worth flagging** — past `BackupStaleAfterHours` (48h),
+  or never taken at all. An age printed beside all sixteen servers buries the one that matters among
+  fifteen that do not.
+- **A restore is staged, and the button carries a handle.** A server name and a backup id together do
+  not reliably fit a 100-character `customId`, and a truncated one names a *different archive* rather
+  than failing — so the operation is held in `IStagedRestores` and the button carries 32 hex
+  characters, the same shape the assistant's confirmations use. In memory and five minutes: a
+  destructive action that survives a restart is one somebody clicks by accident days later.
+- **Confirming is authorized at the click *and* restricted to the person who proposed it.** A restart
+  button is a shortcut to a command anyone with the tier could type, so anyone with the tier may press
+  it; this one names a specific archive somebody else chose. The handle is **peeked before it is
+  redeemed**, so a click that is not allowed leaves the proposal standing for whoever is. Cancelling
+  is open to anyone — the asymmetry is deliberate, one direction destroys and the other does nothing.
+
+### Read commands answer one person
+
+`/status`, `/list`, `/is-active` and `/supervision` reply ephemerally under `EphemeralReads` (on) — a
+busy channel does not need everyone's status checks in its scrollback. ⚠ **`/connect` is deliberately
+not one of them**: its whole purpose is to be read by somebody other than the person who typed it.
+`/logs` is always private whatever the switch says, because a game log carries player IP addresses.
 
 ### One queue out to Discord
 

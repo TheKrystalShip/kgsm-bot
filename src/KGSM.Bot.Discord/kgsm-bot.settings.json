@@ -80,6 +80,12 @@
     "Presence": true,
     "PresenceRefreshSeconds": 60,
 
+    // How old a server's newest backup has to be before the live status message flags it. The board
+    // stays QUIET while backups are current and speaks when they are not — an age printed beside all
+    // sixteen servers buries the one that matters among fifteen that do not. A server that has never
+    // been backed up is always flagged; 0 shows the age for every server.
+    "BackupStaleAfterHours": 48,
+
     // Everything the bot says on its own initiative goes out through one paced queue: announcements
     // across guilds, the board's per-guild edits, channels created with an install, expiring messages
     // cleaned up. Four producers that know nothing of each other are one stream by the time they
@@ -130,6 +136,13 @@
       "PlayerLeft": false,
       "Moderation": true
     },
+
+    // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active
+    // and /supervision are one person's question, and a busy channel does not need everyone else's in
+    // its scrollback. The commands whose point is to be SHARED — /connect above all — are deliberately
+    // not covered by this, and /logs is always private whatever this says, because a game log carries
+    // the network address of every player who connected.
+    "EphemeralReads": true,
 
     "DeleteStatusMessageAfterDelay": false,
     "DeleteStatusMessageDelaySeconds": 300

@@ -52,6 +52,8 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IServerConnectionService>());
         services.AddSingleton(Substitute.For<IPlayerRoster>());
         services.AddSingleton(Substitute.For<IServerInstanceService>());
+        services.AddSingleton(Substitute.For<IBackupInsight>());
+        services.AddSingleton(Substitute.For<IStagedRestores>());
         return services.BuildServiceProvider();
     }
 
@@ -145,7 +147,8 @@ public sealed class CommandManifestTests
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
         AllCommands(manifest).Where(c => c.Mutates).Select(c => c.Name)
-            .Should().BeEquivalentTo(["start", "stop", "restart", "install", "uninstall"]);
+            .Should().BeEquivalentTo(
+                ["start", "stop", "restart", "install", "uninstall", "backup", "restore"]);
     }
 
     /// <summary>

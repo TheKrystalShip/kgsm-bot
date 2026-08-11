@@ -370,6 +370,56 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    public async Task<Result<IReadOnlyList<InstanceBackup>>> GetBackupsAsync(string instanceName)
+    {
+        try
+        {
+            _logger.LogDebug("Reading backups for server instance {InstanceName}", instanceName);
+
+            List<InstanceBackup> backups = await Task.Run(() => _kgsmClient.Instances.GetBackupsDetailed(instanceName));
+
+            // Newest first, and a backup whose manifest carries no timestamp sorts last rather than
+            // being dropped — it exists, and a restore can still name it.
+            return Result.Success<IReadOnlyList<InstanceBackup>>(
+                [.. backups.OrderByDescending(b => b.CreatedAt ?? DateTimeOffset.MinValue)]);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading backups for server instance {InstanceName}", instanceName);
+            return Result.Failure<IReadOnlyList<InstanceBackup>>(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Result> RestoreBackupAsync(string instanceName, string backupId)
+    {
+        try
+        {
+            _logger.LogInformation("Restoring backup {BackupId} onto server instance {InstanceName}",
+                backupId, instanceName);
+
+            var (actor, origin) = Provenance();
+            var result = await Task.Run(() => _kgsmClient.Instances.RestoreBackup(instanceName, backupId, actor, origin));
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to restore backup {BackupId} onto {InstanceName}: {Error}",
+                    backupId, instanceName, result.Stderr);
+                return Result.Failure(result.Stderr ?? "Unknown error");
+            }
+
+            _logger.LogInformation("Restored backup {BackupId} onto server instance {InstanceName}",
+                backupId, instanceName);
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error restoring backup {BackupId} onto server instance {InstanceName}",
+                backupId, instanceName);
+            return Result.Failure(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<Result> SetConfigValueAsync(string instanceName, string key, string value)
     {
         try

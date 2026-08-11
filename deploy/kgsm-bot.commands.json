@@ -107,6 +107,20 @@
     ],
     "operator": [
       {
+        "name": "backup",
+        "description": "Back up a game server now",
+        "mutates": true,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
+      },
+      {
         "name": "install",
         "description": "Install a new game server",
         "mutates": true,
@@ -177,6 +191,27 @@
         ]
       },
       {
+        "name": "restore",
+        "description": "Roll a game server back to a backup \u2014 replaces what is there now",
+        "mutates": true,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          },
+          {
+            "name": "backup",
+            "description": "Which backup. Leave empty for the newest.",
+            "type": "string",
+            "required": false,
+            "autocomplete": false
+          }
+        ]
+      },
+      {
         "name": "start",
         "description": "Start up a game server",
         "mutates": true,
@@ -225,6 +260,20 @@
         "description": "Show information about the bot",
         "mutates": false,
         "options": []
+      },
+      {
+        "name": "backups",
+        "description": "What backups a game server has, and how good each one is",
+        "mutates": false,
+        "options": [
+          {
+            "name": "instance",
+            "description": "Game server instance",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
       },
       {
         "name": "connect",

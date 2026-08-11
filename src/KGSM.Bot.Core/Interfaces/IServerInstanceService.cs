@@ -111,6 +111,28 @@ public interface IServerInstanceService
     Task<Result> CreateBackupAsync(string instanceName);
 
     /// <summary>
+    /// Every backup the engine holds for an instance, newest first.
+    /// </summary>
+    /// <remarks>
+    /// Each carries the manifest the engine wrote when it captured it — when, how big, and how
+    /// consistent the capture was. An instance with no backups is an empty list, not a failure.
+    /// </remarks>
+    /// <param name="instanceName">Name of the instance</param>
+    Task<Result<IReadOnlyList<InstanceBackup>>> GetBackupsAsync(string instanceName);
+
+    /// <summary>
+    /// Rolls a backup back onto the instance, replacing what is there.
+    /// </summary>
+    /// <remarks>
+    /// <b>Destructive, and not reversible by this bot.</b> The engine verifies the archive's checksum
+    /// before it writes anything, so a corrupt backup is refused rather than half-applied — but what
+    /// the instance held beforehand is gone unless it was itself backed up.
+    /// </remarks>
+    /// <param name="instanceName">Name of the instance</param>
+    /// <param name="backupId">The backup's id, as the manifest reports it</param>
+    Task<Result> RestoreBackupAsync(string instanceName, string backupId);
+
+    /// <summary>
     /// Sets a single key=value in an instance's .config.ini. kgsm owns the safety
     /// policy and refuses identity/path/structural/toggle keys, surfacing that as a
     /// failed <see cref="Result"/> (the refusal text in <c>Error</c>).

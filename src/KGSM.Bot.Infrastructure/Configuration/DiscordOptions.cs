@@ -99,6 +99,35 @@ public class DiscordOptions
     public int StatusMessageRefreshSeconds { get; set; } = 900;
 
     /// <summary>
+    /// How old a server's newest backup may be before the live status message says so.
+    /// </summary>
+    /// <remarks>
+    /// <b>The board stays quiet while backups are current and speaks when they are not.</b> Printing
+    /// an age beside all sixteen servers would make the one that matters invisible among fifteen that
+    /// do not — so the marker appears only past this age, and for a server with no backup at all.
+    /// Zero shows it for every server, for an operator who would rather see the number always.
+    /// </remarks>
+    /// <panel>How old a server's newest backup has to be before the live status message flags it. A
+    /// server with no backup at all is always flagged. Set to 0 to show the age for every server.</panel>
+    [LeafField("backupStaleAfterHours", "Flag backups older than", Group = "status",
+        Min = 0, Unit = "h")]
+    public int BackupStaleAfterHours { get; set; } = 48;
+
+    /// <summary>
+    /// Whether the read commands answer only the person who ran them.
+    /// </summary>
+    /// <remarks>
+    /// <c>/status</c>, <c>/list</c>, <c>/is-active</c> and <c>/supervision</c> are one person's
+    /// question, and a busy channel does not need everyone's status checks in its scrollback. The
+    /// commands whose whole point is to be shared — <c>/connect</c> above all — are deliberately not
+    /// covered by this, and <c>/logs</c> is always private whatever this says.
+    /// </remarks>
+    /// <panel>Whether answers to "what's the status" commands are shown only to the person who asked,
+    /// instead of to the whole channel. Sharing commands like /connect are unaffected.</panel>
+    [LeafField("ephemeralReads", "Keep status answers private", Group = "channels")]
+    public bool EphemeralReads { get; set; } = true;
+
+    /// <summary>
     /// Whether the bot shows this host in its own Discord presence.
     /// </summary>
     /// <remarks>

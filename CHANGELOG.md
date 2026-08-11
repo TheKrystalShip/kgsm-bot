@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Backups reach Discord: `/backups`, `/backup`, `/restore`.** The biggest thing this host measured
+  and never surfaced.
+
+  **How consistent each capture was is the part worth reading, and the engine measures it per
+  backup:** `cold` (the server was stopped, so nothing could write mid-archive), `flushed` (running,
+  but it wrote its world out first), `hot` (running with no usable save command — **the archive may
+  be torn**), or nothing at all when the run state could not be read. Each is spelled out rather than
+  flattened into a tick, and an unrecognised value is printed as it came — the engine owns that
+  vocabulary, and guessing what a new word means is how a torn archive gets called a good one.
+
+  **`/restore` is staged behind a confirmation button**, authorized at the click and restricted to
+  the person who proposed it — a restart button is a shortcut to a command anyone could type, but
+  this one names a specific archive somebody else chose. The button carries a 32-hex handle, not the
+  operation: a server name and a backup id together do not reliably fit a 100-character `customId`,
+  and a truncated one would name a *different* archive rather than failing. Proposals live in memory
+  for five minutes, because a destructive action that survives a restart is one somebody clicks by
+  accident days later. Redeeming is one-shot.
+
+  **The live status message flags a backup only when it is worth flagging** — older than
+  `Discord:BackupStaleAfterHours` (48h), or never taken. An age beside all sixteen servers buries the
+  one that matters among fifteen that do not. It is cached per server and dropped on the engine's own
+  backup events; what is cached is the *timestamp*, so the age is always computed fresh and a stale
+  cache still reads correctly.
+
+  Throughout, "read and has no backups" and "could not be asked" stay different answers.
+
+- **Read commands answer the person who asked.** `/status`, `/list`, `/is-active` and `/supervision`
+  reply ephemerally under `Discord:EphemeralReads` (on by default), so a busy channel keeps its
+  scrollback. `/connect` is deliberately excluded — its whole purpose is to be read by somebody other
+  than the person who typed it.
+
 ### Fixed
 
 - **A server whose Discord channel was deleted lost every announcement about it.** The per-server

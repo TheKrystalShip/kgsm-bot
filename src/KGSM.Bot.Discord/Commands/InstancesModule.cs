@@ -5,8 +5,10 @@ using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Autocomplete;
+using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using TheKrystalShip.KGSM.Auth;
 
@@ -21,6 +23,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IServerService _server;
     private readonly IGuildStore _guilds;
     private readonly IInvocationContext _invocation;
+    private readonly DiscordOptions _options;
     private readonly ILogger<InstancesModule> _logger;
     private const string SUMMARY = "Game server instance";
 
@@ -28,13 +31,26 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         IServerService server,
         IGuildStore guilds,
         IInvocationContext invocation,
+        IOptions<DiscordOptions> options,
         ILogger<InstancesModule> logger)
     {
         _server = server;
         _guilds = guilds;
         _invocation = invocation;
+        _options = options.Value;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Whether an answer to a read command is shown only to the person who asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only for the commands that answer one person's question.</b> "Is it up", "what's installed"
+    /// and "what is the watchdog doing" are asked to find something out, not to tell the channel — and
+    /// a busy channel fills with everyone else's. <c>/connect</c> is deliberately not one of these:
+    /// its entire purpose is to be read by somebody other than the person who typed it.
+    /// </remarks>
+    private bool Quietly => _options.EphemeralReads;
 
     [SlashCommand("start", "Start up a game server")]
     [Mutating]
@@ -147,16 +163,16 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogWarning("Failed to get status for instance {InstanceName}: {Error}",
                     instance, result.ErrorMessage);
-                await RespondAsync($"Error getting status for {instance}: {result.ErrorMessage}");
+                await RespondAsync($"Error getting status for {instance}: {result.ErrorMessage}", ephemeral: Quietly);
                 return;
             }
 
-            await RespondAsync(result.Status ?? "No status information available");
+            await RespondAsync(result.Status ?? "No status information available", ephemeral: Quietly);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling status command for instance {InstanceName}", instance);
-            await RespondAsync($"An error occurred: {ex.Message}");
+            await RespondAsync($"An error occurred: {ex.Message}", ephemeral: Quietly);
         }
     }
 
@@ -178,7 +194,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                 // rather than as a server error; native lifecycle still works without it.
                 _logger.LogWarning("Failed to get supervision state for instance {InstanceName}: {Error}",
                     instance, result.ErrorMessage);
-                await RespondAsync($"⚠️ {result.ErrorMessage} Native start/stop still works; only live supervision details are unavailable.");
+                await RespondAsync($"⚠️ {result.ErrorMessage} Native start/stop still works; only live supervision details are unavailable.", ephemeral: Quietly);
                 return;
             }
 
@@ -186,7 +202,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             if (!status.IsSupervised || status.State is null)
             {
                 await RespondAsync($"{instance} is not currently supervised by the watchdog " +
-                    "(it was started outside the daemon, or is not a native standalone instance).");
+                    "(it was started outside the daemon, or is not a native standalone instance).", ephemeral: Quietly);
                 return;
             }
 
@@ -205,12 +221,12 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             if (!string.IsNullOrWhiteSpace(state.Reason))
                 embed.AddField("Reason", state.Reason);
 
-            await RespondAsync(embed: embed.Build());
+            await RespondAsync(embed: embed.Build(), ephemeral: Quietly);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling supervision command for instance {InstanceName}", instance);
-            await RespondAsync($"An error occurred: {ex.Message}");
+            await RespondAsync($"An error occurred: {ex.Message}", ephemeral: Quietly);
         }
     }
 
@@ -230,17 +246,17 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogWarning("Failed to check active status for instance {InstanceName}: {Error}",
                     instance, result.ErrorMessage);
-                await RespondAsync($"Error checking active status for {instance}: {result.ErrorMessage}");
+                await RespondAsync($"Error checking active status for {instance}: {result.ErrorMessage}", ephemeral: Quietly);
                 return;
             }
 
             string outputMessage = $"{instance} is {(result.IsActive ? "active" : "inactive")}";
-            await RespondAsync(outputMessage);
+            await RespondAsync(outputMessage, ephemeral: Quietly);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling is-active command for instance {InstanceName}", instance);
-            await RespondAsync($"An error occurred: {ex.Message}");
+            await RespondAsync($"An error occurred: {ex.Message}", ephemeral: Quietly);
         }
     }
 
@@ -256,13 +272,13 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             if (!result.IsSuccess || result.Instances == null)
             {
                 _logger.LogWarning("Failed to list instances: {Error}", result.ErrorMessage);
-                await RespondAsync($"Error listing instances: {result.ErrorMessage}");
+                await RespondAsync($"Error listing instances: {result.ErrorMessage}", ephemeral: Quietly);
                 return;
             }
 
             if (result.Instances.Count == 0)
             {
-                await RespondAsync("No instances found");
+                await RespondAsync("No instances found", ephemeral: Quietly);
                 return;
             }
 
@@ -302,12 +318,12 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             foreach (var field in fields)
                 embedBuilder.AddField(field);
 
-            await RespondAsync(embed: embedBuilder.Build());
+            await RespondAsync(embed: embedBuilder.Build(), ephemeral: Quietly);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling list command");
-            await RespondAsync($"An error occurred: {ex.Message}");
+            await RespondAsync($"An error occurred: {ex.Message}", ephemeral: Quietly);
         }
     }
 }

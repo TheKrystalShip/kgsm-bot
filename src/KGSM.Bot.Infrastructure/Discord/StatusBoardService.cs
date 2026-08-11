@@ -45,6 +45,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     private readonly IKgsmStateCache _cache;
     private readonly IHostAddressService _addresses;
     private readonly IPlayerRoster _roster;
+    private readonly IBackupInsight _backups;
     private readonly IDiscordSendQueue _queue;
     private readonly DiscordOptions _options;
     private readonly ILogger<StatusBoardService> _logger;
@@ -62,6 +63,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         IKgsmStateCache cache,
         IHostAddressService addresses,
         IPlayerRoster roster,
+        IBackupInsight backups,
         IDiscordSendQueue queue,
         IOptions<DiscordOptions> options,
         ILogger<StatusBoardService> logger)
@@ -71,6 +73,7 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         _cache = cache;
         _addresses = addresses;
         _roster = roster;
+        _backups = backups;
         _queue = queue;
         _options = options.Value;
         _logger = logger;
@@ -202,6 +205,21 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
             rosters = [];
         }
 
+        // Cached per server and dropped on the engine's own backup events, so the whole-host read is
+        // one process per server on a change rather than one per publish. What is cached is the
+        // engine's timestamp; the age below is worked out now, so a stale entry still reads correctly.
+        IReadOnlyDictionary<string, InstanceBackup?> backups;
+        try
+        {
+            backups = await _backups.LatestAsync(cancellationToken);
+        }
+        catch (Exception e)
+        {
+            // The board is a picture of run state first; losing this costs the backup markers only.
+            _logger.LogWarning(e, "Backup ages could not be read for the status message.");
+            backups = new Dictionary<string, InstanceBackup?>();
+        }
+
         ServerRow[] rows = [.. instances
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair =>
@@ -216,7 +234,12 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
                     Running: roster?.Running,
                     // Null wherever the count is not knowable, which the renderer prints as nothing
                     // at all rather than as a zero.
-                    Players: roster?.Count);
+                    Players: roster?.Count,
+                    // Three states again, and the same discipline: an absent key is a server whose
+                    // backups could not be read, which is not the same as one that has none.
+                    Backup: backups.TryGetValue(pair.Key, out InstanceBackup? latest)
+                        ? new BackupAge(latest?.CreatedAt, latest is not null)
+                        : null);
             })];
 
         HostAddresses addresses = await _addresses.ResolveAsync(cancellationToken);
@@ -408,6 +431,9 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
             if (server.Players is > 0)
                 body.Append(" · 👥 ").Append(server.Players);
 
+            if (Backup(server.Backup) is string backup)
+                body.Append(" · ").Append(backup);
+
             if (Join(snapshot.Addresses.Public, server) is string join)
                 body.Append(" · `").Append(join).Append('`');
 
@@ -445,6 +471,36 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
 
         bool complete = snapshot.Servers.All(s => s.Players is not null || s.Running != true);
         return complete ? $" **{total}** playing." : $" **{total}+** playing.";
+    }
+
+    /// <summary>
+    /// The backup marker, or nothing at all — which is the usual answer.
+    /// </summary>
+    /// <remarks>
+    /// <b>Silence means "recent enough", and that is what makes this readable.</b> An age printed
+    /// beside every server buries the one that matters among the fifteen that do not, so this speaks
+    /// only past <c>BackupStaleAfterHours</c> and for a server that has never been backed up. A server
+    /// whose backups could not be read gets nothing rather than a warning — not looking is not the
+    /// same as looking and finding nothing, and only one of those is the server's problem.
+    /// </remarks>
+    private string? Backup(BackupAge? backup)
+    {
+        if (backup is null)
+            return null;
+
+        if (!backup.Exists)
+            return "💾 never";
+
+        if (backup.TakenAt is not DateTimeOffset taken)
+            return null;
+
+        TimeSpan age = DateTimeOffset.UtcNow - taken;
+        if (age < TimeSpan.FromHours(_options.BackupStaleAfterHours))
+            return null;
+
+        return age.TotalDays >= 1
+            ? $"💾 {age.TotalDays:0}d"
+            : $"💾 {age.TotalHours:0}h";
     }
 
     private string Marker(bool? running) => running switch
@@ -522,5 +578,18 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     /// null prints as nothing, because printing it as 0 would claim an empty server.
     /// </summary>
     private sealed record ServerRow(
-        string Name, string Blueprint, IReadOnlyList<PortMapping> Ports, bool? Running, int? Players);
+        string Name, string Blueprint, IReadOnlyList<PortMapping> Ports, bool? Running, int? Players,
+        BackupAge? Backup);
+
+    /// <summary>
+    /// What is known about a server's newest backup. Null in <c>ServerRow</c> means the backups could
+    /// not be read at all — distinct from <see cref="Exists"/> being false, which is a server that was
+    /// read and genuinely has none.
+    /// </summary>
+    /// <param name="TakenAt">
+    /// When the newest one was captured, or null — either because there is none, or because the
+    /// manifest recorded no time. Both mean no age can be stated.
+    /// </param>
+    /// <param name="Exists">Whether there is a backup at all.</param>
+    private sealed record BackupAge(DateTimeOffset? TakenAt, bool Exists);
 }

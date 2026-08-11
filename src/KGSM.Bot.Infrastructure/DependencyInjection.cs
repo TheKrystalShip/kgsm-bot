@@ -101,6 +101,11 @@ public static class DependencyInjection
         // loop and the coalescing window — two of these would spend two edits on every change.
         services.AddSingleton<IStatusBoard, StatusBoardService>();
 
+        // Restores proposed and not yet confirmed. A singleton because the handle minted by the
+        // command has to be the one the button redeems, and in memory because a destructive action
+        // that survives a restart is one somebody can click by accident days later.
+        services.AddSingleton<IStagedRestores, StagedRestores>();
+
         // Said once, when the bot is added to a Discord server nobody has set up. A singleton because
         // it holds the gateway subscription; two would introduce the bot twice in the same guild.
         services.AddSingleton<IGuildGreeter, GuildGreeterService>();
@@ -163,6 +168,11 @@ public static class DependencyInjection
         // command and the status board both read this, and two derivations would be two numbers that
         // can disagree in front of the same person.
         services.AddSingleton<IPlayerRoster, PlayerRoster>();
+
+        // What this host can say about its backups, cached per server and dropped when the engine
+        // says a backup was taken or rolled back. One registration for the same reason as the roster:
+        // the board and the commands must not be able to print different answers about one server.
+        services.AddSingleton<IBackupInsight, BackupInsight>();
 
         // Cached inventory (avoids spawning kgsm per message)
         services.AddSingleton<IKgsmStateCache, KgsmStateCache>();

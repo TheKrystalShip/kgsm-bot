@@ -324,6 +324,16 @@
       "risk": "destructive"
     },
     {
+      "key": "ephemeralReads",
+      "env": "Discord__EphemeralReads",
+      "label": "Keep status answers private",
+      "description": "Whether answers to \"what's the status\" commands are shown only to the person who asked, instead of to the whole channel. Sharing commands like /connect are unaffected.",
+      "group": "channels",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
       "key": "statusOnline",
       "env": "Discord__Status__Online",
       "label": "Running marker",
@@ -398,6 +408,18 @@
       "default": "900",
       "min": 60,
       "unit": "s",
+      "risk": "safe"
+    },
+    {
+      "key": "backupStaleAfterHours",
+      "env": "Discord__BackupStaleAfterHours",
+      "label": "Flag backups older than",
+      "description": "How old a server's newest backup has to be before the live status message flags it. A server with no backup at all is always flagged. Set to 0 to show the age for every server.",
+      "group": "status",
+      "type": "int",
+      "default": "48",
+      "min": 0,
+      "unit": "h",
       "risk": "safe"
     },
     {
