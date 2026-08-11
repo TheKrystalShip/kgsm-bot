@@ -489,11 +489,23 @@ just asked, and reaching back over a restart is exactly what it is for.
 - **One field is lifted verbatim off each payload**, chosen by a documented order so an event carrying
   several is described by the most specific it has. Nothing is computed, and an event carrying none of
   them shows no detail rather than a stand-in.
-- ⚠ **Three payload fields are deliberately not read.** `PlayerAddr` is a network address, which
-  identifies a connection rather than a person — the same refusal the roster makes. `Command` is
-  console input verbatim, and this surface answers a viewer; the event still appears, so *that* it
-  happened is not hidden. `Ports` already has a renderer on `/connect`, and a second could disagree
-  with it about the same server.
+- ⚠ **What a payload field *is* comes from kgsm-lib's `KgsmEventCatalog`; which of them says most
+  about the moment is this surface's judgement.** The bot holds no second opinion about which fields
+  identify somebody — it prints what the engine classifies as public and scalar, so a field
+  reclassified upstream changes what Discord shows on the day the pin moves. That rule is what keeps
+  four kinds of value off a line: a player's **network address** (personal — the same refusal the
+  roster makes), **console input** verbatim (privileged, and this surface answers a viewer), a
+  moderation **target** (the event does not say whether it is a name or an address — only the game's
+  blueprint does, and a consumer that cannot tell treats it as personal), and **ports**, which are
+  structured and already have a renderer on `/connect` that a second could disagree with. The events
+  themselves still appear, so *that* each happened is never hidden.
+- **The steps inside an operation are not listed beside it.** An install brackets its work with a
+  dozen events around the one that is the news, and a list showing all of them buries the day in its
+  own scaffolding — a measured 17% of two real days here. Which events are steps is the catalog's
+  answer, carried on each moment, and **an unrecognised type is news**, so a type the engine starts
+  emitting still appears. A failure is always news, whatever step it happened inside. The footer says
+  how many steps were left out, because a filtered list presented as the whole window is the one thing
+  this must not look like.
 - The list is capped both by line count and by the embed's own character budget, counted as each line
   is added, and the footer says how many of how many were shown.
 

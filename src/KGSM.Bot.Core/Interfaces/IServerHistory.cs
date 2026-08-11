@@ -1,3 +1,5 @@
+using TheKrystalShip.KGSM.Events;
+
 namespace KGSM.Bot.Core.Interfaces;
 
 /// <summary>
@@ -71,9 +73,15 @@ public sealed record HostHistory(
 /// One field lifted verbatim off the payload — which setting changed, which player, which version.
 /// Null when the payload carried none of them.
 /// </param>
+/// <param name="Weight">
+/// Whether the engine considers this the news or a step inside it, as
+/// <see cref="KgsmEventCatalog"/> classifies it. Carried rather than acted on here: a list of what
+/// happened wants the news, and something following an install in progress wants exactly the steps.
+/// </param>
 public sealed record HistoryMoment(
     DateTimeOffset At,
     string Type,
     string? Instance,
     string? Actor,
-    string? Detail);
+    string? Detail,
+    EventWeight Weight);

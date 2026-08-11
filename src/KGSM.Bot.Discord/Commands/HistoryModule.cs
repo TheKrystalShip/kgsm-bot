@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Events;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -126,30 +127,56 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
             .WithColor(Color.Blue)
             .WithCurrentTimestamp();
 
-        if (history.Moments.Count == 0)
+        IReadOnlyList<HistoryMoment> news = News(history.Moments);
+        int steps = history.Moments.Count - news.Count;
+
+        if (news.Count == 0)
         {
-            // A readable journal that matched nothing. The only empty answer that is an answer.
-            embed.WithDescription($"{scope} recorded nothing in the last {Window(window)}.");
+            // A readable journal that matched nothing worth listing. The only empty answer that is an
+            // answer — and a window holding nothing but steps is not the same as an empty one.
+            embed.WithDescription(steps == 0
+                ? $"{scope} recorded nothing in the last {Window(window)}."
+                : $"{scope} recorded {steps} intermediate step{(steps == 1 ? "" : "s")} in the last " +
+                  $"{Window(window)} and nothing that stands on its own.");
             return embed.WithFooter(Coverage(history, window) ?? "Read from this host's event journal.").Build();
         }
 
-        (string lines, int shown) = Fit(history.Moments);
+        (string lines, int shown) = Fit(news);
         embed.WithDescription(lines);
 
-        embed.WithFooter(string.Join(" · ", Notes(history, window, shown).Where(n => n is not null)));
+        embed.WithFooter(string.Join(" · ", Notes(history, news.Count, steps, window, shown).Where(n => n is not null)));
         return embed.Build();
     }
 
     /// <summary>
+    /// What happened, without the steps inside it.
+    /// </summary>
+    /// <remarks>
+    /// An install emits a dozen bracketing events around the one that is the news, and a list showing
+    /// all of them buries the day in its own scaffolding. Which events those are is
+    /// <see cref="KgsmEventCatalog"/>'s answer, carried on each moment — this surface decides it wants
+    /// the news, and does not hold its own list of what counts as one. A type the catalog has never
+    /// heard of is a fact, so a new event still appears here on the day it starts being emitted.
+    /// </remarks>
+    internal static IReadOnlyList<HistoryMoment> News(IReadOnlyList<HistoryMoment> moments) =>
+        [.. moments.Where(m => m.Weight == EventWeight.Fact)];
+
+    /// <summary>
     /// Everything that qualifies the list, each stated only when it applies.
     /// </summary>
-    private static IEnumerable<string?> Notes(HostHistory history, TimeSpan window, int shown)
+    private static IEnumerable<string?> Notes(
+        HostHistory history, int news, int steps, TimeSpan window, int shown)
     {
-        yield return history.Moments.Count == shown
+        yield return news == shown
             ? $"{shown} event{(shown == 1 ? "" : "s")} in the last {Window(window)}"
-            : $"Newest {shown} of {history.Moments.Count} in the last {Window(window)}";
+            : $"Newest {shown} of {news} in the last {Window(window)}";
 
-        // The read stopped at its own cap, so the count above is a floor rather than the total.
+        // Said because the list is a selection, not the whole window. A count that silently excluded
+        // them would make a filtered answer read as a complete one.
+        if (steps > 0)
+            yield return $"{steps} intermediate step{(steps == 1 ? "" : "s")} not listed";
+
+        // The read stopped at its own cap, so the counts above are a floor rather than the total.
         if (history.Moments.Count >= QueryLimit)
             yield return "there may be more further back";
 
@@ -265,7 +292,6 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
         "instance_crashed" => ("⚠️ crashed", false),
         "instance_failed" => ("⚠️ gave up restarting", false),
 
-        "instance_created" => ("was created from", true),
         "instance_installed" => ("was installed from", true),
         "instance_uninstalled" => ("was uninstalled", false),
         "instance_update_available" => ("has an update available", false),

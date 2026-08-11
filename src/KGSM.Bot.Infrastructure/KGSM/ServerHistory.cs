@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Events;
 
 namespace KGSM.Bot.Infrastructure.KGSM;
 
@@ -56,43 +57,64 @@ public sealed class ServerHistory(
             Truncated: page.Truncated);
     }
 
-    private static HistoryMoment Moment(EventHistoryEntry entry) =>
-        new(entry.Ts, entry.Type, entry.Instance, entry.Actor, Detail(entry.Data));
+    private static HistoryMoment Moment(EventHistoryEntry entry)
+    {
+        EventDescriptor descriptor = KgsmEventCatalog.Describe(entry.Type);
+        return new HistoryMoment(
+            entry.Ts, entry.Type, entry.Instance, entry.Actor,
+            Detail(descriptor, entry.Data), descriptor.Weight);
+    }
 
     /// <summary>
-    /// One field off the payload, verbatim, or nothing.
+    /// The most specific field this surface may print off the payload, verbatim, or nothing.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The order is the judgement: an event carrying several of these is described by the most
-    /// specific one it has, and an event carrying none of them shows no detail rather than a
-    /// stand-in. Nothing here is computed — a value is printed as the engine wrote it or not at all,
-    /// so a new event type gains a detail by carrying a field this already knows and loses nothing
-    /// by carrying none.
+    /// <b>What each field is comes from <see cref="KgsmEventCatalog"/>; which of them says most about
+    /// the moment is this surface's judgement.</b> The order below is that judgement — an event
+    /// carrying several is described by the most specific it has — and the catalog is what decides
+    /// whether a field may be printed here at all. So a payload field reclassified upstream changes
+    /// what Discord shows without an edit here, and this holds no second opinion about which fields
+    /// identify somebody.
     /// </para>
     /// <para>
-    /// <b>Three fields are deliberately not read.</b> <c>PlayerAddr</c> is a network address, which
-    /// identifies a connection rather than a person and is the same thing the roster refuses to
-    /// print. <c>Command</c> is console input verbatim, and this surface answers a viewer.
-    /// <c>Ports</c> already has one renderer, on <c>/connect</c>, and a second could disagree with it
-    /// about the same server.
+    /// Nothing is computed: a value is printed as the engine wrote it or not at all, and an event
+    /// carrying none of these shows no detail rather than a stand-in.
     /// </para>
     /// </remarks>
-    private static readonly string[] DetailFields =
+    private static readonly string[] Preference =
         ["Key", "PlayerName", "PlayerId", "Target", "NewVersion", "Blueprint", "Version", "ExitCode"];
 
-    private static string? Detail(JsonElement? data)
+    /// <summary>
+    /// Whether this surface prints a field: only what the engine calls public, and only what is
+    /// scalar enough to sit in a sentence.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FieldSensitivity.Conditional"/> counts as personal, on the catalog's own
+    /// instruction to a consumer that cannot resolve which it is — this one cannot, because only the
+    /// game's blueprint says whether a moderation target is a name or an address, and printing an
+    /// address is the thing the roster already refuses to do. <see cref="FieldShape.Ports"/> is
+    /// structured and already has a renderer on <c>/connect</c> that a second one could disagree
+    /// with; <see cref="FieldShape.Opaque"/> means nothing to a reader.
+    /// </remarks>
+    private static bool Printable(EventField field) =>
+        field.Sensitivity == FieldSensitivity.Public
+        && field.Shape is FieldShape.Text or FieldShape.Number
+            or FieldShape.Version or FieldShape.Identity;
+
+    private static string? Detail(EventDescriptor descriptor, JsonElement? data)
     {
         if (data is not JsonElement payload || payload.ValueKind != JsonValueKind.Object)
             return null;
 
-        foreach (string field in DetailFields)
+        foreach (string name in Preference)
         {
-            if (!payload.TryGetProperty(field, out JsonElement value))
+            if (descriptor.Field(name) is not EventField field || !Printable(field))
                 continue;
 
-            // Scalars only. A structured field rendered by a generic reader is JSON in a sentence,
-            // and every structured payload here already has a renderer that knows what it means.
+            if (!payload.TryGetProperty(name, out JsonElement value))
+                continue;
+
             string? text = value.ValueKind switch
             {
                 JsonValueKind.String => value.GetString(),

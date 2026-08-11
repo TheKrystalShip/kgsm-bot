@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`/history` reads the engine's own classification of its events instead of keeping its own.**
+  kgsm-lib 4.8.0 ships `KgsmEventCatalog` — what each event is about, whether it is the news or a step
+  inside it, and what kind of data each payload field holds — and the bot now asks it rather than
+  answering both questions locally. Two consequences on the surface:
+
+  **What may be printed is the engine's word.** The reader prints a payload field only where the
+  catalog calls it public and scalar, so a player's network address, console input verbatim, and
+  structured ports stay off a line for the reason each is what it is rather than because this repo
+  remembered to exclude them. A moderation target joins them: the event does not say whether it is a
+  name or an address — only the game's blueprint does — so a surface that cannot resolve it treats it
+  as personal. A field reclassified upstream changes what Discord shows with no edit here.
+
+  **The steps inside an operation are no longer listed beside it.** An install brackets its work with
+  a dozen events around the one that is the news; over two real days here that is 17% of the journal
+  spent on scaffolding. An unrecognised type counts as news, so a type the engine starts emitting
+  tomorrow still appears, and a failure is news whatever step it happened inside. The footer says how
+  many steps were left out — a filtered list presented as the whole window is the one thing this must
+  not look like.
+
 ### Added
 
 - **`/history [server] [hours]` — what happened, read back out of the engine's journal.** Viewer-gated,
@@ -25,11 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the engine's own word with its prefix stripped, which is also what a type added upstream
   tomorrow gets with no change here.
 
-  One field is lifted verbatim off each payload — which setting changed, which player, which version.
-  **Three are deliberately not read:** a player's network address (it identifies a connection rather
-  than a person, the same rule the roster follows), console input verbatim (this surface answers a
-  viewer), and ports (`/connect` already has a renderer for those, and a second could disagree with
-  it about the same server).
+  One field is lifted verbatim off each payload — which setting changed, which player, which version —
+  and which fields may be printed is the engine's own classification rather than a list kept here.
 
 - **`/health` — whether everything this bot depends on is answering.** Operator-gated and always
   private, like `/logs`: a failing check names host paths and the reasons stores could not be opened.

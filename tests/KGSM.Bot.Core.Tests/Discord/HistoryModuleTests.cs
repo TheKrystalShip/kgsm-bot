@@ -3,6 +3,8 @@ using FluentAssertions;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Commands;
 
+using TheKrystalShip.KGSM.Events;
+
 using Xunit;
 
 namespace KGSM.Bot.Core.Tests.Discord;
@@ -21,7 +23,8 @@ public sealed class HistoryModuleTests
     private static HistoryMoment Moment(
         string type, string? instance = "factorio", string? actor = null, string? detail = null,
         DateTimeOffset? at = null) =>
-        new(at ?? DateTimeOffset.UnixEpoch, type, instance, actor, detail);
+        new(at ?? DateTimeOffset.UnixEpoch, type, instance, actor, detail,
+            KgsmEventCatalog.Describe(type).Weight);
 
     [Fact]
     public void ANamedTypeReadsAsItsPhrase()
@@ -158,6 +161,51 @@ public sealed class HistoryModuleTests
 
         text.Length.Should().BeLessThan(4096);
         shown.Should().BeGreaterThan(0).And.BeLessThan(moments.Count);
+    }
+
+    /// <summary>
+    /// An install brackets its work with a dozen step events around the one that is the news, and a
+    /// list showing all of them buries the day in its own scaffolding. Which ones those are is the
+    /// engine's answer, carried on the moment.
+    /// </summary>
+    [Fact]
+    public void TheStepsInsideAnOperationAreNotListedBesideIt()
+    {
+        List<HistoryMoment> moments =
+        [
+            Moment("instance_installed", detail: "factorio"),
+            Moment("instance_deploy_started"),
+            Moment("instance_deploy_finished"),
+            Moment("instance_download_started"),
+        ];
+
+        HistoryModule.News(moments).Should().ContainSingle()
+            .Which.Type.Should().Be("instance_installed");
+    }
+
+    /// <summary>
+    /// <b>The filter must never be what drops a new event type.</b> An unrecognised type is a fact, so
+    /// it survives the same cut that removes the steps — the alternative is a surface that goes quiet
+    /// on the day the engine starts emitting something nobody classified yet.
+    /// </summary>
+    [Fact]
+    public void AnUnnamedTypeSurvivesTheCut()
+    {
+        HistoryModule.News([Moment("instance_some_future_thing"), Moment("instance_files_created")])
+            .Should().ContainSingle()
+            .Which.Type.Should().Be("instance_some_future_thing");
+    }
+
+    /// <summary>
+    /// A failure is a fact whatever step it happened inside. Filtering the scaffolding away must not
+    /// take the one line somebody is scanning for with it.
+    /// </summary>
+    [Fact]
+    public void AFailedStepIsNotFilteredAwayWithTheStepsAroundIt()
+    {
+        HistoryModule.News([Moment("instance_deploy_failed"), Moment("instance_deploy_started")])
+            .Should().ContainSingle()
+            .Which.Type.Should().Be("instance_deploy_failed");
     }
 
     [Fact]

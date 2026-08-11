@@ -11,6 +11,7 @@ using NSubstitute;
 
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Events;
 
 using Xunit;
 
@@ -193,6 +194,84 @@ public sealed class ServerHistoryTests
             null, null, null, false, true));
 
         (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single().Detail.Should().BeNull();
+    }
+
+    /// <summary>
+    /// Who a kick or a ban named is not printed, because <em>the event does not say what kind of
+    /// identity it is</em> — the game's blueprint does, and on some games it is an address. The
+    /// catalog calls that conditional and instructs a consumer that cannot resolve it to treat it as
+    /// personal; this one cannot, so it does.
+    /// </summary>
+    [Fact]
+    public async Task AModerationTargetIsNotPrintedBecauseNothingHereKnowsWhatItIs()
+    {
+        Answers(new EventHistoryPage(
+            [Entry("instance_player_banned", new
+            {
+                InstanceName = "factorio",
+                Target = "95.49.44.91",
+                Command = "/ban 95.49.44.91",
+            })],
+            null, null, null, false, true));
+
+        HistoryMoment moment = (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single();
+
+        moment.Type.Should().Be("instance_player_banned");
+        moment.Detail.Should().BeNull();
+    }
+
+    /// <summary>
+    /// <b>The property behind every exclusion above, asserted over the whole vocabulary rather than
+    /// event by event.</b> This surface holds no list of what is sensitive — it prints what the engine
+    /// calls public — so a field classified anything else, on any event, must not reach a line. A field
+    /// reclassified upstream is covered here on the day the pin moves, with no edit.
+    /// </summary>
+    [Fact]
+    public async Task NoFieldTheEngineCallsSensitiveIsEverPrinted()
+    {
+        foreach (EventDescriptor descriptor in KgsmEventCatalog.All)
+        {
+            foreach (EventField field in descriptor.Fields.Where(f => f.Sensitivity != FieldSensitivity.Public))
+            {
+                var payload = new Dictionary<string, object>
+                {
+                    ["InstanceName"] = "factorio",
+                    [field.Name] = "the-sensitive-value",
+                };
+
+                Answers(new EventHistoryPage(
+                    [Entry(descriptor.Type, payload)], null, null, null, false, true));
+
+                HistoryMoment moment =
+                    (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single();
+
+                moment.Detail.Should().NotBe("the-sensitive-value",
+                    "{0}.{1} is {2}", descriptor.Type, field.Name, field.Sensitivity);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The engine's own weight rides on the moment rather than being re-derived by whoever renders it.
+    /// An install's brackets and the install itself are both carried; which of them a surface shows is
+    /// that surface's decision.
+    /// </summary>
+    [Fact]
+    public async Task WhetherAnEventIsTheNewsComesFromTheEngineAndIsCarried()
+    {
+        Answers(new EventHistoryPage(
+            [Entry("instance_installed"), Entry("instance_deploy_started"), Entry("instance_some_future_thing")],
+            null, null, null, false, true));
+
+        IReadOnlyList<HistoryMoment> moments =
+            (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments;
+
+        moments[0].Weight.Should().Be(EventWeight.Fact);
+        moments[1].Weight.Should().Be(EventWeight.Phase);
+
+        // A type this build has never heard of is news until somebody says otherwise — the cautious
+        // answer is the one that still shows up.
+        moments[2].Weight.Should().Be(EventWeight.Fact);
     }
 
     [Fact]
