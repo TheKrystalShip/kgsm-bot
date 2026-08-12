@@ -18,12 +18,25 @@ namespace KGSM.Bot.Core.Models;
 /// can never reach anybody else's.
 /// </param>
 /// <param name="Prompt">What they actually asked, with the bot's mention stripped.</param>
+/// <param name="Room">
+/// The place this conversation belongs to, when it belongs to a place rather than to the person
+/// asking — a thread, where everyone talking to the assistant is talking to it together. Set, it is
+/// the conversation: each of them continues the one transcript, and each still acts with their own
+/// <paramref name="Tier"/>.
+/// <para>
+/// It travels alongside <paramref name="ConversationId"/> rather than replacing it, and the assistant
+/// prefers it. That is what makes an assistant which knows nothing of rooms degrade cleanly: it reads
+/// the conversation id it already understood, and the thread is one person's own context window again
+/// — a worse conversation, never a broken one.
+/// </para>
+/// </param>
 public sealed record AssistantAsk(
     string UserId,
     string DisplayName,
     KgsmTier Tier,
     string ConversationId,
-    string Prompt);
+    string Prompt,
+    string? Room = null);
 
 /// <summary>
 /// What the assistant answered: the reply to show, and any action it staged for a human to approve.

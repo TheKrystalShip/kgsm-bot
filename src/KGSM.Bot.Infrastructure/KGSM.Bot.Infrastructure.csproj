@@ -47,6 +47,6 @@
     <!-- The assistant leaf's own relay contract: the headers that carry who is asking and what they
          may do. Published by the service that reads them, so this bot and the Control Panel API
          cannot come to spell an identity differently. -->
-    <PackageReference Include="TheKrystalShip.Kgsm.Assistant.Relay" Version="1.0.0" />
+    <PackageReference Include="TheKrystalShip.Kgsm.Assistant.Relay" Version="1.1.0" />
   </ItemGroup>
 </Project>

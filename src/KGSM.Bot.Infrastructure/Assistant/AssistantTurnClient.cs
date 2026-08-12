@@ -112,7 +112,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             _relay.Write(
                 request,
                 new RelayPrincipal(ask.UserId, ask.DisplayName, ask.Tier),
-                new RelayCall(AutoAct: false, ConversationId: ask.ConversationId));
+                new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
 
             using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)

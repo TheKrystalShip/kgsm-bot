@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A thread is one conversation, shared by everyone in it.** Talking to the assistant in a thread was
+  N private conversations that happened to be in the same place: each person's questions landed in
+  their own memory, so the answer to the fourth question was written as though the first three had
+  never been asked. A thread now asks as a *room* — one transcript everyone continues, which is what
+  people talking in a thread already believe is happening.
+  - Threads only. A channel is a room nobody joined and nobody leaves, where an exchange between two
+    other people an hour ago is context this conversation never had.
+  - **Shared transcript, unshared authority.** Each person's tier still travels with their own
+    question, so what the assistant will do for them is what *they* may do — a Viewer asking in a room
+    an Operator is also in gets a Viewer's answer.
+  - A staged action is still confirmed by whoever staged it: the assistant refuses a grant that is not
+    the clicker's, in a room exactly as anywhere else.
+  - The per-channel scope still travels beside the room, so an assistant that predates rooms reads
+    that instead and gives each person their own context window — a worse conversation, not a broken
+    one. Needs `TheKrystalShip.Kgsm.Assistant.Relay` 1.1.0.
+
 ### Changed
 
 - **`/var/lib/kgsm-bot` is provisioned by systemd, not by `setup.sh` under sudo.** The unit declares

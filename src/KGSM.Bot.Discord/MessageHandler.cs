@@ -154,7 +154,8 @@ public class MessageHandler
                 // The channel is the conversation. Each channel is its own context window, and the
                 // thread is the same one this person sees wherever else they reach the assistant.
                 message.Channel.Id.ToString(),
-                prompt));
+                prompt,
+                RoomFor(message.Channel)));
         }
 
         if (result.IsFailure)
@@ -172,6 +173,26 @@ public class MessageHandler
         foreach (var staged in turn.StagedActions)
             await PostStagedActionAsync(message, staged);
     }
+
+    /// <summary>
+    /// The shared conversation this message belongs to, or <see langword="null"/> when it belongs to
+    /// whoever sent it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A thread is a room; a channel is not.</b> People in a thread are having one conversation and
+    /// expect the assistant to be in it — answering the fourth question as though the first three
+    /// happened is the whole point of talking in a thread rather than in the channel. A channel has no
+    /// such boundary: it is a room nobody joined and nobody leaves, where an hour-old exchange between
+    /// two other people is context this conversation never had.
+    /// </para>
+    /// <para>
+    /// Named by guild AND thread, because a thread id is unique to Discord but the room key is not
+    /// Discord's alone — the guild segment keeps two hosts' threads apart in a store that holds both.
+    /// </para>
+    /// </remarks>
+    private static string? RoomFor(ISocketMessageChannel channel) =>
+        channel is SocketThreadChannel thread ? $"{thread.Guild.Id}-{thread.Id}" : null;
 
     /// <summary>
     /// Posts a prompt for an action the assistant staged, with Confirm/Cancel buttons.

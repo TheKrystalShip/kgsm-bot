@@ -101,6 +101,36 @@ public class AssistantTurnClientTests
     }
 
     /// <summary>
+    /// A thread asks as a room: the conversation belongs to the place, so everyone in the thread
+    /// continues one transcript. The per-channel scope still travels beside it — an assistant that
+    /// does not know about rooms reads that instead and gives the person their own context window,
+    /// which is a worse conversation rather than a broken one.
+    /// </summary>
+    [Fact]
+    public async Task AThreadAsksAsARoom_WithTheChannelScopeStillBeside()
+    {
+        var transport = Answering("""{"text":"ok","confirmations":[]}""");
+        using var client = Client(transport);
+
+        await client.AskAsync(Ask with { Room = "1234-5678" });
+
+        Header(transport.Seen!, "X-Relay-Room").Should().Be("1234-5678");
+        Header(transport.Seen!, "X-Relay-Conversation-Id").Should().Be("911747779704008745");
+    }
+
+    /// <summary>Outside a thread nothing claims a room, so the per-user scope is the whole answer.</summary>
+    [Fact]
+    public async Task WithNoRoom_NoRoomIsClaimed()
+    {
+        var transport = Answering("""{"text":"ok","confirmations":[]}""");
+        using var client = Client(transport);
+
+        await client.AskAsync(Ask);
+
+        Header(transport.Seen!, "X-Relay-Room").Should().BeNull();
+    }
+
+    /// <summary>
     /// This surface never asks for auto-run, whoever is asking. A message that silently restarted a
     /// server would be indistinguishable from one that asked about it, so every action is staged.
     /// </summary>
