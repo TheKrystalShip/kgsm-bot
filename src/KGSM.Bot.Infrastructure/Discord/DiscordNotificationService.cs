@@ -17,6 +17,7 @@ public class DiscordNotificationService : IDiscordNotificationService
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildStore _guilds;
     private readonly IDiscordSendQueue _queue;
+    private readonly IIncidentTriage _triage;
     private readonly DiscordOptions _options;
     private readonly ILogger<DiscordNotificationService> _logger;
 
@@ -24,12 +25,14 @@ public class DiscordNotificationService : IDiscordNotificationService
         DiscordSocketClient discordClient,
         IGuildStore guilds,
         IDiscordSendQueue queue,
+        IIncidentTriage triage,
         IOptions<DiscordOptions> options,
         ILogger<DiscordNotificationService> logger)
     {
         _discordClient = discordClient;
         _guilds = guilds;
         _queue = queue;
+        _triage = triage;
         _options = options.Value;
         _logger = logger;
     }
@@ -134,7 +137,8 @@ public class DiscordNotificationService : IDiscordNotificationService
 
             IUserMessage message = posted.Value!;
 
-            await OpenIncidentThreadAsync(channel, message, announcement);
+            if (await OpenIncidentThreadAsync(channel, message, announcement) is IThreadChannel thread)
+                _triage.Begin(announcement, thread, topology.GuildId);
 
             if (_options.DeleteStatusMessageAfterDelay)
                 ScheduleDeletion(message, announcement.InstanceName);
@@ -192,14 +196,19 @@ public class DiscordNotificationService : IDiscordNotificationService
     /// posted by the time this runs, and it is the part that matters.
     /// </para>
     /// </remarks>
-    private async Task OpenIncidentThreadAsync(
+    /// <returns>
+    /// The thread, for whatever wants to say something in it — or <see langword="null"/> when this
+    /// announcement opens none and when opening it failed. A caller therefore cannot post into a
+    /// thread that does not exist, which is the only reason this hands one back at all.
+    /// </returns>
+    private async Task<IThreadChannel?> OpenIncidentThreadAsync(
         ITextChannel channel, IUserMessage message, ServerAnnouncement announcement)
     {
         if (!_options.IncidentThreads)
-            return;
+            return null;
 
         if (!AnnouncementActions.OpensThread(announcement.Kind))
-            return;
+            return null;
 
         try
         {
@@ -211,15 +220,15 @@ public class DiscordNotificationService : IDiscordNotificationService
                 _logger.LogDebug(
                     "No thread for {InstanceName}'s {Kind} in guild {GuildId}: the bot cannot create threads there.",
                     announcement.InstanceName, announcement.Kind, socket.Guild.Id);
-                return;
+                return null;
             }
 
             // Announcement lane, behind the message it hangs off: a thread for a conversation people
             // are having now is not housekeeping, and it is one call per crash rather than per event.
-            Result opened = await _queue.SendAsync(
+            Result<IThreadChannel> opened = await _queue.SendAsync(
                 $"open a thread for {announcement.InstanceName}'s {announcement.Kind}",
                 SendLane.Announcement,
-                () => channel.CreateThreadAsync(
+                async () => (IThreadChannel)await channel.CreateThreadAsync(
                     ThreadName(announcement),
                     ThreadType.PublicThread,
                     ThreadArchiveDuration.OneDay,
@@ -231,13 +240,17 @@ public class DiscordNotificationService : IDiscordNotificationService
                     "Could not open a thread for {InstanceName}'s {Kind}: {Reason}. " +
                     "The announcement itself was posted.",
                     announcement.InstanceName, announcement.Kind, opened.Error);
+                return null;
             }
+
+            return opened.Value;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
                 "Could not open a thread for {InstanceName}'s {Kind}; the announcement itself was posted.",
                 announcement.InstanceName, announcement.Kind);
+            return null;
         }
     }
 

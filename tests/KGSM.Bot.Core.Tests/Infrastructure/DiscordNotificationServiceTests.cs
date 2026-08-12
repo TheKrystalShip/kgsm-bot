@@ -30,6 +30,7 @@ public sealed class DiscordNotificationServiceTests : IDisposable
 {
     private readonly DiscordSocketClient _client = new();
     private readonly IGuildStore _guilds = Substitute.For<IGuildStore>();
+    private readonly IIncidentTriage _triage = Substitute.For<IIncidentTriage>();
     private readonly DiscordOptions _options = new();
 
     /// <summary>
@@ -56,7 +57,7 @@ public sealed class DiscordNotificationServiceTests : IDisposable
     }
 
     private DiscordNotificationService Service() => new(
-        _client, _guilds, _queue, Options.Create(_options),
+        _client, _guilds, _queue, _triage, Options.Create(_options),
         NullLogger<DiscordNotificationService>.Instance);
 
     private static GuildTopology Guild(ulong id, ulong announce, ulong? board = null) =>

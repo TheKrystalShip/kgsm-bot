@@ -71,6 +71,21 @@ public class DiscordOptions
     public bool IncidentThreads { get; set; } = true;
 
     /// <summary>
+    /// Whether the assistant investigates a server the supervisor has given up on, and posts what it
+    /// found in the thread opened for it.
+    /// </summary>
+    /// <remarks>
+    /// Needs an assistant configured on this host and a thread to post in; without either, a give-up
+    /// is announced exactly as it is with this off. The investigation only ever reads — it is asked
+    /// with no auto-run, and anything it proposes is dropped rather than offered to a thread that
+    /// asked for nothing.
+    /// </remarks>
+    /// <panel>Whether the assistant looks into a server the supervisor has given up on and posts what
+    /// it found in the crash thread, before anybody asks. It only reads; it never acts on its own.</panel>
+    [LeafField("incidentTriage", "Investigate crashes", Group = "announcements")]
+    public bool IncidentTriage { get; set; } = true;
+
+    /// <summary>
     /// The floor on how often a guild's live status message is edited.
     /// </summary>
     /// <remarks>

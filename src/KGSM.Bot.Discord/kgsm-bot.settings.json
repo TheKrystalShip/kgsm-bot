@@ -64,6 +64,13 @@
     "ActionButtons": true,
     "IncidentThreads": true,
 
+    // Whether the assistant investigates a server the supervisor has given up on and posts what it
+    // found in that server's thread, before anybody asks. It reads only: the turn is asked with
+    // auto-run off, and anything it proposes is dropped rather than offered to a thread that asked
+    // for nothing. Needs an assistant configured and a thread to post in; without either, a give-up
+    // is announced exactly as it is with this off.
+    "IncidentTriage": true,
+
     // The live status message, kept current by EDITING one message — the channel-edit rate limit is
     // what makes a name-based status board unbuildable, and a message edit is a different bucket
     // entirely. The floor turns a burst (a host reboot is one event per server) into a single edit;

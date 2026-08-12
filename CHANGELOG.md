@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The assistant investigates a server the supervisor gave up on, before anybody asks.** The thread
+  under a give-up opened empty — at the one moment when everything needed to explain the failure had
+  already been gathered by the host and nobody had read any of it. It now opens with the assistant's
+  findings: the console of the run that died, a health check, recent events, and the operator guides
+  for the game it runs.
+  - **Give-ups only.** A crash mid-streak is already being restarted, and one report per attempt
+    during a crash loop is a thread full of writing about a problem that is still happening.
+  - Posted as the thread's opening turn, so whoever asks next continues *that* conversation with the
+    findings in context rather than starting cold beside them.
+  - **It reads; it does not act.** The turn is asked with auto-run off, and anything the model
+    proposes is dropped rather than offered to a thread that asked for nothing — the announcement
+    above it already carries the one action that belongs there, which is a restart.
+  - It runs at operator because the console of the run that died is an authorized read and is the one
+    artifact that explains a crash; at viewer it would report on a server whose logs it could not open.
+  - One investigation at a time host-wide, and the same server is left alone for 15 minutes in the
+    same guild afterwards. A host that runs out of memory takes every server down at once, and those
+    give-ups would otherwise arrive at one Ollama together.
+  - Off with `Discord:IncidentTriage`, and inert with no assistant configured or no thread to post in
+    — a give-up is then announced exactly as it was.
+  - A failed investigation says so in the thread. Somebody is looking at a server that is down, and
+    silence is indistinguishable from an investigation that found nothing wrong.
+
 - **A thread is one conversation, shared by everyone in it.** Talking to the assistant in a thread was
   N private conversations that happened to be in the same place: each person's questions landed in
   their own memory, so the answer to the fourth question was written as though the first three had

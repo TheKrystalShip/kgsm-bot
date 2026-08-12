@@ -33,4 +33,17 @@ public static class AnnouncementActions
     /// </remarks>
     public static bool OpensThread(AnnouncementKind kind) =>
         kind is AnnouncementKind.Crashed or AnnouncementKind.Failed;
+
+    /// <summary>
+    /// Whether this announcement is worth the assistant investigating before anybody asks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a server nobody is coming for.</b> A crash announcement says the supervisor found the
+    /// process dead and is restarting it — the server is very likely up again before an investigation
+    /// of it finishes, and one per attempt during a crash loop is a thread full of reports about a
+    /// problem that is still happening. A give-up is the opposite: the supervisor has stopped, the
+    /// server is down until a person acts, and everything needed to explain why is sitting on the host
+    /// unread.
+    /// </remarks>
+    public static bool OpensTriage(AnnouncementKind kind) => kind == AnnouncementKind.Failed;
 }

@@ -95,6 +95,11 @@ public static class DependencyInjection
 
         // Application service implementations
         services.AddSingleton<IDiscordChannelRegistry, DiscordChannelRegistry>();
+
+        // Looks into a server the supervisor gave up on. A singleton because it owns the one-at-a-time
+        // slot and the per-server cooldown: two of these would be two investigations of one crash,
+        // racing each other for the same Ollama and posting twice in the same thread.
+        services.AddSingleton<IIncidentTriage, IncidentTriage>();
         services.AddSingleton<IDiscordNotificationService, DiscordNotificationService>();
 
         // The one message per guild that is kept current. A singleton because it owns the publishing

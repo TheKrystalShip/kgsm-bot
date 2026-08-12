@@ -164,6 +164,16 @@
       "risk": "safe"
     },
     {
+      "key": "incidentTriage",
+      "env": "Discord__IncidentTriage",
+      "label": "Investigate crashes",
+      "description": "Whether the assistant looks into a server the supervisor has given up on and posts what it found in the crash thread, before anybody asks. It only reads; it never acts on its own.",
+      "group": "announcements",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe"
+    },
+    {
       "key": "announceStarted",
       "env": "Discord__Announce__Started",
       "label": "Server started",
