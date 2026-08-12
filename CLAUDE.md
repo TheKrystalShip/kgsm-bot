@@ -95,9 +95,11 @@ commands are registered globally and authorize from the account store, so this i
 
 - **The store** is `Guilds:DbPath` — SQLite at `/var/lib/kgsm-bot/bot.db`, `0600`, the bot's own
   file and its only writer. **It is deliberately not under `/opt/kgsm-bot`**: `deploy.sh` syncs the
-  prefix with `rsync -a --delete`, which would take it every deploy. `setup.sh` creates the
-  directory and nothing ever overwrites the file. **Additive-only**, with a `schema_version` row and
-  a startup floor check that refuses a file a newer build wrote — losing this file loses every
+  prefix with `rsync -a --delete`, which would take it every deploy. The directory is the unit's
+  `StateDirectory=kgsm-bot`, which systemd creates owned by `User=` before `ExecStart` — so it costs
+  no privilege, and the store resolves from `$STATE_DIRECTORY` with the path above as the fallback
+  for a bot run outside systemd. Nothing ever overwrites the file. **Additive-only**, with a
+  `schema_version` row and a startup floor check that refuses a file a newer build wrote — losing this file loses every
   channel binding, and a binding is the only thing tying a server to the channel holding its
   history. Snowflakes are `TEXT`: a 64-bit unsigned id in a signed `INTEGER` column is a parse
   waiting to be got wrong.

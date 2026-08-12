@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`/var/lib/kgsm-bot` is provisioned by systemd, not by `setup.sh` under sudo.** The unit declares
+  `StateDirectory=kgsm-bot` with `StateDirectoryMode=0750`, so systemd creates the directory owned by
+  `User=` before `ExecStart` and exports `$STATE_DIRECTORY`, which `SqliteGuildStore` opens the guild
+  store from. `Guilds:DbPath` set to anything other than its shipped default still wins, and the
+  shipped path remains the fallback for a bot run outside systemd, so `guilds import` from a terminal
+  reads the same file. The path is unchanged and `bot.db` is untouched; the directory is now `0750`,
+  and provisioning it costs no privilege, works under any `User=` the deploy templates in, and needs
+  no home directory.
+
 - **`/history` reads the engine's own classification of its events instead of keeping its own.**
   kgsm-lib 4.8.0 ships `KgsmEventCatalog` — what each event is about, whether it is the news or a step
   inside it, and what kind of data each payload field holds — and the bot now asks it rather than

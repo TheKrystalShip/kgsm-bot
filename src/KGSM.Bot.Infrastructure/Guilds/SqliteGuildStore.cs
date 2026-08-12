@@ -58,7 +58,8 @@ public sealed class SqliteGuildStore : IGuildStore
     public SqliteGuildStore(IOptions<GuildOptions> options, ILogger<SqliteGuildStore> logger)
     {
         _logger = logger;
-        string path = options.Value.DbPath;
+        string path = StatePaths.Resolve(
+            options.Value.DbPath, GuildOptions.DefaultDbPath, GuildOptions.DbFileName);
 
         try
         {

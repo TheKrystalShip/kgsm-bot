@@ -52,6 +52,14 @@ SyslogIdentifier=kgsm-bot
 RuntimeDirectory=kgsm-bot
 RuntimeDirectoryMode=0750
 
+# The bot's persistent state — the guild store, /var/lib/kgsm-bot/bot.db. systemd creates the
+# directory before ExecStart owned by User= and exports $STATE_DIRECTORY, so provisioning it costs
+# no privilege — the same declaration kgsm-api, kgsm-monitor and kgsm-watchdog use. It is
+# independent of User=, which deploy.sh templates per host, and of whether that account has a home
+# directory at all. Deliberately outside ${PREFIX}, which the deploy syncs with rsync --delete.
+StateDirectory=kgsm-bot
+StateDirectoryMode=0750
+
 # Light hardening only: the bot shells kgsm.sh (which touches the kgsm data dir under /home and the
 # game-server processes), so do NOT add aggressive ProtectHome/ProtectSystem without testing.
 NoNewPrivileges=true
