@@ -539,7 +539,7 @@
       "key": "kgsmJournalDir",
       "env": "KGSM__JournalDir",
       "label": "KGSM event journal",
-      "description": "Directory holding the engine's event journal, which the bot reads so a channel's status updates the moment a server starts or stops. Read-only and shared with every other consumer — nothing needs configuring on the engine side.",
+      "description": "Directory holding the engine's event journal, which the bot reads so a channel's status updates the moment a server starts or stops. The supervisor's, the firewall's and the monitor's journals are found automatically and need no setting. Read-only and shared with every other consumer — nothing needs configuring on the engine side.",
       "group": "kgsm",
       "type": "path",
       "default": "/var/lib/kgsm/events",

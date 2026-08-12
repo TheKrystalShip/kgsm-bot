@@ -471,7 +471,10 @@ is for players.
 ### `/history`: what happened, out of the durable record
 
 `IServerHistory` wraps kgsm-lib's `IEventJournalHistory`, and `/history [server] [hours]` renders it —
-viewer-gated, one server or the whole host. **This is a different reader from the announcement one and
+viewer-gated, one server or the whole host. It reads **every producer's journal merged into one
+time-ordered page**, the same set the announcements tail: a history that could not show the crash the
+channel just reported would be the more confusing of the two failures. **This is a different reader
+from the announcement one and
 does not conflict with the no-cursor rule**: that rule is about the tail, which stores no position
 because an announcement is only meaningful while it is current. A query answers a question somebody
 just asked, and reaching back over a restart is exactly what it is for.
@@ -592,15 +595,25 @@ belongs here too; a direct `SendMessageAsync` off the client is a producer nothi
 `KgsmStateCache` caches the instance/blueprint inventory (TTL backstop +
 event-driven invalidation) so the bot doesn't spawn a `kgsm` subprocess per message;
 on a refresh failure it **serves the last-known-good snapshot rather than blanking**.
-The bot tails the engine's event journal (`KGSM.JournalDir`) — a file every consumer
-reads, so nothing is bound and nothing on the engine side names this reader. Those events
-drive both the announcements and cache invalidation via `ServerEventCoordinatorService`.
+**The bot tails every producer's journal, not the engine's alone** — a file each has, which any
+number of consumers read, so nothing is bound and nothing on any producer's side names this reader.
+`KGSM.JournalDir` names the *engine's*, whose location is configurable; the rest are found on disk.
+Those events drive both the announcements and cache invalidation via `ServerEventCoordinatorService`.
+
+⚠ **Six of the seventeen announced kinds are not the engine's to emit.** `instance_crashed`,
+`instance_failed`, `instance_started`, `instance_ready`, `instance_restarted` and player presence are
+the **supervisor's**, in its own journal. `AddKgsmJournalFederation` must therefore stay registered
+**after** `AddKgsmServices` in `DependencyInjection.cs` — above it, the single-journal registration
+wins, nothing throws and nothing is logged, and this bot announces installs and backups perfectly
+while going silent about every incident. `JournalFederationWiringTests` pins both halves, because
+that failure has no symptom from inside a Discord channel.
 
 **It starts at the tail and stores no position.** This surface *announces*, and an
 announcement is only meaningful while it is current — replaying a backlog after a restart
-would post "server started" for a server that started and stopped hours ago. Don't give
-this consumer a cursor to "avoid missing events": the durable record is kgsm-monitor's,
-and missing a restart window here costs nothing.
+would post "server started" for a server that started and stopped hours ago. The federated source
+keeps one position **per producer**, so a cursor here would replay each journal independently and
+post a morning's crashes at once. Don't give this consumer a cursor to "avoid missing events": the
+durable record is the journals themselves, and missing a restart window here costs nothing.
 
 ## Ecosystem invariants that bite here
 

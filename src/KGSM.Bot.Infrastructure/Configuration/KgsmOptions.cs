@@ -16,21 +16,29 @@ public class KgsmOptions
     public string Path { get; set; } = string.Empty;
 
     /// <summary>
-    /// Directory holding the engine's append-only event journal, which the bot tails to learn
-    /// when a server started, stopped, or was installed. Read-only and shared: the engine is the
-    /// sole writer and any number of consumers read the same files, so nothing here belongs to
-    /// the bot and nothing needs configuring on the engine side.
+    /// Directory holding the <b>engine's</b> append-only event journal. Read-only and shared: the
+    /// engine is its sole writer and any number of consumers read the same files, so nothing here
+    /// belongs to the bot and nothing needs configuring on the engine side.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// This names one journal of several. The bot reads every producer's — the supervisor owns the
+    /// crashes, the give-ups and player presence — and the others are found at their own state
+    /// directories, needing no setting. This one has a setting because the engine's location is
+    /// configurable and the scan looks only where a producer's own default puts it.
+    /// </para>
+    /// <para>
     /// The bot reads from the <b>tail</b> and keeps no position between runs. It announces events
     /// to Discord channels, and an announcement is only meaningful while it is current — replaying
     /// a backlog on restart would post "server started" for a server that started and stopped
     /// hours ago. Missing what happened during a restart is the correct trade: the durable record
-    /// is kgsm-monitor's, and this surface was never it.
+    /// is the journals themselves, and this surface was never it.
+    /// </para>
     /// </remarks>
     /// <panel>Directory holding the engine's event journal, which the bot reads so a channel's status
-    /// updates the moment a server starts or stops. Read-only and shared with every other consumer —
-    /// nothing needs configuring on the engine side.</panel>
+    /// updates the moment a server starts or stops. The supervisor's, the firewall's and the
+    /// monitor's journals are found automatically and need no setting. Read-only and shared with
+    /// every other consumer — nothing needs configuring on the engine side.</panel>
     [LeafField("kgsmJournalDir", "KGSM event journal", Group = "kgsm", Type = LeafType.Path,
         Risk = LeafRisk.Wiring)]
     public string JournalDir { get; set; } = "/var/lib/kgsm/events";

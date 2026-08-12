@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the bot hears every producer, so incidents reach Discord again
+
+**Six of the seventeen events this bot announces are not the engine's to emit.** The supervisor owns
+`instance_crashed`, `instance_failed`, `instance_started`, `instance_ready`, `instance_restarted` and
+player presence, and it writes them to its own journal. Reading only the engine's, this bot announced
+installs, backups, updates and stops perfectly while saying nothing about a single crash, give-up or
+player joining — and the incident thread and the restart button, which hang off those announcements,
+could never fire. From inside a channel that is indistinguishable from a host where nothing went wrong.
+
+`AddKgsmJournalFederation` now runs after `AddKgsmServices`, so both the live tail and `/history` read
+every producer's journal: the engine's, the supervisor's, the firewall authority's and the monitor's.
+Nothing else moved — every handler is registered against `IEventSource` and never learns what backs it.
+
+⚠ **The call must stay after `AddKgsmServices`.** Above it, the single-journal registration wins,
+nothing throws, nothing is logged, and the bot goes quiet about incidents again.
+`JournalFederationWiringTests` resolves both halves out of the container the bot actually builds, since
+that is a failure with no symptom to notice.
+
+Start position and cursor are unchanged (tail, none): the federated source keeps one position per
+producer, so a cursor would replay each journal's backlog independently after a restart and announce a
+morning's crashes at once.
+
+### Changed
+
+- **kgsm-lib 4.23.1**, from 4.9.0. Carries journal federation and the per-producer event ids.
+
 ### Added
 
 - **The assistant investigates a server the supervisor gave up on, before anybody asks.** The thread

@@ -148,6 +148,28 @@ public static class DependencyInjection
             EventStartPosition = TheKrystalShip.KGSM.Core.Models.EventStartPosition.Tail
         });
 
+        // Read EVERY producer's journal, not the engine's alone. Half of what this bot announces is
+        // not the engine's to say: the supervisor owns crashes, give-ups and player presence, and a
+        // reader of one journal hears none of them — which from inside Discord is indistinguishable
+        // from a host where nothing went wrong. Crash announcements, the incident thread under them
+        // and the restart button on a give-up all hang off events this call is what delivers.
+        //
+        // ⚠ Must stay AFTER AddKgsmServices: that call registers a single-journal IEventSource and
+        // IEventJournalHistory, and this one replaces both by being registered last. Above it, this
+        // silently does nothing — there is no error, only the wrong registration winning.
+        //
+        // Both halves move together, deliberately. /history reads the same record the announcements
+        // tail, and a history that could not show the crash somebody was just told about would be
+        // the more confusing of the two failures.
+        //
+        // Tail, no cursor — unchanged from the single-journal reader and for the same reason. The
+        // federated source keeps one position per producer, so a cursor here would replay each
+        // journal's backlog independently after a restart and announce a morning's crashes at once.
+        services.AddKgsmJournalFederation(
+            cursorPath: null,
+            startPosition: TheKrystalShip.KGSM.Core.Models.EventStartPosition.Tail,
+            engineJournalDirectory: kgsmOptions.JournalDir);
+
         // Typed client for the kgsm-watchdog control socket (read-only supervision
         // surface). Registration always succeeds — the socket path defaults to the
         // daemon's own default — and an absent/unreachable daemon is handled at call
