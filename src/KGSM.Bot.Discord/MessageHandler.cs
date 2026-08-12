@@ -8,6 +8,7 @@ using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
 using KGSM.Bot.Infrastructure.Authorization;
+using KGSM.Bot.Infrastructure.Discord;
 
 using Microsoft.Extensions.Logging;
 
@@ -35,17 +36,24 @@ public class MessageHandler
     private readonly DiscordSocketClient _client;
     private readonly IAssistantTurnClient _assistant;
     private readonly IKgsmAccounts _accounts;
+    // The paced path out to Discord. The narration of a turn is the bot posting and editing on its
+    // own initiative — several edits per question — so it belongs in the queue with every other
+    // unprompted send, not on a direct call that nothing paces. The reply to the person is still a
+    // reply and stays off it.
+    private readonly IDiscordSendQueue _queue;
     private readonly ILogger<MessageHandler> _logger;
 
     public MessageHandler(
         DiscordSocketClient client,
         IAssistantTurnClient assistant,
         IKgsmAccounts accounts,
+        IDiscordSendQueue queue,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
         _accounts = accounts;
+        _queue = queue;
         _logger = logger;
     }
 
@@ -145,6 +153,20 @@ public class MessageHandler
     private async Task AnswerAsync(SocketUserMessage message, string prompt, KgsmTier tier)
     {
         Result<AssistantTurn> result;
+
+        // What the assistant is consulting, while it consults it — the same account of a turn the
+        // Control Panel's chat shows, in the place the question was asked. A turn that reads a
+        // console and searches the guides takes as long as those take, and a channel with nothing in
+        // it for that time is one where nobody can tell work from a hang.
+        await using var board = new LiveActivityMessage(
+            message.Channel,
+            _queue,
+            "🔍 Working on it…",
+            $"narrate a turn for {message.Author.Username}",
+            _logger);
+
+        await board.StartAsync();
+
         using (message.Channel.EnterTypingState())
         {
             result = await _assistant.AskAsync(new AssistantAsk(
@@ -155,20 +177,34 @@ public class MessageHandler
                 // thread is the same one this person sees wherever else they reach the assistant.
                 message.Channel.Id.ToString(),
                 prompt,
-                RoomFor(message.Channel)));
+                RoomFor(message.Channel)),
+                board);
         }
 
         if (result.IsFailure)
         {
-            await message.ReplyAsync($"⚠️ {result.Error}");
+            if (!await board.FinishAsync($"⚠️ {result.Error}"))
+                await message.ReplyAsync($"⚠️ {result.Error}");
             return;
         }
 
         var turn = result.Value!;
         if (!string.IsNullOrWhiteSpace(turn.Text))
-            await message.ReplyAsync(Truncate(turn.Text, DiscordMessageLimit));
+        {
+            // Answer and working shown together where they fit; the answer is never the part dropped
+            // to make room for the list of steps.
+            if (!await board.FinishAsync("✅ Done", turn.Text))
+                await message.ReplyAsync(Truncate(turn.Text, DiscordMessageLimit));
+        }
         else if (turn.StagedActions.Count == 0)
-            await message.ReplyAsync("🤔 I didn't have anything to say to that.");
+        {
+            if (!await board.FinishAsync("🤔 I didn't have anything to say to that."))
+                await message.ReplyAsync("🤔 I didn't have anything to say to that.");
+        }
+        else
+        {
+            await board.FinishAsync("✅ Done");
+        }
 
         foreach (var staged in turn.StagedActions)
             await PostStagedActionAsync(message, staged);

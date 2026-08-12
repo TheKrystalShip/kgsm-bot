@@ -134,6 +134,19 @@ public sealed class IncidentTriage : IIncidentTriage
             {
                 Result<AssistantTurn> result;
 
+                // What the investigation is consulting, in the thread, as it consults it. It is the
+                // same account the Control Panel's chat shows — and it is why a give-up thread is
+                // worth opening before the findings exist: somebody watching sees the console being
+                // read rather than an empty room and a typing dot.
+                await using var board = new LiveActivityMessage(
+                    thread,
+                    _queue,
+                    $"🔍 Investigating **{announcement.InstanceName}**…",
+                    $"narrate the investigation of {announcement.InstanceName}",
+                    _logger);
+
+                await board.StartAsync();
+
                 // The same typing indicator a person gets when they @-mention the bot, for the same
                 // reason: an investigation takes as long as it takes, and somebody who opens the
                 // thread meanwhile should see that an answer is coming rather than an empty room.
@@ -160,18 +173,26 @@ public sealed class IncidentTriage : IIncidentTriage
                         // The room, so this becomes the thread's opening turn rather than a wall of
                         // text beside it: whoever asks next continues THIS conversation, with the
                         // findings already in context.
-                        Room: $"{guildId}-{thread.Id}"));
+                        Room: $"{guildId}-{thread.Id}"),
+                        board);
                 }
 
                 if (result.IsFailure)
                 {
                     // Said, not swallowed. Somebody is looking at a server that is down, and silence
-                    // here is indistinguishable from an investigation that found nothing wrong.
+                    // here is indistinguishable from an investigation that found nothing wrong. It
+                    // replaces the working message rather than posting beneath it, so the thread does
+                    // not keep a line claiming an investigation is still under way.
                     _logger.LogWarning(
                         "Could not investigate {InstanceName}'s give-up: {Reason}",
                         announcement.InstanceName, result.Error);
-                    await PostAsync(thread, announcement,
-                        $"⚠️ I couldn't look into this: {result.Error}");
+
+                    var said = await board.FinishAsync(
+                        $"⚠️ I couldn't look into **{announcement.InstanceName}**: {result.Error}");
+
+                    if (!said)
+                        await PostAsync(thread, announcement, $"⚠️ I couldn't look into this: {result.Error}");
+
                     return;
                 }
 
@@ -192,10 +213,20 @@ public sealed class IncidentTriage : IIncidentTriage
                     _logger.LogWarning(
                         "The investigation of {InstanceName}'s give-up came back empty.",
                         announcement.InstanceName);
+                    await board.FinishAsync(
+                        $"⚠️ I looked into **{announcement.InstanceName}** but came back with nothing to report.");
                     return;
                 }
 
-                await PostAsync(thread, announcement, turn.Text);
+                // The account of the work and the findings, in one message where they both fit. They
+                // are one thing — what was consulted is how the conclusion is worth anything — and a
+                // reader should not have to hold two messages together to read one investigation.
+                var inline = await board.FinishAsync(
+                    $"✅ Investigated **{announcement.InstanceName}**", turn.Text);
+
+                // The findings are never what gets dropped to make room for the list of steps.
+                if (!inline)
+                    await PostAsync(thread, announcement, turn.Text);
                 _logger.LogInformation(
                     "Investigated {InstanceName}'s give-up and posted the findings in its thread.",
                     announcement.InstanceName);

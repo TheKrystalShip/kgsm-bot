@@ -35,7 +35,7 @@ public sealed class IncidentTriageTests
     public IncidentTriageTests()
     {
         _assistant.IsConfigured.Returns(true);
-        _assistant.AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>())
+        _assistant.AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success(new AssistantTurn("It ran out of memory.", [])));
     }
 
@@ -93,7 +93,7 @@ public sealed class IncidentTriageTests
         Triage().Begin(new ServerAnnouncement(AnnouncementKind.Crashed, "factorio", "exit 1, attempt 2"),
             Thread(), GuildId);
 
-        _assistant.DidNotReceive().AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>());
+        _assistant.DidNotReceive().AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class IncidentTriageTests
 
         Triage().Begin(GaveUp(), Thread(), GuildId);
 
-        _assistant.DidNotReceive().AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>());
+        _assistant.DidNotReceive().AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -118,7 +118,7 @@ public sealed class IncidentTriageTests
 
         Triage().Begin(GaveUp(), Thread(), GuildId);
 
-        _assistant.DidNotReceive().AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>());
+        _assistant.DidNotReceive().AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -136,7 +136,7 @@ public sealed class IncidentTriageTests
         triage.Begin(GaveUp(), Thread(9002), GuildId);
         await Task.Delay(50);
 
-        _assistant.Received(1).AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>());
+        _assistant.Received(1).AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>
@@ -155,7 +155,7 @@ public sealed class IncidentTriageTests
             c => c.GetMethodInfo().Name == nameof(IAssistantTurnClient.AskAsync)) < 2; i++)
             await Task.Delay(10);
 
-        _assistant.Received(2).AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>());
+        _assistant.Received(2).AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>());
     }
 
     // --- what it is allowed to do ----------------------------------------------------------------
@@ -254,7 +254,7 @@ public sealed class IncidentTriageTests
     [Fact]
     public async Task ItStopsTypingWhenTheInvestigationFails()
     {
-        _assistant.AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>())
+        _assistant.AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure<AssistantTurn>("the assistant is unreachable"));
 
         var typing = Substitute.For<IDisposable>();
@@ -308,22 +308,52 @@ public sealed class IncidentTriageTests
     /// whose click would mean anything — and the announcement above it already carries the one action
     /// that belongs here, which is a restart.
     /// </summary>
+    /// <remarks>
+    /// Asserted as "it changes nothing": a turn that stages three actions reaches Discord exactly as
+    /// often as one that stages none. A count that grew with the staged actions would be this surface
+    /// having rendered them.
+    /// </remarks>
     [Fact]
-    public async Task AStagedAction_IsNeverOfferedToTheThread()
+    public async Task AStagedAction_ChangesNothingThatReachesTheThread()
     {
-        _assistant.AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success(new AssistantTurn(
-                "It ran out of memory.",
-                [new StagedAction("restart", "factorio", null, "deadbeef")])));
+        var withNone = await SendsForTurnAsync(new AssistantTurn("It ran out of memory.", []));
+        var withThree = await SendsForTurnAsync(new AssistantTurn(
+            "It ran out of memory.",
+            [
+                new StagedAction("restart", "factorio", null, "aaaa"),
+                new StagedAction("stop", "factorio", null, "bbbb"),
+                new StagedAction("backup", "factorio", null, "cccc"),
+            ]));
 
-        Triage().Begin(GaveUp(), Thread(), GuildId);
-        await AskedAsync();
-        await Task.Delay(50);
+        withThree.Should().Be(withNone);
+    }
 
-        // One post, and it is the findings — nothing carrying a component to click.
-        _queue.ReceivedCalls()
-            .Count(c => c.GetMethodInfo().Name == nameof(IDiscordSendQueue.SendAsync))
-            .Should().BeLessThanOrEqualTo(1);
+    /// <summary>How many times one investigation reaches Discord, for the turn the assistant returns.</summary>
+    private static async Task<int> SendsForTurnAsync(AssistantTurn turn)
+    {
+        var assistant = Substitute.For<IAssistantTurnClient>();
+        assistant.IsConfigured.Returns(true);
+        assistant.AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success(turn));
+
+        var queue = Substitute.For<IDiscordSendQueue>();
+        var triage = new IncidentTriage(
+            assistant, queue, Options.Create(new DiscordOptions()), NullLogger<IncidentTriage>.Instance);
+
+        triage.Begin(GaveUp(), Thread(), GuildId);
+
+        for (var i = 0; i < 100; i++)
+        {
+            var asked = assistant.ReceivedCalls()
+                .Any(c => c.GetMethodInfo().Name == nameof(IAssistantTurnClient.AskAsync));
+            if (asked)
+                break;
+            await Task.Delay(10);
+        }
+
+        // Let the posts that follow the answer settle before counting them.
+        await Task.Delay(150);
+        return queue.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IDiscordSendQueue.SendAsync));
     }
 
     /// <summary>
@@ -339,6 +369,6 @@ public sealed class IncidentTriageTests
         // Auto-run is pinned off by the client for every caller; what this asserts is that triage does
         // not reach for a way around it — it asks through the same path every human question uses.
         (await AskedAsync()).Should().NotBeNull();
-        _assistant.Received(1).AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<CancellationToken>());
+        _assistant.Received(1).AskAsync(Arg.Any<AssistantAsk>(), Arg.Any<IProgress<AssistantActivity>>(), Arg.Any<CancellationToken>());
     }
 }

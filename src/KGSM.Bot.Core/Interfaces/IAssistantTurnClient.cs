@@ -46,6 +46,30 @@ public interface IAssistantTurnClient
     Task<Result<AssistantTurn>> AskAsync(AssistantAsk ask, CancellationToken ct = default);
 
     /// <summary>
+    /// Puts one question, reporting each step of the work as it happens.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same question and the same answer as <see cref="AskAsync"/>; what differs is that the
+    /// caller is told what the assistant is consulting while it is still consulting it. A turn that
+    /// reads a console, runs a health check and searches the guides takes as long as those take, and
+    /// a surface with nothing to show for that time is one where people cannot tell work from a hang.
+    /// </para>
+    /// <para>
+    /// <paramref name="activity"/> is called on a background thread as frames arrive, in order, and
+    /// may be called many times for one step. A surface that cannot keep up must coalesce; nothing
+    /// here waits for it, because a slow renderer must not become a slow turn.
+    /// </para>
+    /// <para>
+    /// <b>Activities describe, never quote.</b> What a tool returned is the model's grounding text —
+    /// a console read is the server's log — and this surface does not publish it. See
+    /// <see cref="AssistantActivity"/>.
+    /// </para>
+    /// </remarks>
+    Task<Result<AssistantTurn>> AskAsync(
+        AssistantAsk ask, IProgress<AssistantActivity>? activity, CancellationToken ct = default);
+
+    /// <summary>
     /// Approves a staged action on behalf of the person who clicked, redeeming the grant the
     /// assistant issued when it proposed the action.
     /// </summary>

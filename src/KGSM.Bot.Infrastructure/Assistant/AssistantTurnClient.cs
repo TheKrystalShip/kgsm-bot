@@ -91,9 +91,26 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             ? AssistantHealthProbe.CheckAsync(_http, ct, _logger, ProbeTimeout)
             : Task.FromResult(false);
 
-    public async Task<Result<AssistantTurn>> AskAsync(AssistantAsk ask, CancellationToken ct = default)
+    public Task<Result<AssistantTurn>> AskAsync(AssistantAsk ask, CancellationToken ct = default) =>
+        AskAsync(ask, activity: null, ct);
+
+    /// <summary>
+    /// Puts the question, streaming the turn when somebody is watching the work and taking the
+    /// buffered answer when nobody is.
+    /// </summary>
+    /// <remarks>
+    /// Two transports for one question, chosen by whether the caller can use what the streamed one
+    /// carries. The buffered contract returns the finished reply and the actions it staged, which is
+    /// everything a surface that only posts an answer needs; the frames additionally say what is being
+    /// consulted while it happens, which is only worth its complexity to a surface that renders it.
+    /// </remarks>
+    public async Task<Result<AssistantTurn>> AskAsync(
+        AssistantAsk ask, IProgress<AssistantActivity>? activity, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(ask);
+
+        if (activity is not null)
+            return await AskStreamingAsync(ask, activity, ct).ConfigureAwait(false);
 
         if (!IsConfigured)
             return Result.Failure<AssistantTurn>("No assistant is configured on this host.");
@@ -148,6 +165,218 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             _logger.LogWarning(ex, "Assistant turn returned a body this bot could not read");
             return Result.Failure<AssistantTurn>("The assistant answered with something I couldn't read.");
         }
+    }
+
+    /// <summary>
+    /// Runs the turn over the frame stream, reporting each step as it arrives and assembling the same
+    /// answer the buffered contract would have returned.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The stream is HTTP 200 from its first byte, so a failure arrives <em>in band</em> as an
+    /// <c>error</c> frame rather than as a status code. A reader that only checks the response code
+    /// reports a turn that failed as one that answered with nothing.
+    /// </para>
+    /// <para>
+    /// A turn that ends without a <c>done</c> frame is reported as a failure and never as an empty
+    /// answer: the connection dropping mid-turn is not the assistant saying it had nothing to say.
+    /// </para>
+    /// </remarks>
+    private async Task<Result<AssistantTurn>> AskStreamingAsync(
+        AssistantAsk ask, IProgress<AssistantActivity> activity, CancellationToken ct)
+    {
+        if (!IsConfigured)
+            return Result.Failure<AssistantTurn>("No assistant is configured on this host.");
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/turn")
+            {
+                Content = JsonContent.Create(new TurnBody(ask.Prompt), options: Json),
+            };
+            request.Headers.Accept.ParseAdd("text/event-stream");
+
+            _relay.Write(
+                request,
+                new RelayPrincipal(ask.UserId, ask.DisplayName, ask.Tier),
+                new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
+
+            using var response = await _http
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
+                .ConfigureAwait(false);
+
+            // A conversation already running a turn is told so rather than retried: two investigations
+            // of one incident racing each other is worse than one arriving late.
+            if (response.StatusCode == HttpStatusCode.Conflict)
+                return Result.Failure<AssistantTurn>("The assistant is already working on this conversation.");
+
+            if (!response.IsSuccessStatusCode)
+                return Result.Failure<AssistantTurn>(await DescribeFailureAsync(response, ct).ConfigureAwait(false));
+
+            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            return await ReadTurnAsync(stream, activity, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Assistant turn timed out after {Timeout}", _http.Timeout);
+            return Result.Failure<AssistantTurn>("The assistant took too long to answer.");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Assistant turn failed to reach {BaseAddress}", _http.BaseAddress);
+            return Result.Failure<AssistantTurn>("I couldn't reach the assistant.");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Assistant stream carried a frame this bot could not read");
+            return Result.Failure<AssistantTurn>("The assistant answered with something I couldn't read.");
+        }
+    }
+
+    /// <summary>
+    /// Reads the frame stream to its end, reporting activity and returning the assembled turn.
+    /// </summary>
+    /// <remarks>
+    /// Frames are newline-delimited <c>event:</c>/<c>data:</c> pairs separated by a blank line. Only
+    /// the payload is read: the frame carries its own <c>type</c> discriminator, so keying on that
+    /// rather than on the SSE event name means one parse for both spellings the writer emits.
+    /// </remarks>
+    private async Task<Result<AssistantTurn>> ReadTurnAsync(
+        Stream stream, IProgress<AssistantActivity> activity, CancellationToken ct)
+    {
+        using var reader = new StreamReader(stream);
+
+        // The arguments each in-flight call was made with, so a result can name its subject: the
+        // finish frame carries the tool and its output, never what it was asked about.
+        var started = new Dictionary<string, (string Tool, string? Subject)>(StringComparer.Ordinal);
+
+        string? text = null;
+        List<StagedAction> staged = [];
+        string? error = null;
+
+        while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal))
+                continue;
+
+            var payload = line[5..].Trim();
+            if (payload.Length == 0)
+                continue;
+
+            using var frame = JsonDocument.Parse(payload);
+            var root = frame.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement)
+                || typeElement.GetString() is not { Length: > 0 } type)
+                continue;
+
+            switch (type)
+            {
+                case "tool.start":
+                {
+                    var id = String(root, "id") ?? string.Empty;
+                    var tool = String(root, "tool") ?? string.Empty;
+                    var subject = AssistantToolVocabulary.SubjectOf(Arguments(root));
+                    started[id] = (tool, subject);
+                    activity.Report(new AssistantActivity(
+                        id, tool, AssistantToolVocabulary.Label(tool), subject, null,
+                        AssistantActivityState.Running));
+                    break;
+                }
+
+                case "tool.result":
+                {
+                    var id = String(root, "id") ?? string.Empty;
+                    var tool = String(root, "tool") ?? string.Empty;
+                    started.TryGetValue(id, out var start);
+                    // The card is read for what it says ABOUT the result; the frame's `summary` is the
+                    // model's grounding text and is deliberately never touched here.
+                    var detail = AssistantToolVocabulary.DescribeCard(
+                        root.TryGetProperty("result", out var card) ? card : null, start.Subject);
+                    activity.Report(new AssistantActivity(
+                        id,
+                        tool.Length > 0 ? tool : start.Tool ?? string.Empty,
+                        AssistantToolVocabulary.Label(tool.Length > 0 ? tool : start.Tool ?? string.Empty),
+                        start.Subject,
+                        detail,
+                        AssistantActivityState.Done));
+                    break;
+                }
+
+                case "command.proposed":
+                {
+                    if (Staged(root) is { } action)
+                        staged.Add(action);
+                    break;
+                }
+
+                case "done":
+                    text = String(root, "text") ?? string.Empty;
+                    break;
+
+                case "error":
+                    error = String(root, "message") ?? "The assistant failed.";
+                    break;
+            }
+        }
+
+        if (error is not null)
+            return Result.Failure<AssistantTurn>(error);
+
+        // No terminal frame: the stream ended before the turn did. Reported as a failure rather than
+        // as an empty reply, which would read as the assistant having nothing to say.
+        if (text is null)
+            return Result.Failure<AssistantTurn>("The assistant stopped before it finished answering.");
+
+        return Result.Success(new AssistantTurn(text, staged));
+    }
+
+    private static string? String(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static IReadOnlyDictionary<string, string?>? Arguments(JsonElement root)
+    {
+        if (!root.TryGetProperty("arguments", out var args) || args.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var map = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in args.EnumerateObject())
+        {
+            map[property.Name] = property.Value.ValueKind == JsonValueKind.String
+                ? property.Value.GetString()
+                : property.Value.ToString();
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// The staged action a <c>command.proposed</c> frame carries, or null when it names no grant this
+    /// surface could redeem.
+    /// </summary>
+    private static StagedAction? Staged(JsonElement root)
+    {
+        var token = String(root, "token");
+        if (string.IsNullOrEmpty(token))
+            return null;
+
+        // The frame names the operation `verb` where the buffered contract calls it `kind`, and puts
+        // the target inside a `subject` object where the buffered one has it flat. Both spellings are
+        // read so this surface produces the same StagedAction either way — a button built from one
+        // shape and a confirmation handler expecting the other is a grant that cannot be redeemed.
+        var kind = String(root, "verb") ?? String(root, "kind") ?? string.Empty;
+        var target = root.TryGetProperty("subject", out var subject) && subject.ValueKind == JsonValueKind.Object
+            ? String(subject, "id") ?? string.Empty
+            : String(root, "target") ?? string.Empty;
+
+        return new StagedAction(
+            kind, target, String(root, "instanceName"), token,
+            String(root, "configKey"), String(root, "configValue"));
     }
 
     public async Task<Result<AssistantOutcome>> ConfirmAsync(

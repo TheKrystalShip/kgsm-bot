@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     — a give-up is then announced exactly as it was.
   - A failed investigation says so in the thread. Somebody is looking at a server that is down, and
     silence is indistinguishable from an investigation that found nothing wrong.
+  - **The thread shows what it is consulting, as it consults it** — one message posted when the
+    investigation starts and edited as each step lands, then finished with the findings in the same
+    message. The same account of a turn the Control Panel's chat shows, in the place people are
+    reading. **It describes, never quotes:** a step says what was looked at and what the result was
+    about, never a tool's own output — a console read returns the server's log, which carries the
+    network address of everyone who connected, and this bot already keeps `/logs` out of the channel
+    for exactly that reason.
+  - The same narration runs on the @-mention surface, so a question asked in a channel shows the work
+    instead of a silence of unknown length.
   - The thread shows the bot **typing** while it works — the same indicator, from the same call, that
     somebody gets when they @-mention it. It starts once the investigation actually begins rather than
     while it waits for the slot, and stops whether the turn produced findings or failed.
