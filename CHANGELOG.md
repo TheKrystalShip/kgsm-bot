@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     — a give-up is then announced exactly as it was.
   - A failed investigation says so in the thread. Somebody is looking at a server that is down, and
     silence is indistinguishable from an investigation that found nothing wrong.
+  - The thread shows the bot **typing** while it works — the same indicator, from the same call, that
+    somebody gets when they @-mention it. It starts once the investigation actually begins rather than
+    while it waits for the slot, and stops whether the turn produced findings or failed.
 
 - **A thread is one conversation, shared by everyone in it.** Talking to the assistant in a thread was
   N private conversations that happened to be in the same place: each person's questions landed in

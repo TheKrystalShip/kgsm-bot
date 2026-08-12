@@ -132,21 +132,36 @@ public sealed class IncidentTriage : IIncidentTriage
             await _oneAtATime.WaitAsync();
             try
             {
-                Result<AssistantTurn> result = await _assistant.AskAsync(new AssistantAsk(
-                    TriageUserId,
-                    TriageDisplayName,
-                    // Operator, because the console of the run that died is an authorized read and it
-                    // is the one artifact that actually explains a crash — at viewer this reports on a
-                    // server it cannot read the logs of. Nothing is thereby executed: the bot pins
-                    // auto-run off for every caller, so anything the model proposes is staged, and a
-                    // staged action is dropped below rather than offered to a thread that asked for none.
-                    KgsmTier.Operator,
-                    thread.Id.ToString(),
-                    Prompt(announcement),
-                    // The room, so this becomes the thread's opening turn rather than a wall of text
-                    // beside it: whoever asks next continues THIS conversation, with the findings
-                    // already in context.
-                    Room: $"{guildId}-{thread.Id}"));
+                Result<AssistantTurn> result;
+
+                // The same typing indicator a person gets when they @-mention the bot, for the same
+                // reason: an investigation takes as long as it takes, and somebody who opens the
+                // thread meanwhile should see that an answer is coming rather than an empty room.
+                // Discord expires it after a few seconds and Discord.Net re-sends it until this is
+                // disposed, so it lasts the whole turn without anything here keeping time.
+                //
+                // Entered AFTER the slot is taken, never before: while an investigation is queued
+                // behind another, nothing is being prepared for this thread, and typing would be the
+                // bot saying otherwise.
+                using (Typing(thread, announcement))
+                {
+                    result = await _assistant.AskAsync(new AssistantAsk(
+                        TriageUserId,
+                        TriageDisplayName,
+                        // Operator, because the console of the run that died is an authorized read and
+                        // it is the one artifact that actually explains a crash — at viewer this
+                        // reports on a server it cannot read the logs of. Nothing is thereby executed:
+                        // the bot pins auto-run off for every caller, so anything the model proposes is
+                        // staged, and a staged action is dropped below rather than offered to a thread
+                        // that asked for none.
+                        KgsmTier.Operator,
+                        thread.Id.ToString(),
+                        Prompt(announcement),
+                        // The room, so this becomes the thread's opening turn rather than a wall of
+                        // text beside it: whoever asks next continues THIS conversation, with the
+                        // findings already in context.
+                        Room: $"{guildId}-{thread.Id}"));
+                }
 
                 if (result.IsFailure)
                 {
@@ -198,6 +213,30 @@ public sealed class IncidentTriage : IIncidentTriage
             _logger.LogError(ex,
                 "Error investigating {InstanceName}'s give-up; the announcement and its thread are unaffected.",
                 announcement.InstanceName);
+        }
+    }
+
+    /// <summary>
+    /// The typing indicator for this thread, or nothing when it could not be started.
+    /// </summary>
+    /// <remarks>
+    /// <b>Failing to type costs the indicator and nothing else.</b> It is the decoration on the
+    /// investigation, not the investigation — a guild where the bot cannot type in its own thread
+    /// still gets the findings, which is the part somebody is waiting for. Left to throw from inside
+    /// the turn's own try, a refused indicator would abort the whole thing and post nothing at all.
+    /// </remarks>
+    private IDisposable? Typing(IThreadChannel thread, ServerAnnouncement announcement)
+    {
+        try
+        {
+            return thread.EnterTypingState();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex,
+                "Could not show typing in {InstanceName}'s thread; the investigation itself is unaffected.",
+                announcement.InstanceName);
+            return null;
         }
     }
 
