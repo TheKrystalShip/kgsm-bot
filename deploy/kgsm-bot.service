@@ -26,7 +26,7 @@ Environment=DOTNET_ENVIRONMENT=Production
 # and the engine's event journal, which the bot READS. Nothing is bound and nothing is reserved:
 # the engine is the sole writer, every consumer reads the same files, and there is no engine-side
 # configuration for a reader to be added to.
-Environment=KGSM__Path=/usr/local/bin/kgsm
+Environment=KGSM__Path=/usr/bin/kgsm
 Environment=KGSM__JournalDir=/var/lib/kgsm/events
 
 # REQUIRED: the Discord bot token (Discord__Token) lives here, NOT in the committed settings file,
