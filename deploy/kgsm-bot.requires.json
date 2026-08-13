@@ -1,0 +1,35 @@
+{
+  "project": "kgsm-bot",
+  "leafId": "bot",
+  "role": "leaf",
+  "runtime": {
+    "kind": "dotnet",
+    "note": "Framework-dependent single-file today. Packaged builds publish --self-contained so a node needs no .NET runtime.",
+    "warning": "Discord.Net does not work under InvariantGlobalization=true — the guild never loads and the bot posts nothing, silently. Do not add that property to this project."
+  },
+  "commands": [
+    { "name": "kgsm", "package": "kgsm", "required": true, "probe": "kgsm --version", "why": "slash commands reach the engine through kgsm-lib" }
+  ],
+  "services": [
+    { "name": "kgsm-watchdog.service",          "required": false, "why": "lifecycle slash commands act through it", "without": "read-only commands and announcements work; start/stop/restart fail" },
+    { "name": "kgsm-assistant-service.service", "required": false, "why": "backs the conversational half of the bot", "without": "slash commands, channels and announcements are unaffected — there is deliberately no fallback engine behind the chat surface" }
+  ],
+  "system": [],
+  "network": [
+    { "direction": "egress", "to": "discord.com (HTTPS + gateway websocket)", "required": true, "why": "the bot is a Discord gateway client", "without": "the bot cannot connect at all" }
+  ],
+  "units": {
+    "system": ["kgsm-bot.service"],
+    "user": []
+  },
+  "paths": {
+    "prefix": "/opt/kgsm-bot",
+    "state": ["/var/lib/kgsm-bot"],
+    "runtime": ["/run/kgsm-bot"],
+    "config": ["/etc/kgsm-bot/kgsm-bot.env"],
+    "descriptor": "/var/lib/kgsm/leaves/bot.json"
+  },
+  "secrets": [
+    { "path": "/etc/kgsm-bot/kgsm-bot.env", "key": "Discord__Token", "why": "the bot's gateway credential", "note": "Never shipped in any package. Seeding it is part of node bootstrap." }
+  ]
+}

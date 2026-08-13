@@ -13,8 +13,8 @@ Type=simple
 # Runs as the user that owns the kgsm instance registry (~/.local/share/kgsm) so kgsm-lib sees the
 # same instances that user does. deploy/deploy.sh rewrites User=/Group= to the invoking user at
 # install time (this host has no dedicated 'kgsm' user — everything runs as the login user).
-User=heisen
-Group=heisen
+User=kgsm
+Group=kgsm
 
 WorkingDirectory=/opt/kgsm-bot
 # Framework-dependent single-file binary — REQUIRES the .NET 10 runtime on the host (deploy.sh
