@@ -661,7 +661,8 @@ transport; there is no live Discord, kgsm or assistant in the suite.
 
 ## Version tracking
 
-- **Version source:** `<Version>` in `src/KGSM.Bot.Discord/KGSM.Bot.Discord.csproj`
+- **Version source:** `<Version>` in `src/KGSM.Bot.Discord/KGSM.Bot.Discord.csproj` — the deployable; the Core/Application/Infrastructure libraries carry none
+- **Packaging reads it via `deploy/version.sh`** — `./deploy/version.sh` prints the declared version, `--pkgver` prints the pacman-safe form. A package never restates a version number; it asks for one.
 - Bump the version whenever you make a user-facing change (new feature, bug fix, behaviour change). Patch for fixes, minor for new features, major for breaking changes.
 - Update `CHANGELOG.md` under `## [Unreleased]` with a brief entry for every meaningful change.
 - A git tag matching the new version should be created on release: `git tag v<version>`.
