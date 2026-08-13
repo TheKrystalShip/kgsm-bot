@@ -15,11 +15,11 @@ status", leaves-are-independently-deployable).
 This repo builds standalone — a clone with no sibling checkout restores and builds. Every
 dependency is a package.
 
-**kgsm-lib comes from the local feed** (`nuget.config` →
-`/home/heisen/local-nuget`) as `TheKrystalShip.KGSM.Lib`, pinned by version in Core,
-Application and Infrastructure. Editing `kgsm-lib/` changes nothing here until it is
-repacked and the three pins move together. NuGet caches by id+version, so a repack at the
-same version serves the old package from the cache with no error. The same applies to
+**kgsm-lib comes from the org's GitHub Packages feed** (`nuget.config`) as
+`TheKrystalShip.KGSM.Lib`, pinned by version in Core, Application and Infrastructure. Editing
+`kgsm-lib/` changes nothing here until it is published at a new version and the three pins move
+together — a published version is immutable, so the old trap of a same-version repack serving a
+stale package is gone. The same applies to
 `TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's relay contract) and
 `TheKrystalShip.KGSM.Auth`.
 
