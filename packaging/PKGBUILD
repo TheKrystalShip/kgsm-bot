@@ -16,7 +16,7 @@ pkgrel=1
 pkgdesc="KGSM Discord bot — slash commands, announcements and chat onto a KGSM host"
 arch=('x86_64')
 url="https://github.com/TheKrystalShip/kgsm-bot"
-license=('MIT')
+license=('GPL-3.0-or-later')
 groups=('kgsm-node')
 # No separate debug package: these are shipped to a private fleet, not a distro archive.
 options=('!debug')

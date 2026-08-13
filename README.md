@@ -114,7 +114,7 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-This project is licensed under the MIT license. See the [LICENSE][3] file for 
+This project is licensed under the GNU General Public License v3.0 or later. See the [LICENSE][3] file for 
 details.
 
 ## Acknowledgements

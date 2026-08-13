@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — relicensed from MIT to GPL-3.0-or-later
+
+The whole KGSM ecosystem is GPL-3.0-or-later; this project was the one exception, and its `LICENSE`,
+its package metadata and its README all now say so.
+
 ### Added — an Arch package, built from the tested binaries
 
 `packaging/PKGBUILD` builds this project into a pacman package. It compiles nothing: CI publishes
