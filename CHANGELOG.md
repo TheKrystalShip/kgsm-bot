@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.23.0] - 2026-08-14
+
+### Added — approving a staged action out loud
+
+A single staged action can be approved by saying so, for hands that are in a game. The spoken offer
+becomes *"Say yes to go ahead, or no to cancel."* and the buttons are posted exactly as before —
+nothing is taken away, and both redeem the same grant, so whichever happens first wins and the
+assistant refuses the other. `Discord:Voice:ConfirmByVoice` switches it off.
+
+**Three outcomes, and the third is the point.** `SpokenIntents.Read` answers affirm, decline, or
+unclear, and only an unmistakable yes approves. A binary reading would have to resolve a misheard
+word into one of two answers, and half the time it would resolve it into approval.
+
+- **Agreement is a vocabulary, not a password**: "yes", "yeah", "go ahead", "do it", "send it",
+  "sounds good", "please do", "of course", "make it so" and a few dozen more. A phrasing that is
+  missing costs one repeated question and never a wrong action.
+- **The two directions are judged differently on purpose.** A yes must be short and plainly about the
+  question — "yeah, go ahead" approves and "yeah, I was telling him about the minecraft thing" does
+  not. A no is allowed to be longer, because a wrongly-read no can simply be asked for again and a
+  wrongly-read yes cannot be taken back.
+- **A hedge is not consent, however it leans.** "Probably", "I think so" and "up to you" are the
+  answer of somebody who has not decided.
+- **Grunts are excluded deliberately.** "Uh-huh" means yes and "uh-uh" means no, one vowel apart over
+  a noisy channel, and a recogniser that confuses them confuses them toward approving. Only words
+  approve.
+- **No model in the approve path.** A model generalises better over phrasing and is also a thing that
+  can be talked into approving; what decides whether something is destroyed should be readable,
+  testable and identical every run.
+
+**It never fake-confirms.** Anything not unmistakably a yes is said out loud as not understood and
+asked again — *"Sorry, I didn't catch a clear yes or no about stop minecraft. Say yes to go ahead, or
+no to cancel."* — up to three attempts, after which the prompt in the chat is left standing rather
+than the bot asking forever.
+
+**Only ever for one staged action.** With two of them a spoken yes does not say which, and picking
+one would be inventing the half of the instruction nobody gave; two offers stay with the buttons that
+name what each does.
+
+Two routing rules keep it from swallowing ordinary speech: saying the trigger out of habit —
+"hey assistant, yes" — still answers the question rather than starting a new one, and asking the bot
+something else instead of answering abandons the offer rather than being misread as a reply to it.
+
 ## [3.22.0] - 2026-08-14
 
 ### Added — answering the bot's own question needs no trigger

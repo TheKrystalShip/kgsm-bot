@@ -756,6 +756,17 @@
       "dependsOn": "voiceEnabled"
     },
     {
+      "key": "voiceConfirmByVoice",
+      "env": "Discord__Voice__ConfirmByVoice",
+      "label": "Approve out loud",
+      "description": "Whether you can approve a staged action by saying so — \"yes\", \"go ahead\", \"do it\" — instead of pressing the button, which is what you want when your hands are in a game. Only offered when there is exactly one thing to approve, and only on a clear yes: anything the bot is unsure of is asked again rather than treated as approval. The buttons are always posted as well.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
       "key": "voiceFollowUpSeconds",
       "env": "Discord__Voice__FollowUpSeconds",
       "label": "Wait after the trigger",

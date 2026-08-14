@@ -111,28 +111,42 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         DateTimeOffset now = DateTimeOffset.UtcNow;
         Pending? owed = Take(utterance.SpeakerId, now);
 
+        // Taken whatever else is true, so a window is spent by the next thing this speaker says and
+        // can never outlive the question that opened it. Somebody who says the trigger out of habit
+        // while the bot is waiting on them is still answering it — dropping the window there would
+        // send a "yes" to the assistant as a fresh question and leave the action unconfirmed.
+        VoiceWaiting? answering = _attention.Take(utterance.SpeakerId, utterance.ChannelId, now);
+        bool triggered = asked is not null;
+
         if (asked is null)
         {
             // Not addressed to the bot — unless this speaker is mid-request, in which case this is
             // the rest of it and needs no second trigger.
-            if (owed is null)
+            if (owed is not null)
             {
-                // …or unless the bot asked them something and is waiting for the answer. Consumed
-                // whether or not this turns out to be one, so a window cannot outlive the question.
-                if (!_attention.Take(utterance.SpeakerId, utterance.ChannelId, now))
-                {
-                    _logger.LogTrace("Voice: not addressed to the bot, dropped");
-                    return;
-                }
-
+                asked = Join(owed.Text, transcript);
+            }
+            else if (answering is not null)
+            {
+                // What the reply MEANS is not read here — a yes to a staged action is judged where
+                // the action is known. This only decides that they were talking to the bot.
                 _logger.LogInformation(
-                    "Voice: {Speaker} answered the question the bot asked them", utterance.SpeakerName);
+                    "Voice: {Speaker} replied to what the bot asked them ({For})",
+                    utterance.SpeakerName, answering.For);
                 asked = transcript;
             }
             else
             {
-                asked = Join(owed.Text, transcript);
+                _logger.LogTrace("Voice: not addressed to the bot, dropped");
+                return;
             }
+        }
+        else if (asked.Length == 0 && answering is not null)
+        {
+            // The trigger alone, said into a window somebody was being waited on in. Held as the
+            // transcript rather than as nothing, so it is read as an unclear answer and asked about
+            // again instead of vanishing along with the window it just consumed.
+            asked = transcript;
         }
         else if (owed is not null && owed.Text.Length > 0)
         {
@@ -172,7 +186,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
 
         var command = new VoiceCommand(
             utterance.SpeakerId, utterance.SpeakerName, utterance.GuildId, utterance.ChannelId,
-            asked, transcript, utterance.Duration);
+            asked, transcript, utterance.Duration, answering, triggered);
 
         _tally.Answered();
 

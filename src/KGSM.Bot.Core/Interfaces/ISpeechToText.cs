@@ -49,7 +49,9 @@ public sealed record VoiceCommand(
     ulong ChannelId,
     string Text,
     string Transcript,
-    TimeSpan Spoken);
+    TimeSpan Spoken,
+    VoiceWaiting? Answering = null,
+    bool Triggered = true);
 
 /// <summary>
 /// What to do about something the bot was asked out loud.

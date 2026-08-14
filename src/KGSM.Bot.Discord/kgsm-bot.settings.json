@@ -187,6 +187,12 @@
       // while an action is staged — approving is the buttons' job and stays there. 0 disables.
       "ReplyWindowSeconds": 20,
 
+      // Approving a staged action out loud, for hands that are in a game. Offered only for a single
+      // staged action — a spoken "yes" cannot say which of two it meant — and only on an unmistakable
+      // yes. Anything else is asked again in as many words; nothing is ever resolved toward approval
+      // because it was closer to yes than to no. The buttons are posted either way.
+      "ConfirmByVoice": true,
+
       // Answering out loud. Synthesis on the card is around eight times faster than on the processor
       // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
       // cuDNN, which recognition does not) falls back on its own and says so in the log.

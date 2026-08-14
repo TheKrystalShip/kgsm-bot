@@ -122,6 +122,14 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
                 return;
             }
 
+            // A reply to a staged action is answered here rather than put to the assistant as a
+            // question: "go ahead" is not a prompt, it is a decision about a specific grant.
+            if (command.Answering is { For: VoiceWaitingFor.Confirmation } waiting)
+            {
+                await DecideAsync(channel, command, waiting, account.Tier, ct);
+                return;
+            }
+
             _logger.LogInformation(
                 "Voice: putting {Speaker}'s request to the assistant (account={Account}, tier={Tier})",
                 command.SpeakerName, account.Account, account.Tier);
@@ -185,6 +193,10 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
                 StagedActionPrompt.Content(staged), components: StagedActionPrompt.Buttons(staged));
         }
 
+        // Opened before the answer is spoken, so somebody who replies the instant it stops talking is
+        // already being listened to.
+        AwaitConfirmation(command, turn);
+
         await SayAsync(command, SpokenAnswer(turn), ct);
         Await(command, turn);
     }
@@ -212,14 +224,151 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         if (turn.StagedActions.Count > 0) return;
         if (!VoiceAttention.InvitesAnAnswer(turn.Text)) return;
 
-        _attention.Expect(
-            command.SpeakerId, command.ChannelId,
-            DateTimeOffset.UtcNow + TimeSpan.FromSeconds(_options.ReplyWindowSeconds));
+        Expect(command, new VoiceWaiting(VoiceWaitingFor.Answer, Until()));
 
         _logger.LogInformation(
             "Voice: asked {Speaker} something — listening for their answer without the trigger",
             command.SpeakerName);
     }
+
+    /// <summary>
+    /// Listens for a yes or a no about an action that has just been staged.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only when exactly one action is staged.</b> With two of them a spoken "yes" does not say
+    /// which, and picking one would be inventing the half of the instruction the person did not give.
+    /// Two offers are a job for the buttons, which name what each of them does.
+    /// </para>
+    /// <para>
+    /// <b>The buttons are posted either way and remain the answer of record.</b> Nothing here removes
+    /// a way to approve; it adds one for a person whose hands are in a game. Both redeem the same
+    /// grant, so whichever happens first wins and the assistant refuses the other.
+    /// </para>
+    /// </remarks>
+    private void AwaitConfirmation(VoiceCommand command, AssistantTurn turn)
+    {
+        if (_options.ConfirmByVoice is false || _options.ReplyWindowSeconds <= 0) return;
+        if (turn.StagedActions.Count != 1) return;
+
+        StagedAction staged = turn.StagedActions[0];
+        Expect(command, new VoiceWaiting(
+            VoiceWaitingFor.Confirmation, Until(), staged.Token, Describe(staged)));
+
+        _logger.LogInformation(
+            "Voice: waiting for {Speaker} to confirm {Kind} of {Target} out loud",
+            command.SpeakerName, staged.Kind, staged.Target);
+    }
+
+    /// <summary>
+    /// Reads a spoken reply to a staged action, and does only what it plainly says.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Anything that is not unmistakably a yes is asked about again.</b> A recogniser mishears, and
+    /// the reply that matters here approves something destructive — so "I could not tell" is a real
+    /// outcome with its own words, never rounded to the nearer of yes and no. It is said out loud as
+    /// well as posted, because the person is not looking at the screen.
+    /// </para>
+    /// <para>
+    /// <b>Asking again is bounded.</b> After a couple of attempts the window is left shut and the
+    /// prompt in the chat stands — a bot that keeps asking is worse than one that stops, and nothing
+    /// was lost, since the buttons were posted the moment the action was staged.
+    /// </para>
+    /// </remarks>
+    private async Task DecideAsync(
+        IMessageChannel channel, VoiceCommand command, VoiceWaiting waiting, KgsmTier tier,
+        CancellationToken ct)
+    {
+        SpokenIntent intent = SpokenIntents.Read(command.Text);
+
+        _logger.LogInformation(
+            "Voice: read {Speaker}'s \"{Said}\" as {Intent} for the staged action",
+            command.SpeakerName, command.Text, intent);
+
+        if (intent == SpokenIntent.Decline)
+        {
+            // Nothing is redeemed and nothing is cancelled server-side: an unredeemed grant simply
+            // expires, which is the same thing the Cancel button does.
+            await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}\n❌ Cancelled — I won't do it.");
+            await SayAsync(command, "Alright, I won't.", ct);
+            return;
+        }
+
+        if (intent == SpokenIntent.Unclear)
+        {
+            // Neither a yes nor a no — but if they addressed the bot and asked it something, they
+            // have moved on rather than failed to answer. The offer is abandoned, which costs
+            // nothing: the grant is never redeemed and the buttons are still in the chat.
+            if (command.Triggered && command.Text.Length > 0)
+            {
+                _logger.LogInformation(
+                    "Voice: {Speaker} asked something else instead of answering — leaving the offer standing",
+                    command.SpeakerName);
+
+                await AnswerAsync(channel, command, tier, ct);
+                return;
+            }
+
+            await AskAgainAsync(channel, command, waiting, ct);
+            return;
+        }
+
+        await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}");
+
+        Result<AssistantOutcome> done = await _assistant.ConfirmAsync(
+            new AssistantApproval(
+                command.SpeakerId.ToString(), command.SpeakerName, tier, waiting.Token!), ct);
+
+        if (done.IsFailure)
+        {
+            // The assistant is the gate and it refused — an expired grant, one already redeemed, or
+            // an authority this person no longer holds. Reported as it came rather than softened.
+            await channel.SendMessageAsync($"⚠️ {done.Error}");
+            await SayAsync(command, done.Error!, ct);
+            return;
+        }
+
+        AssistantOutcome outcome = done.Value!;
+        await channel.SendMessageAsync($"{(outcome.Success ? "✅" : "⚠️")} {outcome.Text}");
+        await SayAsync(command, outcome.Text, ct);
+    }
+
+    /// <summary>Says it could not tell, and listens once more — up to a point.</summary>
+    private async Task AskAgainAsync(
+        IMessageChannel channel, VoiceCommand command, VoiceWaiting waiting, CancellationToken ct)
+    {
+        const int MostAttempts = 3;
+
+        string about = waiting.Describes is { Length: > 0 } what ? $" about {what}" : string.Empty;
+
+        if (waiting.Asked >= MostAttempts)
+        {
+            string gaveUp = $"I still didn't get a clear yes or no{about}. "
+                + "The buttons in the chat are still there.";
+            await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}\n🤔 {gaveUp}");
+            await SayAsync(command, gaveUp, ct);
+            return;
+        }
+
+        Expect(command, waiting with { Until = Until(), Asked = waiting.Asked + 1 });
+
+        string again = $"Sorry, I didn't catch a clear yes or no{about}. Say yes to go ahead, or no to cancel.";
+        await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}\n🤔 {again}");
+        await SayAsync(command, again, ct);
+    }
+
+    private void Expect(VoiceCommand command, VoiceWaiting waiting) =>
+        _attention.Expect(command.SpeakerId, command.ChannelId, waiting);
+
+    private DateTimeOffset Until() =>
+        DateTimeOffset.UtcNow + TimeSpan.FromSeconds(_options.ReplyWindowSeconds);
+
+    /// <summary>The action in the words somebody would use for it.</summary>
+    private static string Describe(StagedAction staged) =>
+        staged.InstanceName is { Length: > 0 } instance
+            ? $"{staged.Kind.Replace('_', ' ')} {instance}"
+            : staged.Kind.Replace('_', ' ');
 
     /// <summary>
     /// What to say out loud: the reply, and where an offer to act has gone.
@@ -239,18 +388,26 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// anything waiting.
     /// </para>
     /// </remarks>
-    private static string SpokenAnswer(AssistantTurn turn)
+    private string SpokenAnswer(AssistantTurn turn)
     {
         if (turn.StagedActions.Count == 0) return turn.Text ?? string.Empty;
 
         bool many = turn.StagedActions.Count > 1;
 
-        if (string.IsNullOrWhiteSpace(turn.Text))
-            return many
+        // With one action and voice confirmation on, the thing to say is what to say back. With
+        // several, a spoken yes cannot name one of them, so the buttons are the only offer and the
+        // sentence must not imply otherwise.
+        bool byVoice = _options.ConfirmByVoice && !many && _options.ReplyWindowSeconds > 0;
+
+        string offer = byVoice
+            ? "Say yes to go ahead, or no to cancel."
+            : many
                 ? $"I've put {turn.StagedActions.Count} confirmations in the chat for you to approve."
                 : "I've put a confirmation in the chat for you to approve.";
 
-        return many ? $"{turn.Text} Approve them in the chat." : $"{turn.Text} Approve it in the chat.";
+        if (string.IsNullOrWhiteSpace(turn.Text)) return offer;
+
+        return byVoice || many ? $"{turn.Text} {offer}" : $"{turn.Text} Approve it in the chat.";
     }
 
     /// <summary>Says an answer in the channel it was asked in, if this host can speak at all.</summary>

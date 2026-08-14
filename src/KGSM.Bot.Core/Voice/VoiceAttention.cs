@@ -27,22 +27,25 @@ namespace KGSM.Bot.Core.Voice;
 /// </remarks>
 public sealed class VoiceAttention
 {
-    private readonly ConcurrentDictionary<(ulong Speaker, ulong Channel), DateTimeOffset> _open = new();
+    private readonly ConcurrentDictionary<(ulong Speaker, ulong Channel), VoiceWaiting> _open = new();
 
-    /// <summary>Waits for this speaker's next utterance in this channel, until <paramref name="until"/>.</summary>
-    public void Expect(ulong speakerId, ulong channelId, DateTimeOffset until) =>
-        _open[(speakerId, channelId)] = until;
+    /// <summary>Waits for this speaker's next utterance in this channel.</summary>
+    public void Expect(ulong speakerId, ulong channelId, VoiceWaiting waiting) =>
+        _open[(speakerId, channelId)] = waiting;
 
     /// <summary>
-    /// Whether this speaker was being waited on, consuming the window if so.
+    /// What this speaker was being waited on for, consuming the window. Null when nobody was waiting
+    /// on them or the wait had run out.
     /// </summary>
     /// <remarks>
     /// An expired window is removed on the way past rather than by a sweep: the most that can
     /// accumulate is one per person the bot has asked something, and the read that would notice it is
     /// the one doing the removing.
     /// </remarks>
-    public bool Take(ulong speakerId, ulong channelId, DateTimeOffset now) =>
-        _open.TryRemove((speakerId, channelId), out DateTimeOffset until) && until > now;
+    public VoiceWaiting? Take(ulong speakerId, ulong channelId, DateTimeOffset now) =>
+        _open.TryRemove((speakerId, channelId), out VoiceWaiting? waiting) && waiting.Until > now
+            ? waiting
+            : null;
 
     /// <summary>Stops waiting on somebody, without their having said anything.</summary>
     public void Forget(ulong speakerId, ulong channelId) => _open.TryRemove((speakerId, channelId), out _);
@@ -76,3 +79,36 @@ public sealed class VoiceAttention
     private static bool IsTrailingMarkup(char c) =>
         c is '*' or '_' or '`' or '~' or '"' or '\'' or '”' or '’' or ')' or ']' or '>';
 }
+
+/// <summary>Why the bot is listening to somebody without the trigger.</summary>
+public enum VoiceWaitingFor
+{
+    /// <summary>It asked them a question and wants what they say next as the answer.</summary>
+    Answer,
+
+    /// <summary>It staged an action and wants a yes or a no about that action.</summary>
+    Confirmation,
+}
+
+/// <summary>
+/// One open window: what the bot is waiting for, until when, and what it is about.
+/// </summary>
+/// <param name="For">Which kind of reply is expected, which decides how it is read.</param>
+/// <param name="Until">When to stop waiting.</param>
+/// <param name="Token">
+/// The grant a confirmation would redeem. The bot holds this only for as long as the window is open
+/// and never acts on it without a clear yes; it is the same grant the button carries, so a voice
+/// approval and a click are the same redemption and the second of them is refused.
+/// </param>
+/// <param name="Describes">The action in words, for asking about it again.</param>
+/// <param name="Asked">
+/// How many times the bot has now asked. A question it cannot get a clear answer to is asked a
+/// bounded number of times and then left to the buttons — repeating forever is how a voice channel
+/// becomes unusable, and the prompt in the chat has not gone anywhere.
+/// </param>
+public sealed record VoiceWaiting(
+    VoiceWaitingFor For,
+    DateTimeOffset Until,
+    string? Token = null,
+    string? Describes = null,
+    int Asked = 1);

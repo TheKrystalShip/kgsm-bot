@@ -16,54 +16,57 @@ public class VoiceAttentionTests
 
     private readonly VoiceAttention _attention = new();
 
+    private static VoiceWaiting Waiting(DateTimeOffset until) =>
+        new(VoiceWaitingFor.Answer, until);
+
     [Fact]
     public void NobodyIsWaitedOnByDefault()
     {
-        _attention.Take(speakerId: 1, channelId: 9, Now).Should().BeFalse();
+        _attention.Take(speakerId: 1, channelId: 9, Now).Should().BeNull();
     }
 
     [Fact]
     public void SomebodyWaitedOnIsLetThrough()
     {
-        _attention.Expect(1, 9, Now.AddSeconds(20));
+        _attention.Expect(1, 9, Waiting(Now.AddSeconds(20)));
 
-        _attention.Take(1, 9, Now).Should().BeTrue();
+        _attention.Take(1, 9, Now).Should().NotBeNull();
     }
 
     [Fact]
     public void TheWindowIsSpentByOneUtterance()
     {
-        _attention.Expect(1, 9, Now.AddSeconds(20));
+        _attention.Expect(1, 9, Waiting(Now.AddSeconds(20)));
 
-        _attention.Take(1, 9, Now).Should().BeTrue();
-        _attention.Take(1, 9, Now).Should().BeFalse("the answer was already given");
+        _attention.Take(1, 9, Now).Should().NotBeNull();
+        _attention.Take(1, 9, Now).Should().BeNull("the answer was already given");
     }
 
     [Fact]
     public void AWindowThatRanOutIsNotAWindow()
     {
-        _attention.Expect(1, 9, Now.AddSeconds(20));
+        _attention.Expect(1, 9, Waiting(Now.AddSeconds(20)));
 
-        _attention.Take(1, 9, Now.AddSeconds(21)).Should().BeFalse();
+        _attention.Take(1, 9, Now.AddSeconds(21)).Should().BeNull();
     }
 
     [Fact]
     public void ItBelongsToOneSpeakerInOneChannel()
     {
-        _attention.Expect(1, 9, Now.AddSeconds(20));
+        _attention.Expect(1, 9, Waiting(Now.AddSeconds(20)));
 
-        _attention.Take(2, 9, Now).Should().BeFalse("somebody else was asked");
-        _attention.Take(1, 5, Now).Should().BeFalse("that was a different channel");
-        _attention.Take(1, 9, Now).Should().BeTrue();
+        _attention.Take(2, 9, Now).Should().BeNull("somebody else was asked");
+        _attention.Take(1, 5, Now).Should().BeNull("that was a different channel");
+        _attention.Take(1, 9, Now).Should().NotBeNull();
     }
 
     [Fact]
     public void AWindowCanBeClosedWithoutBeingUsed()
     {
-        _attention.Expect(1, 9, Now.AddSeconds(20));
+        _attention.Expect(1, 9, Waiting(Now.AddSeconds(20)));
         _attention.Forget(1, 9);
 
-        _attention.Take(1, 9, Now).Should().BeFalse();
+        _attention.Take(1, 9, Now).Should().BeNull();
     }
 
     [Theory]

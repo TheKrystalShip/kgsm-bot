@@ -222,7 +222,7 @@ public class RecognisingUtteranceSinkTests
         // yes". The bot had spoken to that person a second earlier and still made them re-introduce
         // themselves.
         RecognisingUtteranceSink sink = Sink();
-        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+        _attention.Expect(speakerId: 1, channelId: 9, new VoiceWaiting(VoiceWaitingFor.Answer, DateTimeOffset.UtcNow.AddSeconds(20)));
 
         await SayAsync(sink, "yes please");
 
@@ -236,7 +236,7 @@ public class RecognisingUtteranceSinkTests
         // The room is full of other people. A window opened for one of them must not turn the rest
         // of the conversation into requests.
         RecognisingUtteranceSink sink = Sink();
-        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+        _attention.Expect(speakerId: 1, channelId: 9, new VoiceWaiting(VoiceWaitingFor.Answer, DateTimeOffset.UtcNow.AddSeconds(20)));
 
         await SayAsync(sink, "no I meant the other one", speaker: 2);
 
@@ -249,7 +249,7 @@ public class RecognisingUtteranceSinkTests
         // It must not become a microphone that is simply open: whatever they said next was the
         // answer, and the sentence after that is the room's again.
         RecognisingUtteranceSink sink = Sink();
-        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+        _attention.Expect(speakerId: 1, channelId: 9, new VoiceWaiting(VoiceWaitingFor.Answer, DateTimeOffset.UtcNow.AddSeconds(20)));
 
         await SayAsync(sink, "necesse");
         await SayAsync(sink, "anyway what were you saying");
@@ -262,7 +262,7 @@ public class RecognisingUtteranceSinkTests
     public async Task AnAnswerThatNeverCameDoesNotOpenTheDoorLater()
     {
         RecognisingUtteranceSink sink = Sink();
-        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(-1));
+        _attention.Expect(speakerId: 1, channelId: 9, new VoiceWaiting(VoiceWaitingFor.Answer, DateTimeOffset.UtcNow.AddSeconds(-1)));
 
         await SayAsync(sink, "did you see the base I built");
 
@@ -273,11 +273,57 @@ public class RecognisingUtteranceSinkTests
     public async Task AnAnsweredQuestionIsCountedAsAddressedToTheBot()
     {
         RecognisingUtteranceSink sink = Sink();
-        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+        _attention.Expect(speakerId: 1, channelId: 9, new VoiceWaiting(VoiceWaitingFor.Answer, DateTimeOffset.UtcNow.AddSeconds(20)));
 
         await SayAsync(sink, "the second one");
 
         _tally.Read().Addressed.Should().Be(1);
         _tally.Read().Answered.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SayingTheTriggerOutOfHabitStillAnswersTheQuestion()
+    {
+        // Somebody used to addressing the bot says "hey assistant, yes" while it is waiting on them.
+        // Dropping the window there would send "yes" to the assistant as a fresh question and leave
+        // the action they were approving unconfirmed.
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9,
+            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), "abc123"));
+
+        await SayAsync(sink, "hey assistant, yes");
+
+        _dispatched.Should().ContainSingle();
+        _dispatched[0].Text.Should().Be("yes");
+        _dispatched[0].Answering!.For.Should().Be(VoiceWaitingFor.Confirmation);
+        _dispatched[0].Answering!.Token.Should().Be("abc123");
+    }
+
+    [Fact]
+    public async Task TheTriggerAloneIntoAnOpenWindowIsNotSilentlyLost()
+    {
+        // The window is spent by this utterance either way, so an empty request would vanish along
+        // with it. Held as what was said, to be read as an unclear answer and asked about again.
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9,
+            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), "abc123"));
+
+        await SayAsync(sink, "hey assistant");
+
+        _dispatched.Should().ContainSingle();
+        _dispatched[0].Text.Should().NotBeEmpty();
+        _dispatched[0].Answering!.For.Should().Be(VoiceWaitingFor.Confirmation);
+    }
+
+    [Fact]
+    public async Task AnUntriggeredAnswerIsMarkedAsSuch()
+    {
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9,
+            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), "abc123"));
+
+        await SayAsync(sink, "go ahead");
+
+        _dispatched[0].Triggered.Should().BeFalse("they answered rather than addressing the bot again");
     }
 }

@@ -485,6 +485,22 @@ public class VoiceOptions
         DependsOn = "voiceEnabled")]
     public int ReplyWindowSeconds { get; set; } = 20;
 
+    /// <summary>
+    /// Whether a staged action may be approved by saying so, as well as by pressing the button.
+    /// </summary>
+    /// <remarks>
+    /// Only ever offered for a single staged action, and only on an unmistakable yes — anything else
+    /// is asked about again rather than resolved toward approval. The buttons are posted either way
+    /// and stay the answer of record, so switching this off removes an option and breaks nothing.
+    /// </remarks>
+    /// <panel>Whether you can approve a staged action by saying so — "yes", "go ahead", "do it" —
+    /// instead of pressing the button, which is what you want when your hands are in a game. Only
+    /// offered when there is exactly one thing to approve, and only on a clear yes: anything the bot
+    /// is unsure of is asked again rather than treated as approval. The buttons are always posted as
+    /// well.</panel>
+    [LeafField("voiceConfirmByVoice", "Approve out loud", Group = "voice", DependsOn = "voiceEnabled")]
+    public bool ConfirmByVoice { get; set; } = true;
+
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>
     [LeafField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",
