@@ -197,7 +197,8 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             // stream with our id would mean something is echoing and is worth seeing rather than
             // hiding.
             string name = channel.Guild.GetUser(userId)?.DisplayName ?? userId.ToString();
-            var speaker = _speakers.GetOrAdd(userId, id => new Speaker(new UtteranceAssembler(id, name, limits)));
+            var speaker = _speakers.GetOrAdd(userId, id => new Speaker(
+                new UtteranceAssembler(id, name, channel.Guild.Id, channel.Id, limits)));
 
             _ = Task.Run(() => PumpAsync(userId, name, stream, speaker, _cts.Token));
             return Task.CompletedTask;

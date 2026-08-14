@@ -20,7 +20,8 @@ namespace KGSM.Bot.Core.Voice;
 /// why nothing here has to separate voices.
 /// </para>
 /// </remarks>
-public sealed class UtteranceAssembler(ulong speakerId, string speakerName, UtteranceLimits limits)
+public sealed class UtteranceAssembler(
+    ulong speakerId, string speakerName, ulong guildId, ulong channelId, UtteranceLimits limits)
 {
     private readonly List<byte> _audio = [];
     private DateTimeOffset _startedAt;
@@ -72,6 +73,7 @@ public sealed class UtteranceAssembler(ulong speakerId, string speakerName, Utte
         var audio = _audio.ToArray();
         _audio.Clear();
         return new VoiceUtterance(
-            speakerId, speakerName, audio, PcmDownsampler.DurationOfMono16k(audio.Length), _startedAt);
+            speakerId, speakerName, guildId, channelId, audio,
+            PcmDownsampler.DurationOfMono16k(audio.Length), _startedAt);
     }
 }

@@ -19,12 +19,16 @@ namespace KGSM.Bot.Core.Voice;
 /// </remarks>
 /// <param name="SpeakerId">The Discord account the audio came from.</param>
 /// <param name="SpeakerName">That account's display name, for logs and transcripts.</param>
+/// <param name="GuildId">The Discord server it was said in.</param>
+/// <param name="ChannelId">The voice channel it was said in.</param>
 /// <param name="Audio">16 kHz mono signed 16-bit little-endian PCM.</param>
 /// <param name="Duration">How much audio <paramref name="Audio"/> holds.</param>
 /// <param name="StartedAt">When the first frame of it arrived.</param>
 public sealed record VoiceUtterance(
     ulong SpeakerId,
     string SpeakerName,
+    ulong GuildId,
+    ulong ChannelId,
     byte[] Audio,
     TimeSpan Duration,
     DateTimeOffset StartedAt);

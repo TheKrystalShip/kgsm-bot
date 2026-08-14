@@ -26,6 +26,12 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.5" />
     <PackageReference Include="Discord.Net" Version="3.20.1" />
+    <!-- Speech recognition, in-process. The CUDA runtime is ~312MB and is carried even on a host
+         with no GPU: Whisper.net picks the first runtime that initialises, so shipping both is what
+         makes the same binary correct on a node with a card and on one without. -->
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime.Cuda" Version="1.9.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.KGSM.Auth.Users at
          this same version, so naming it here costs nothing and stops the store depending on which

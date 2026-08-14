@@ -698,6 +698,64 @@
       "default": "true",
       "risk": "safe",
       "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceModelPath",
+      "env": "Discord__Voice__ModelPath",
+      "label": "Speech model",
+      "description": "The speech recognition model file. ggml-small.en.bin is the one to want — on a GPU it is both more accurate and faster than the smaller models are on a CPU. Without a model nothing said in a voice channel is understood.",
+      "group": "voice",
+      "type": "path",
+      "default": "/var/lib/kgsm-bot/models/ggml-small.en.bin",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceUseGpu",
+      "env": "Discord__Voice__UseGpu",
+      "label": "Recognise on the GPU",
+      "description": "Whether to recognise speech on the graphics card. A host with no usable GPU falls back to the processor on its own — which works, and is around forty times slower.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceTriggers",
+      "env": "Discord__Voice__Triggers",
+      "label": "Trigger phrase",
+      "description": "What somebody says to get the bot's attention, like hey assistant. It has to be the start of the sentence, which is what stops the bot answering a conversation that merely mentions it. Several may be given, separated by commas.",
+      "group": "voice",
+      "type": "string",
+      "default": "hey assistant",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceFollowUpSeconds",
+      "env": "Discord__Voice__FollowUpSeconds",
+      "label": "Wait after the trigger",
+      "description": "How long after somebody says the trigger on its own the bot keeps listening for what they actually wanted. It covers saying \"hey assistant\", pausing, and then asking.",
+      "group": "voice",
+      "type": "int",
+      "default": "10",
+      "min": 1,
+      "max": 60,
+      "unit": "s",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceLogTranscripts",
+      "env": "Discord__Voice__LogTranscripts",
+      "label": "Log everything heard",
+      "description": "Whether the log records everything said in the channel, not only what was addressed to the bot. Switch it on to find out how the recogniser is hearing your trigger phrase, and off again afterwards — while it is on, everything anybody says in the channel is written to this host's log.",
+      "group": "voice",
+      "type": "bool",
+      "default": "false",
+      "risk": "wiring",
+      "dependsOn": "voiceEnabled"
     }
   ]
 }

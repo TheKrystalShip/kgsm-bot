@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.17.0] - 2026-08-14
+
+### Added — the bot understands what it hears
+
+Speech recognition runs in this process, on the GPU where there is one: `ggml-small.en` transcribes
+a captured utterance in **107-329ms** measured against a live channel, against 5.1 seconds for the
+same model on this host's processor. It asks for CUDA and accepts the CPU, so a host with no card,
+or one whose driver is mid-upgrade, gets a slower recogniser rather than no voice surface — and
+which one it settled on is logged, because a factor of forty is otherwise invisible.
+
+Cost is per utterance rather than per second: whisper pads what it is given to a fixed thirty-second
+window, so a two-second question costs about what a ten-second one does. Utterance length is not a
+latency knob.
+
+`WakeWordDetector` decides whether something was addressed to the bot. **The trigger is found
+anywhere in what was said** and the request is whatever follows the last occurrence of it. Requiring
+it to come first was measured refusing a real request — "okay, let me try this, so hey assistant, is
+Ketchup running?" is one breath and therefore one utterance, and an utterance boundary is drawn by
+silence, which is a fact about this pipeline rather than about how anybody speaks. The cost is that
+somebody quoting the trigger is answered as though they meant it; that is the better failure, and it
+is written down as a test rather than left to be discovered.
+
+Saying the trigger alone opens a ten-second window in which that speaker's next utterance is the
+request, which is how people address an assistant — attention first, words second.
+
+**What is not addressed to the bot is dropped without being written down.** A voice channel is full
+of people talking to each other, and recording their conversation because the bot was in the room is
+not something anybody agreed to. `Discord:Voice:LogTranscripts` lifts that for tuning a trigger
+phrase, warns loudly at startup while it is on, and is off in the shipped defaults.
+
+### Fixed — sound that is not speech is no longer treated as words
+
+Whisper annotates non-speech rather than returning nothing for it, and three of five recognitions in
+a four-person channel were `[BLANK_AUDIO]`. Those reached the matcher as though they were words, and
+a follow-up window opened by a bare trigger could be spent by somebody's cough — handing
+`[BLANK_AUDIO]` to the assistant as a request. Bracketed annotations are stripped and an utterance
+with nothing else in it recognises as nothing.
+
+A quotation mark no longer survives on the end of a request, where it reached the assistant attached
+to a server's name.
+
 ## [3.16.0] - 2026-08-14
 
 ### Added — the bot listens in a voice channel

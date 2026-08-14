@@ -154,12 +154,26 @@
     // tuning: too short cuts people off mid-thought, too long makes every answer wait for it. The
     // ceiling is not a limit on how long somebody may talk, it is a limit on how much audio is held
     // for one of them at a time.
+    // The trigger is matched against the TRANSCRIPT, not against a sound — there is no wake-word
+    // model, everything said is recognised anyway and the phrase is found in the text. So the
+    // property a good trigger needs is that the recogniser renders it the same way every time,
+    // which is why it is a list: an operator who sees a variant in the log adds it here, with
+    // nothing to retrain. It has to open the sentence, which is what stops the bot answering a
+    // conversation that merely mentions it.
+    //
+    // The model file lives under the state directory and not the install prefix, because deploy.sh
+    // syncs the prefix with rsync --delete and would take it on every deploy.
     "Voice": {
       "Enabled": false,
       "SilenceGapMs": 800,
       "MinUtteranceMs": 400,
       "MaxUtteranceSeconds": 20,
-      "LeaveWhenAlone": true
+      "LeaveWhenAlone": true,
+      "ModelPath": "/var/lib/kgsm-bot/models/ggml-small.en.bin",
+      "UseGpu": true,
+      "Triggers": "hey assistant",
+      "FollowUpSeconds": 10,
+      "LogTranscripts": false
     },
 
     // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active

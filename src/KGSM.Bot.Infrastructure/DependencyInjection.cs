@@ -136,10 +136,21 @@ public static class DependencyInjection
         // is the only way an answer about right now can be one.
         services.AddSingleton<IBotHealth, BotHealthService>();
 
+        // Speech recognition runs in this process: it sits between somebody finishing a sentence and
+        // the assistant starting work, so a hop added here is added to every wait. A singleton
+        // because the model is hundreds of megabytes and loading it per utterance would cost more
+        // than recognising one.
+        services.AddSingleton<ISpeechToText, global::KGSM.Bot.Infrastructure.Discord.Voice.WhisperSpeechToText>();
+
+        // Hearing a request and acting on one are separate registrations on purpose: only the second
+        // needs to know the assistant exists, and swapping it is how the voice surface gains an
+        // answer without the capture half changing.
+        services.AddSingleton<IVoiceCommandHandler, global::KGSM.Bot.Infrastructure.Discord.Voice.LoggingVoiceCommandHandler>();
+        services.AddSingleton<IVoiceUtteranceSink, global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink>();
+
         // The bot's voice connections. A singleton because it owns them: Discord allows one per
         // guild, and a second instance would hold a connection the first one does not know about and
         // cannot be told to leave.
-        services.AddSingleton<IVoiceUtteranceSink, global::KGSM.Bot.Infrastructure.Discord.Voice.LoggingUtteranceSink>();
         services.AddSingleton<IVoiceSessions, global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceSessionService>();
 
         return services;

@@ -22,7 +22,7 @@ public class UtteranceAssemblerTests
         MaxDuration: TimeSpan.FromSeconds(20));
 
     private static UtteranceAssembler Assembler(UtteranceLimits? limits = null) =>
-        new(speakerId: 42, speakerName: "heisen", limits ?? Limits);
+        new(speakerId: 42, speakerName: "heisen", guildId: 7, channelId: 9, limits ?? Limits);
 
     /// <summary>16 kHz mono is 32 bytes per millisecond.</summary>
     private static byte[] Audio(int milliseconds) => new byte[milliseconds * 32];
@@ -48,6 +48,8 @@ public class UtteranceAssemblerTests
         utterance!.Duration.Should().Be(TimeSpan.FromSeconds(1));
         utterance.SpeakerId.Should().Be(42);
         utterance.SpeakerName.Should().Be("heisen");
+        utterance.GuildId.Should().Be(7);
+        utterance.ChannelId.Should().Be(9);
         utterance.StartedAt.Should().Be(T0);
         assembler.IsCollecting.Should().BeFalse();
     }

@@ -416,4 +416,61 @@ public class VoiceOptions
     [LeafField("voiceLeaveWhenAlone", "Leave an empty channel", Group = "voice",
         DependsOn = "voiceEnabled")]
     public bool LeaveWhenAlone { get; set; } = true;
+
+    /// <summary>
+    /// The whisper model used to recognise speech, as a path to a <c>ggml-*.bin</c> file.
+    /// </summary>
+    /// <remarks>
+    /// Not under the install prefix: <c>deploy.sh</c> syncs that with <c>rsync --delete</c> and would
+    /// take a model file with it on every deploy. The state directory is the bot's own and survives.
+    /// </remarks>
+    /// <panel>The speech recognition model file. <code>ggml-small.en.bin</code> is the one to want —
+    /// on a GPU it is both more accurate and faster than the smaller models are on a CPU. Without a
+    /// model nothing said in a voice channel is understood.</panel>
+    [LeafField("voiceModelPath", "Speech model", Group = "voice", Type = LeafType.Path,
+        DependsOn = "voiceEnabled")]
+    public string ModelPath { get; set; } = "/var/lib/kgsm-bot/models/ggml-small.en.bin";
+
+    /// <panel>Whether to recognise speech on the graphics card. A host with no usable GPU falls back
+    /// to the processor on its own — which works, and is around forty times slower.</panel>
+    [LeafField("voiceUseGpu", "Recognise on the GPU", Group = "voice", DependsOn = "voiceEnabled")]
+    public bool UseGpu { get; set; } = true;
+
+    /// <summary>
+    /// What somebody says to address the bot. Several, comma-separated, all equal.
+    /// </summary>
+    /// <remarks>
+    /// A list because this is matched against a transcript rather than against sound: whichever way
+    /// the recogniser renders the phrase is what has to be matched, and an operator who sees a
+    /// variant in the log adds it here with nothing to retrain.
+    /// </remarks>
+    /// <panel>What somebody says to get the bot's attention, like <code>hey assistant</code>. It has
+    /// to be the start of the sentence, which is what stops the bot answering a conversation that
+    /// merely mentions it. Several may be given, separated by commas.</panel>
+    [LeafField("voiceTriggers", "Trigger phrase", Group = "voice", DependsOn = "voiceEnabled")]
+    public string Triggers { get; set; } = "hey assistant";
+
+    /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
+    /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>
+    [LeafField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",
+        Min = 1, Max = 60, Unit = "s", DependsOn = "voiceEnabled")]
+    public int FollowUpSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Whether everything recognised is written to the log, including what was not addressed to the
+    /// bot.
+    /// </summary>
+    /// <remarks>
+    /// Off, the bot logs only what somebody said to it, which is the right default and also makes a
+    /// trigger that is not matching impossible to diagnose — the operator is asked to tune a phrase
+    /// against evidence they cannot see. This is that evidence, and it is opt-in because switching it
+    /// on writes down a room's private conversation.
+    /// </remarks>
+    /// <panel>Whether the log records everything said in the channel, not only what was addressed to
+    /// the bot. Switch it on to find out how the recogniser is hearing your trigger phrase, and off
+    /// again afterwards — while it is on, everything anybody says in the channel is written to this
+    /// host's log.</panel>
+    [LeafField("voiceLogTranscripts", "Log everything heard", Group = "voice",
+        Risk = LeafRisk.Wiring, DependsOn = "voiceEnabled")]
+    public bool LogTranscripts { get; set; } = false;
 }
