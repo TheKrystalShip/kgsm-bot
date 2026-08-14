@@ -142,6 +142,11 @@ public static class DependencyInjection
         // reading as one sequence: heard, recognised, addressed, answered.
         services.AddSingleton<IVoiceTally, global::KGSM.Bot.Core.Voice.VoiceTally>();
 
+        // Who the bot is waiting to hear back from. A singleton and its own registration for the same
+        // reason the queue is one: the sink reads it and the handler writes it, and wiring those two
+        // to each other directly is the circle the container refuses.
+        services.AddSingleton<VoiceAttention>();
+
         // Speech recognition runs in this process: it sits between somebody finishing a sentence and
         // the assistant starting work, so a hop added here is added to every wait. A singleton
         // because the model is hundreds of megabytes and loading it per utterance would cost more

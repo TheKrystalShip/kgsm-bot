@@ -40,6 +40,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     private readonly ISpeechToText _speech;
     private readonly VoiceCommandQueue _queue;
     private readonly IVoiceTally _tally;
+    private readonly VoiceAttention _attention;
     private readonly ILogger<RecognisingUtteranceSink> _logger;
     private readonly WakeWordDetector _wake;
     private readonly TimeSpan _followUp;
@@ -56,12 +57,14 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         ISpeechToText speech,
         VoiceCommandQueue queue,
         IVoiceTally tally,
+        VoiceAttention attention,
         IOptions<DiscordOptions> options,
         ILogger<RecognisingUtteranceSink> logger)
     {
         _speech = speech;
         _queue = queue;
         _tally = tally;
+        _attention = attention;
         _logger = logger;
 
         VoiceOptions voice = options.Value.Voice;
@@ -114,11 +117,22 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
             // the rest of it and needs no second trigger.
             if (owed is null)
             {
-                _logger.LogTrace("Voice: not addressed to the bot, dropped");
-                return;
-            }
+                // …or unless the bot asked them something and is waiting for the answer. Consumed
+                // whether or not this turns out to be one, so a window cannot outlive the question.
+                if (!_attention.Take(utterance.SpeakerId, utterance.ChannelId, now))
+                {
+                    _logger.LogTrace("Voice: not addressed to the bot, dropped");
+                    return;
+                }
 
-            asked = Join(owed.Text, transcript);
+                _logger.LogInformation(
+                    "Voice: {Speaker} answered the question the bot asked them", utterance.SpeakerName);
+                asked = transcript;
+            }
+            else
+            {
+                asked = Join(owed.Text, transcript);
+            }
         }
         else if (owed is not null && owed.Text.Length > 0)
         {

@@ -27,6 +27,9 @@ public class RecognisingUtteranceSinkTests
     /// <summary>The real one, so the counts a surface reports are the ones this produces.</summary>
     private readonly VoiceTally _tally = new();
 
+    /// <summary>Who the bot is waiting to hear back from — empty unless a test opens a window.</summary>
+    private readonly VoiceAttention _attention = new();
+
     private readonly List<VoiceCommand> _taken = [];
 
     /// <summary>
@@ -52,7 +55,7 @@ public class RecognisingUtteranceSinkTests
         });
 
         return new RecognisingUtteranceSink(
-            _speech, _queue, _tally, options, NullLogger<RecognisingUtteranceSink>.Instance);
+            _speech, _queue, _tally, _attention, options, NullLogger<RecognisingUtteranceSink>.Instance);
     }
 
     /// <summary>Feeds one utterance, with the transcript the recogniser would have produced.</summary>
@@ -210,5 +213,71 @@ public class RecognisingUtteranceSinkTests
 
         _dispatched[0].GuildId.Should().Be(7);
         _dispatched[0].ChannelId.Should().Be(9);
+    }
+
+    [Fact]
+    public async Task SomebodyTheBotJustAskedSomethingAnswersWithoutTheTrigger()
+    {
+        // Measured in a real session: answering the assistant's own question took "hey assistant,
+        // yes". The bot had spoken to that person a second earlier and still made them re-introduce
+        // themselves.
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+
+        await SayAsync(sink, "yes please");
+
+        _dispatched.Should().ContainSingle();
+        _dispatched[0].Text.Should().Be("yes please");
+    }
+
+    [Fact]
+    public async Task OnlyThePersonWhoWasAskedAnswersWithoutTheTrigger()
+    {
+        // The room is full of other people. A window opened for one of them must not turn the rest
+        // of the conversation into requests.
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+
+        await SayAsync(sink, "no I meant the other one", speaker: 2);
+
+        _dispatched.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task OneUtteranceSpendsTheWindow()
+    {
+        // It must not become a microphone that is simply open: whatever they said next was the
+        // answer, and the sentence after that is the room's again.
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+
+        await SayAsync(sink, "necesse");
+        await SayAsync(sink, "anyway what were you saying");
+
+        _dispatched.Should().ContainSingle();
+        _dispatched[0].Text.Should().Be("necesse");
+    }
+
+    [Fact]
+    public async Task AnAnswerThatNeverCameDoesNotOpenTheDoorLater()
+    {
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(-1));
+
+        await SayAsync(sink, "did you see the base I built");
+
+        _dispatched.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AnAnsweredQuestionIsCountedAsAddressedToTheBot()
+    {
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(speakerId: 1, channelId: 9, DateTimeOffset.UtcNow.AddSeconds(20));
+
+        await SayAsync(sink, "the second one");
+
+        _tally.Read().Addressed.Should().Be(1);
+        _tally.Read().Answered.Should().Be(1);
     }
 }

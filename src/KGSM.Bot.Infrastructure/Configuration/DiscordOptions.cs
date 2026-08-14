@@ -467,6 +467,24 @@ public class VoiceOptions
         DependsOn = "voiceEnabled")]
     public bool PrimeWithServerNames { get; set; } = true;
 
+    /// <summary>
+    /// How long the bot keeps listening to somebody it has just asked a question, without the trigger.
+    /// Zero switches it off.
+    /// </summary>
+    /// <remarks>
+    /// Longer than the follow-up window because these are not the same wait: that one covers a pause
+    /// while somebody finds their words, and this one covers reading the bot's question, thinking, and
+    /// deciding. It is spent by a single utterance either way, so the number bounds how long an unused
+    /// window lingers rather than how long a microphone stays open.
+    /// </remarks>
+    /// <panel>How long the bot keeps listening for your answer after it has asked you something,
+    /// without needing the trigger phrase again — answering a question the bot just asked you should
+    /// not require introducing yourself to it. It only ever covers the speaker who was asked, and one
+    /// reply spends it. Set to 0 to always require the trigger.</panel>
+    [LeafField("voiceReplyWindowSeconds", "Answer window", Group = "voice", Unit = "seconds",
+        DependsOn = "voiceEnabled")]
+    public int ReplyWindowSeconds { get; set; } = 20;
+
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>
     [LeafField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",

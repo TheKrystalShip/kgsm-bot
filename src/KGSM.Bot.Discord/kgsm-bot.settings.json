@@ -182,6 +182,11 @@
       // guessing which server was meant and then acting on the guess.
       "PrimeWithServerNames": true,
 
+      // Answering a question the bot just asked you should not require re-addressing it. The window
+      // belongs to the one speaker who was asked, is spent by a single utterance, and never opens
+      // while an action is staged — approving is the buttons' job and stays there. 0 disables.
+      "ReplyWindowSeconds": 20,
+
       // Answering out loud. Synthesis on the card is around eight times faster than on the processor
       // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
       // cuDNN, which recognition does not) falls back on its own and says so in the log.

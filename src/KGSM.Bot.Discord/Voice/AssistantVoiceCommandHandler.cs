@@ -42,6 +42,12 @@ namespace KGSM.Bot.Discord.Voice;
 /// action, and the button re-derives authority at the click where a recogniser could not.
 /// </para>
 /// <para>
+/// <b>A question the bot asks is answered without re-addressing it.</b> Having just spoken to
+/// somebody, it waits for them — see <see cref="VoiceAttention"/>. That window is never opened
+/// alongside a staged action, so it removes the trigger from ordinary conversation and never from
+/// approving something.
+/// </para>
+/// <para>
 /// Speaking is best-effort throughout. No model, no card, or a broken output stream costs the audio
 /// and nothing else — the answer is already in the channel, which is why nothing here treats a
 /// failure to speak as a failure to answer.
@@ -56,6 +62,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     private readonly IKgsmAccounts _accounts;
     private readonly ITextToSpeech _speech;
     private readonly IVoiceSessions _sessions;
+    private readonly VoiceAttention _attention;
     private readonly VoiceOptions _options;
     private readonly ILogger<AssistantVoiceCommandHandler> _logger;
 
@@ -65,6 +72,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         IKgsmAccounts accounts,
         ITextToSpeech speech,
         IVoiceSessions sessions,
+        VoiceAttention attention,
         IOptions<DiscordOptions> options,
         ILogger<AssistantVoiceCommandHandler> logger)
     {
@@ -73,6 +81,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         _accounts = accounts;
         _speech = speech;
         _sessions = sessions;
+        _attention = attention;
         _options = options.Value.Voice;
         _logger = logger;
     }
@@ -177,6 +186,39 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         }
 
         await SayAsync(command, SpokenAnswer(turn), ct);
+        Await(command, turn);
+    }
+
+    /// <summary>
+    /// Waits for an answer when the bot has just asked for one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never while an action is staged</b>, even if the assistant's reply ends in a question. What
+    /// the bot wants at that moment is a button press, and opening a listening window beside a pending
+    /// confirmation invites somebody to approve it by saying yes — which is not what would happen, and
+    /// is a thing to decide on deliberately rather than to inherit from a window opened for another
+    /// purpose. The buttons remain the only way to approve.
+    /// </para>
+    /// <para>
+    /// The window only removes the need to say the trigger. Whatever is said into it is put to the
+    /// assistant exactly as a triggered request is, with the speaker's own authority re-derived at the
+    /// turn.
+    /// </para>
+    /// </remarks>
+    private void Await(VoiceCommand command, AssistantTurn turn)
+    {
+        if (_options.ReplyWindowSeconds <= 0) return;
+        if (turn.StagedActions.Count > 0) return;
+        if (!VoiceAttention.InvitesAnAnswer(turn.Text)) return;
+
+        _attention.Expect(
+            command.SpeakerId, command.ChannelId,
+            DateTimeOffset.UtcNow + TimeSpan.FromSeconds(_options.ReplyWindowSeconds));
+
+        _logger.LogInformation(
+            "Voice: asked {Speaker} something — listening for their answer without the trigger",
+            command.SpeakerName);
     }
 
     /// <summary>

@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.22.0] - 2026-08-14
+
+### Added — answering the bot's own question needs no trigger
+
+Measured in a live session: the assistant asked something and answering it took *"hey assistant,
+yes"*. The bot had spoken to that person a second earlier and still made them re-introduce
+themselves. The trigger exists to tell the bot's conversation apart from the room's, and immediately
+after it has asked somebody a direct question there is nothing to tell apart.
+
+So when a reply ends in a question, the bot waits for that person's next utterance and takes it as
+the answer. `Discord:Voice:ReplyWindowSeconds` (20, `0` disables) bounds the wait.
+
+Three properties keep it from becoming an open microphone:
+
+- **One speaker, one channel.** The window belongs to whoever was asked; everybody else in the room
+  is unaffected, which matters in a channel where a measured 84 utterances produced 10 requests.
+- **Spent by a single utterance**, answer or not. It cannot accumulate, and a reply that asks a
+  further question opens the next one.
+- **Never opened while an action is staged**, even when the assistant's reply ends in a question.
+  What the bot wants at that moment is a button press, and a listening window beside a pending
+  confirmation invites somebody to approve by saying yes — which is not what would happen. The
+  buttons remain the only way to approve.
+
+It changes who has to say the trigger and nothing about what anybody may do: an utterance let through
+is put to the assistant exactly as a triggered one is, with the speaker's own authority re-derived at
+the turn.
+
 ## [3.21.0] - 2026-08-14
 
 ### Added — a spoken request asks for a spoken answer

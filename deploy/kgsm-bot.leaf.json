@@ -744,6 +744,18 @@
       "dependsOn": "voiceEnabled"
     },
     {
+      "key": "voiceReplyWindowSeconds",
+      "env": "Discord__Voice__ReplyWindowSeconds",
+      "label": "Answer window",
+      "description": "How long the bot keeps listening for your answer after it has asked you something, without needing the trigger phrase again — answering a question the bot just asked you should not require introducing yourself to it. It only ever covers the speaker who was asked, and one reply spends it. Set to 0 to always require the trigger.",
+      "group": "voice",
+      "type": "int",
+      "default": "20",
+      "unit": "seconds",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
       "key": "voiceFollowUpSeconds",
       "env": "Discord__Voice__FollowUpSeconds",
       "label": "Wait after the trigger",
