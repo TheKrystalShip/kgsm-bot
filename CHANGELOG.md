@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.32.0] - 2026-08-14
+
+### Changed — the speaking voice is a dropdown
+
+`Voice:SpeechVoice` declares its values, so the Control Panel renders a picker instead of a text box
+somebody has to know Kokoro's naming to fill in.
+
+The **English** voices, listed best-first within each accent. Kokoro ships voices for eight other
+languages and they sit on disk beside these, but they expect text in those languages — offered here
+they would be twenty-odd ways to read an English answer badly. Anything Kokoro can load still works if
+it is set directly; the list is the set worth choosing from.
+
+Ordered by training data rather than alphabetically, because that is the axis you can hear: the
+difference between the top of a group and the bottom is not accent or timbre but how synthetic the
+voice sounds.
+
+⚠ Applying it **restarts the bot**, which drops it out of any voice channel it is sitting in.
+
 ## [3.31.0] - 2026-08-14
 
 ### Added — clearing and compacting a channel's conversation

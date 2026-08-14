@@ -630,12 +630,39 @@ public class VoiceOptions
         DependsOn = "voiceSpeak")]
     public string SpeechModelPath { get; set; } = "/var/lib/kgsm-bot/models/kokoro.onnx";
 
-    /// <panel>Which voice the bot speaks in. The names are Kokoro's own, and the first two letters say
-    /// what they are — <code>b</code> for British and <code>a</code> for American, then <code>f</code>
-    /// or <code>m</code>. <code>bf_emma</code>, <code>bm_george</code>, <code>af_heart</code>,
-    /// <code>am_michael</code>. How much speech each one was trained on varies a lot, and it is
-    /// audible: within an accent, the well-trained ones sound markedly less synthetic.</panel>
-    [LeafField("voiceSpeechVoice", "Speaking voice", Group = "voice", DependsOn = "voiceSpeak")]
+    /// <summary>
+    /// Which of Kokoro's voices to speak in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The English ones, listed best-first within each accent.</b> Kokoro ships voices for eight
+    /// other languages and they are on disk beside these, but they expect text in those languages —
+    /// offered here they would be twenty-odd ways to read an English answer badly. Anything Kokoro can
+    /// load still works if it is set directly; what this list is, is the set worth choosing from.
+    /// </para>
+    /// <para>
+    /// <b>Ordered by how much speech each was trained on, because that is what is audible.</b> The
+    /// difference between the top of a group and the bottom is not accent or timbre — it is how
+    /// synthetic the voice sounds, and it is not subtle.
+    /// </para>
+    /// </remarks>
+    /// <panel>Which voice the bot speaks in. The first two letters are the accent and the speaker —
+    /// <code>b</code> British, <code>a</code> American, then <code>f</code> or <code>m</code>. They are
+    /// listed best-first within each accent, and the gap is worth hearing: the ones at the top of each
+    /// group were trained on hours of speech and the ones at the bottom on minutes, which is the
+    /// difference between a voice that sounds like a person and one that sounds like a synthesiser.
+    /// Changing this restarts the bot, so it leaves any voice channel it is sitting in.</panel>
+    [LeafField("voiceSpeechVoice", "Speaking voice", Group = "voice", DependsOn = "voiceSpeak",
+        Type = LeafType.Enum, Values = [
+            // British — bf_emma is the only one of these with hours of speech behind it.
+            "bf_emma", "bf_isabella", "bf_alice", "bf_lily",
+            "bm_george", "bm_fable", "bm_lewis", "bm_daniel",
+            // American — af_heart and af_bella are the best-trained voices Kokoro ships at all.
+            "af_heart", "af_bella", "af_nicole", "af_aoede", "af_kore", "af_sarah",
+            "af_alloy", "af_nova", "af_sky", "af_jessica", "af_river",
+            "am_fenrir", "am_michael", "am_puck", "am_echo", "am_eric",
+            "am_liam", "am_onyx", "am_santa", "am_adam",
+        ])]
     public string SpeechVoice { get; set; } = "bf_emma";
 
     /// <panel>Whether to synthesise speech on the graphics card. Around eight times faster than the
