@@ -46,6 +46,12 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
     /// </summary>
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(200);
 
+    /// <summary>
+    /// How much longer than its own duration a piece of audio may take to go out before the stream is
+    /// treated as wedged.
+    /// </summary>
+    private static readonly TimeSpan SpeakingGrace = TimeSpan.FromSeconds(10);
+
     private readonly DiscordSocketClient _client;
     private readonly IVoiceUtteranceSink _sink;
     private readonly VoiceDecryptHealth _health;
@@ -281,20 +287,44 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
         /// <summary>Plays one answer, waiting for any answer already playing to finish.</summary>
         /// <remarks>
+        /// <para>
         /// Flushed before the lock is released: Discord.Net buffers, and returning while audio is
         /// still queued would let the next answer start writing into the middle of this one.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>Anything shorter than the output buffer is padded to it.</b> Discord.Net's buffered
+        /// writer transmits nothing at all until a full buffer's worth of frames has been queued —
+        /// below that its sending loop waits, and the flush waits on the sending loop, so a short
+        /// write never completes and never fails. Measured: a 290ms tone wedged the stream, the write
+        /// never returned, and because requests are answered one at a time the whole surface went
+        /// silent with no error anywhere. Trailing zeroes are silence, so padding costs the time it
+        /// takes to drain and nothing that can be heard.
+        /// </para>
+        /// <para>
+        /// <b>And the write is bounded anyway.</b> Padding fixes the cause that was measured; the
+        /// timeout is what stops any other stall in the audio stack from freezing everything a person
+        /// might ask afterwards. Nothing spoken out loud is worth that, since the answer is already in
+        /// the chat.
+        /// </para>
         /// </remarks>
         public async Task<Result> SpeakAsync(byte[] pcm, CancellationToken ct)
         {
             if (pcm.Length == 0) return Result.Success();
 
+            byte[] audible = SendableAudio.AtLeastPreload(pcm);
+
             await _mouth.WaitAsync(ct);
+
+            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            bounded.CancelAfter(PcmUpsampler.DurationOfStereo48k(audible.Length) + SpeakingGrace);
+
             try
             {
-                _out ??= audio.CreatePCMStream(AudioApplication.Voice);
+                _out ??= audio.CreatePCMStream(
+                    AudioApplication.Voice, bufferMillis: SendableAudio.BufferMillis);
 
-                await _out.WriteAsync(pcm, ct);
-                await _out.FlushAsync(ct);
+                await _out.WriteAsync(audible, bounded.Token);
+                await _out.FlushAsync(bounded.Token);
 
                 logger.LogDebug(
                     "Voice: said {Seconds:F1}s in {Channel}",
@@ -302,9 +332,21 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
                 return Result.Success();
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return Result.Failure("I was interrupted before I could say that.");
+            }
+            catch (OperationCanceledException)
+            {
+                // The stream took longer than the audio it was given could possibly take. It is not
+                // coming back, so it is dropped rather than left for the next answer to wait on too.
+                logger.LogWarning(
+                    "Voice: the audio stream in {Channel} stopped accepting {Seconds:F1}s of speech — "
+                    + "rebuilding it for the next one",
+                    channel.Name, PcmUpsampler.DurationOfStereo48k(audible.Length).TotalSeconds);
+
+                _out = null;
+                return Result.Failure("I couldn't say that out loud.");
             }
             catch (Exception ex)
             {
@@ -319,6 +361,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 _mouth.Release();
             }
         }
+
 
         public VoiceSession Describe() => new(
             channel.Guild.Id, channel.Id, channel.Name, _joinedAt,

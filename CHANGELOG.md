@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.26.1] - 2026-08-14
+
+### Fixed — audio shorter than a second wedged the voice surface permanently
+
+**Measured on this host:** the bot joined a channel, heard a request perfectly, transcribed it, put
+it to the assistant — and then said nothing, ever again. It kept recognising speech the whole time.
+Nothing was logged as an error, the gateway stayed Connected, and the assistant answered normally.
+Every request made afterwards vanished.
+
+The cause is in Discord.Net's buffered audio writer: it transmits **nothing** until its queue holds a
+full buffer's worth of frames, which at the default is a whole second of audio. Below that its
+sending loop waits for a buffer that will never fill, and `FlushAsync` waits on the sending loop — so
+a short write neither completes nor throws. It hangs. The 290ms tone introduced in 3.26.0 was
+fourteen frames against a fifty-frame buffer; it was the first thing that connection had ever been
+asked to say, so the very first write wedged. Because spoken requests are answered one at a time,
+every later request queued behind a task that was never coming back.
+
+Audio below the buffer length is now padded with silence — the sound plays at its proper moment and
+the padding costs only the time it takes to drain. The buffer length is stated where the padding is
+derived from it, since the two disagreeing is what causes this. The write is also **bounded**: audio
+taking longer to go out than it could possibly take to play drops the stream and rebuilds it, so no
+future stall in the audio stack can freeze everything a person asks afterwards.
+
+⚠ This was latent before the tones: a short spoken answer — "Yes." — synthesises to well under a
+second and would have done the same thing.
+
 ## [3.26.0] - 2026-08-14
 
 ### Added — the listening state is two tones, and one of them arrives mid-sentence

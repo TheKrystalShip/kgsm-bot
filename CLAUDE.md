@@ -597,6 +597,13 @@ answers.
 - ⚠ **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
   surface posts and the spoken reply says so. The button re-derives authority at the click; a
   recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.
+- ⚠ **Audio shorter than the output buffer is padded to it, and every write is bounded.** Discord.Net's
+  buffered writer transmits nothing until its queue holds a full buffer's worth of frames — below that
+  its send loop waits forever and the flush waits on the send loop, so a short write neither returns
+  nor throws. Measured: one 290ms tone wedged the stream and, because requests are answered one at a
+  time, silenced the whole surface with nothing in the log. `SendableAudio` owns the floor and the
+  buffer length together, since the two disagreeing is the cause. A short **spoken** answer ("Yes.")
+  hits this too — it is a property of the writer, not of tones.
 - **Speaking is best-effort throughout.** No model, no card, or a broken output stream costs the audio
   and nothing else — the answer is already in the channel.
 - **Nothing is written to disk.** An utterance is bytes in memory handed to a sink and released. This
