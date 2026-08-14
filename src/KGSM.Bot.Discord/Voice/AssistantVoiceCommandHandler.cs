@@ -5,7 +5,11 @@ using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
+using KGSM.Bot.Core.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
+using KGSM.Bot.Infrastructure.Configuration;
+
+using Microsoft.Extensions.Options;
 
 using Microsoft.Extensions.Logging;
 
@@ -31,11 +35,16 @@ namespace KGSM.Bot.Discord.Voice;
 /// them is asking.
 /// </para>
 /// <para>
-/// <b>The answer is written, not spoken — for now.</b> Nothing here can produce audio yet, so the
-/// reply goes to the voice channel's text chat, which is where the people in that channel already
-/// are. A staged action is offered there too, with the same buttons the @-mention surface posts:
-/// approving out loud would be a second way to authorise a destructive action, and the button
-/// re-derives authority at the click where a spoken "yes" could not.
+/// <b>Said out loud and posted, not one or the other.</b> The chat message is the record and carries
+/// the whole answer; the spoken form is a prefix of it, cut at a sentence. A staged action is offered
+/// with the same buttons the @-mention surface posts, and the spoken reply says so rather than
+/// asking for a spoken yes: approving out loud would be a second way to authorise a destructive
+/// action, and the button re-derives authority at the click where a recogniser could not.
+/// </para>
+/// <para>
+/// Speaking is best-effort throughout. No model, no card, or a broken output stream costs the audio
+/// and nothing else — the answer is already in the channel, which is why nothing here treats a
+/// failure to speak as a failure to answer.
 /// </para>
 /// </remarks>
 public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
@@ -45,17 +54,26 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     private readonly DiscordSocketClient _client;
     private readonly IAssistantTurnClient _assistant;
     private readonly IKgsmAccounts _accounts;
+    private readonly ITextToSpeech _speech;
+    private readonly IVoiceSessions _sessions;
+    private readonly VoiceOptions _options;
     private readonly ILogger<AssistantVoiceCommandHandler> _logger;
 
     public AssistantVoiceCommandHandler(
         DiscordSocketClient client,
         IAssistantTurnClient assistant,
         IKgsmAccounts accounts,
+        ITextToSpeech speech,
+        IVoiceSessions sessions,
+        IOptions<DiscordOptions> options,
         ILogger<AssistantVoiceCommandHandler> logger)
     {
         _client = client;
         _assistant = assistant;
         _accounts = accounts;
+        _speech = speech;
+        _sessions = sessions;
+        _options = options.Value.Voice;
         _logger = logger;
     }
 
@@ -131,6 +149,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         if (result.IsFailure)
         {
             await channel.SendMessageAsync($"⚠️ {result.Error}");
+            await SayAsync(command, result.Error!, ct);
             return;
         }
 
@@ -152,6 +171,44 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
             await channel.SendMessageAsync(
                 StagedActionPrompt.Content(staged), components: StagedActionPrompt.Buttons(staged));
         }
+
+        await SayAsync(command, SpokenAnswer(turn), ct);
+    }
+
+    /// <summary>
+    /// What to say out loud: the reply, and where an offer to act has gone.
+    /// </summary>
+    /// <remarks>
+    /// A staged action is named rather than read out in full, and the sentence points at the buttons.
+    /// Somebody listening needs to know the bot did not just do it — and the one thing they must not
+    /// be invited to do is approve it by speaking.
+    /// </remarks>
+    private static string SpokenAnswer(AssistantTurn turn)
+    {
+        if (turn.StagedActions.Count == 0) return turn.Text ?? string.Empty;
+
+        string offer = turn.StagedActions.Count == 1
+            ? $"I've put a confirmation in the chat for you to approve."
+            : $"I've put {turn.StagedActions.Count} confirmations in the chat for you to approve.";
+
+        return string.IsNullOrWhiteSpace(turn.Text) ? offer : $"{turn.Text} {offer}";
+    }
+
+    /// <summary>Says an answer in the channel it was asked in, if this host can speak at all.</summary>
+    private async Task SayAsync(VoiceCommand command, string answer, CancellationToken ct)
+    {
+        if (!_options.Speak || !_speech.IsAvailable) return;
+
+        string spoken = SpokenText.From(answer, Math.Max(40, _options.SpeakMaxCharacters));
+        if (spoken.Length == 0) return;
+
+        byte[]? audio = await _speech.SynthesizeAsync(spoken, ct);
+        if (audio is null) return;
+
+        Result said = await _sessions.SpeakAsync(command.GuildId, audio, ct);
+        if (said.IsFailure)
+            _logger.LogDebug("Voice: could not say the answer to {Speaker}: {Reason}",
+                command.SpeakerName, said.Error);
     }
 
     /// <summary>

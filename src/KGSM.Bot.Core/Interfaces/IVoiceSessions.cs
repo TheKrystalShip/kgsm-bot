@@ -31,6 +31,16 @@ public interface IVoiceSessions
 
     /// <summary>What the bot is doing in this guild's voice, or null when it is in no channel.</summary>
     VoiceSession? Describe(ulong guildId);
+
+    /// <summary>
+    /// Says <paramref name="pcm"/> — 48 kHz stereo signed 16-bit — in this guild's voice channel.
+    /// </summary>
+    /// <remarks>
+    /// Goes through the session because the session owns the connection. Two answers arriving at once
+    /// are played one after the other rather than mixed into each other, which is what talking over
+    /// yourself would sound like.
+    /// </remarks>
+    Task<Result> SpeakAsync(ulong guildId, byte[] pcm, CancellationToken ct = default);
 }
 
 /// <summary>

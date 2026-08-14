@@ -756,6 +756,63 @@
       "default": "false",
       "risk": "wiring",
       "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceSpeak",
+      "env": "Discord__Voice__Speak",
+      "label": "Answer out loud",
+      "description": "Whether the bot says its answers out loud as well as posting them. Off, it still listens and still answers — in the voice channel's chat.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceSpeechModelPath",
+      "env": "Discord__Voice__SpeechModelPath",
+      "label": "Synthesis model",
+      "description": "The speech synthesis model file. Without it the bot answers in text only.",
+      "group": "voice",
+      "type": "path",
+      "default": "/var/lib/kgsm-bot/models/kokoro.onnx",
+      "risk": "safe",
+      "dependsOn": "voiceSpeak"
+    },
+    {
+      "key": "voiceSpeechVoice",
+      "env": "Discord__Voice__SpeechVoice",
+      "label": "Speaking voice",
+      "description": "Which voice the bot speaks in. The names are Kokoro's own — af_heart, af_bella, am_michael and so on.",
+      "group": "voice",
+      "type": "string",
+      "default": "af_heart",
+      "risk": "safe",
+      "dependsOn": "voiceSpeak"
+    },
+    {
+      "key": "voiceSpeakUseGpu",
+      "env": "Discord__Voice__SpeakUseGpu",
+      "label": "Synthesise on the GPU",
+      "description": "Whether to synthesise speech on the graphics card. Around eight times faster than the processor and worth roughly 700MB of video memory; a host without a usable card falls back on its own.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceSpeak"
+    },
+    {
+      "key": "voiceSpeakMaxCharacters",
+      "env": "Discord__Voice__SpeakMaxCharacters",
+      "label": "Longest spoken answer",
+      "description": "How much of an answer to say out loud before leaving the rest to be read. The full answer is always posted in the channel.",
+      "group": "voice",
+      "type": "int",
+      "default": "400",
+      "min": 40,
+      "max": 4000,
+      "risk": "safe",
+      "dependsOn": "voiceSpeak"
     }
   ]
 }

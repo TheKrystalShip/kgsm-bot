@@ -38,7 +38,7 @@ namespace KGSM.Bot.Infrastructure.Discord.Voice;
 public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
 {
     private readonly ISpeechToText _speech;
-    private readonly IVoiceCommandHandler _handler;
+    private readonly VoiceCommandQueue _queue;
     private readonly ILogger<RecognisingUtteranceSink> _logger;
     private readonly WakeWordDetector _wake;
     private readonly TimeSpan _followUp;
@@ -53,12 +53,12 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
 
     public RecognisingUtteranceSink(
         ISpeechToText speech,
-        IVoiceCommandHandler handler,
+        VoiceCommandQueue queue,
         IOptions<DiscordOptions> options,
         ILogger<RecognisingUtteranceSink> logger)
     {
         _speech = speech;
-        _handler = handler;
+        _queue = queue;
         _logger = logger;
 
         VoiceOptions voice = options.Value.Voice;
@@ -149,7 +149,12 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
             utterance.SpeakerId, utterance.SpeakerName, utterance.GuildId, utterance.ChannelId,
             asked, transcript, utterance.Duration);
 
-        await _handler.HandleAsync(command, ct);
+        // Handed over rather than answered here: answering takes seconds, and this runs on the loop
+        // that closes other speakers' sentences.
+        if (!_queue.Enqueue(command))
+            _logger.LogWarning(
+                "Voice: dropped {Speaker}'s request — more arrived than could be answered",
+                utterance.SpeakerName);
     }
 
     /// <summary>

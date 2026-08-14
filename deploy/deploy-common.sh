@@ -71,6 +71,13 @@ VOICE_MODEL_DIR="/var/lib/${PROJECT}/models"
 VOICE_MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${VOICE_MODEL_NAME}"
 VOICE_MODEL_SHA256="c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d"
 
+# The synthesis model the bot answers out loud with. Fetched here rather than left to the library,
+# which downloads it into the working directory — that is the install prefix, which the deploy syncs
+# with rsync --delete, so it would be re-fetched on every deploy forever.
+SPEECH_MODEL_NAME="kokoro.onnx"
+SPEECH_MODEL_URL="https://github.com/Lyrcaxis/KokoroSharpBinaries/releases/download/v2.0.0/${SPEECH_MODEL_NAME}"
+SPEECH_MODEL_SHA256="0cfd5e79aab70a3d8c1a57dc639835110ddb32c9f5ff4fdd1f4db202ea43bb05"
+
 # Anything else one-shot and privileged this project needs provisioned. setup.sh calls it once
 # the units are live; deploy.sh never does. Keep it idempotent — setup.sh is re-runnable. Use
 # "$SUDO" for privileged steps.
@@ -81,56 +88,62 @@ VOICE_MODEL_SHA256="c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c4
 # here either: the bot creates it, /setup writes it, and losing it loses every channel a server's
 # history is in.
 #
-# What is provisioned is the speech model, because the alternative is a host that switches voice on
-# and silently understands nothing until somebody puts a file in place by hand. It is a large
-# download for a surface that ships off; KGSM_VOICE_MODEL=0 skips it, and re-running this script
-# after setting it to 1 fetches it later.
+# What is provisioned is the two voice models — one to hear with, one to speak with — because the
+# alternative is a host that switches voice on and silently does neither until somebody puts files in
+# place by hand. Together they are most of a gigabyte for a surface that ships off;
+# KGSM_VOICE_MODEL=0 skips both, and re-running this script after setting it to 1 fetches them.
 setup_project_extras() {
     [[ "${KGSM_VOICE_MODEL:-1}" == "0" ]] && {
-        log "skipping the speech model (KGSM_VOICE_MODEL=0) — voice will not understand anything"
+        log "skipping the voice models (KGSM_VOICE_MODEL=0) — the bot will neither understand nor speak"
         return 0
     }
 
-    local model="${VOICE_MODEL_DIR}/${VOICE_MODEL_NAME}"
+    install -d -m 0755 "$VOICE_MODEL_DIR" 2>/dev/null ||
+        $SUDO install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$VOICE_MODEL_DIR"
 
-    if [[ -f "$model" ]] && sha256_matches "$model" "$VOICE_MODEL_SHA256"; then
+    fetch_model "hearing"  "$VOICE_MODEL_NAME"  "$VOICE_MODEL_URL"  "$VOICE_MODEL_SHA256"  "488MB"
+    fetch_model "speaking" "$SPEECH_MODEL_NAME" "$SPEECH_MODEL_URL" "$SPEECH_MODEL_SHA256" "325MB"
+}
+
+# One model: present and correct is a no-op, present and wrong is replaced, absent is fetched.
+# $1 = what it is for, $2 = filename, $3 = url, $4 = digest, $5 = human size
+fetch_model() {
+    local what="$1" name="$2" url="$3" digest="$4" size="$5"
+    local model="${VOICE_MODEL_DIR}/${name}"
+
+    if [[ -f "$model" ]] && sha256_matches "$model" "$digest"; then
         return 0
     fi
 
-    # A file that is present and wrong is worse than one that is absent: it loads, recognises badly,
-    # and reads as a tuning problem. So it goes before the fetch is attempted rather than after it
-    # succeeds — if the download then fails, the bot says it has no model, which is true and
-    # actionable, instead of quietly recognising nonsense.
+    # A file that is present and wrong is worse than one that is absent: it loads, behaves badly, and
+    # reads as a tuning problem. So it goes BEFORE the fetch is attempted rather than after it
+    # succeeds — if the download then fails, the bot reports having no model, which is true and
+    # actionable, instead of quietly producing nonsense.
     if [[ -f "$model" ]]; then
         warn "${model} does not match its expected digest — discarding it and re-fetching"
         rm -f "$model"
     fi
 
-    install -d -m 0755 "$VOICE_MODEL_DIR" 2>/dev/null ||
-        $SUDO install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$VOICE_MODEL_DIR"
-
-    log "fetching the speech model (~488MB, once) → ${model}"
-    log "  skip this with KGSM_VOICE_MODEL=0 if this host will never use the voice surface"
+    log "fetching the ${what} model (~${size}, once) → ${model}"
 
     # Downloaded beside the target and moved into place only once verified, so an interrupted fetch
     # leaves no half-file for the bot to load.
     local tmp="${model}.partial"
-    if ! curl -fL --retry 3 --retry-delay 2 -o "$tmp" "$VOICE_MODEL_URL"; then
+    if ! curl -fL --retry 3 --retry-delay 2 -o "$tmp" "$url"; then
         rm -f "$tmp"
-        warn "could not fetch the speech model — the voice surface will start and understand nothing."
+        warn "could not fetch the ${what} model — the voice surface will start without it."
         warn "  fetch it later:  KGSM_VOICE_MODEL=1 ./deploy/setup.sh"
         return 0
     fi
 
-    if ! sha256_matches "$tmp" "$VOICE_MODEL_SHA256"; then
+    if ! sha256_matches "$tmp" "$digest"; then
         rm -f "$tmp"
-        warn "the downloaded speech model does not match its expected digest — discarded."
-        warn "  nothing was installed; the voice surface will understand nothing until this succeeds."
+        warn "the downloaded ${what} model does not match its expected digest — discarded."
         return 0
     fi
 
     mv -f "$tmp" "$model"
-    log "speech model installed ✓"
+    log "${what} model installed ✓"
 }
 
 sha256_matches() {   # $1 = file, $2 = expected digest

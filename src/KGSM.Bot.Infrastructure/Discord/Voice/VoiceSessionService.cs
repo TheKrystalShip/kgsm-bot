@@ -103,7 +103,9 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             if (_sessions.TryRemove(guildId, out Session? existing))
                 await existing.DisposeAsync();
 
-            IAudioClient audio = await channel.ConnectAsync(selfDeaf: false, selfMute: true);
+            // Neither deafened nor muted: it is here to hear the room and to answer out loud. A bot
+            // that joins muted is one whose replies go nowhere, with no error to say so.
+            IAudioClient audio = await channel.ConnectAsync(selfDeaf: false, selfMute: false);
 
             var session = new Session(channel, audio, _limits, _sink, _options, _logger, LeaveAsync);
             _sessions[guildId] = session;
@@ -125,6 +127,14 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         {
             _gate.Release();
         }
+    }
+
+    public async Task<Result> SpeakAsync(ulong guildId, byte[] pcm, CancellationToken ct = default)
+    {
+        if (!_sessions.TryGetValue(guildId, out Session? session))
+            return Result.Failure("I'm not in a voice channel here.");
+
+        return await session.SpeakAsync(pcm, ct);
     }
 
     public async Task<Result> LeaveAsync(ulong guildId, CancellationToken ct = default)
@@ -169,6 +179,11 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
     {
         private readonly ConcurrentDictionary<ulong, Speaker> _speakers = new();
         private readonly CancellationTokenSource _cts = new();
+
+        // One output stream for the session, and one answer through it at a time. Made on first use
+        // rather than on joining, so a session nobody speaks into never builds an encoder.
+        private readonly SemaphoreSlim _mouth = new(1, 1);
+        private AudioOutStream? _out;
         private readonly DateTimeOffset _joinedAt = DateTimeOffset.UtcNow;
         private long _utterances;
 
@@ -185,6 +200,47 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 _ = OnStreamCreated(userId, stream);
 
             _ = Task.Run(() => TickAsync(_cts.Token));
+        }
+
+        /// <summary>Plays one answer, waiting for any answer already playing to finish.</summary>
+        /// <remarks>
+        /// Flushed before the lock is released: Discord.Net buffers, and returning while audio is
+        /// still queued would let the next answer start writing into the middle of this one.
+        /// </remarks>
+        public async Task<Result> SpeakAsync(byte[] pcm, CancellationToken ct)
+        {
+            if (pcm.Length == 0) return Result.Success();
+
+            await _mouth.WaitAsync(ct);
+            try
+            {
+                _out ??= audio.CreatePCMStream(AudioApplication.Voice);
+
+                await _out.WriteAsync(pcm, ct);
+                await _out.FlushAsync(ct);
+
+                logger.LogDebug(
+                    "Voice: said {Seconds:F1}s in {Channel}",
+                    PcmUpsampler.DurationOfStereo48k(pcm.Length).TotalSeconds, channel.Name);
+
+                return Result.Success();
+            }
+            catch (OperationCanceledException)
+            {
+                return Result.Failure("I was interrupted before I could say that.");
+            }
+            catch (Exception ex)
+            {
+                // A broken output stream is not a broken session: the connection may still be
+                // delivering audio in the other direction, and the answer is already in the chat.
+                logger.LogWarning(ex, "Voice: could not speak in {Channel}", channel.Name);
+                _out = null;
+                return Result.Failure("I couldn't say that out loud.");
+            }
+            finally
+            {
+                _mouth.Release();
+            }
         }
 
         public VoiceSession Describe() => new(
@@ -321,6 +377,15 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             }
 
             _speakers.Clear();
+
+            if (_out is not null)
+            {
+                try { await _out.DisposeAsync(); }
+                catch (Exception ex) { logger.LogWarning(ex, "Voice: error closing the output stream"); }
+                _out = null;
+            }
+
+            _mouth.Dispose();
 
             try { await audio.StopAsync(); }
             catch (Exception ex) { logger.LogWarning(ex, "Voice: error closing the connection to {Channel}", channel.Name); }

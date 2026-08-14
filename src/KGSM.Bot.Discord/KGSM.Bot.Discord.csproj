@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>3.18.0</Version>
+    <Version>3.19.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -95,6 +95,34 @@
     <Content Remove="runtimeconfig.template.json" />
     <None Include="runtimeconfig.template.json" />
   </ItemGroup>
+
+  <!-- The ONNX Runtime package lays its Windows natives flat beside the binary alongside the Linux
+       ones. ONNX P/Invokes the literal name "onnxruntime.dll", so on Linux the resolver finds that
+       Windows file first, fails with "invalid ELF header", and never goes on to try
+       libonnxruntime.so — speech synthesis then reports itself unavailable on a host that has
+       everything it needs. Dropping them is safe: they cannot be loaded here by anything. -->
+  <!-- KokoroSharp copies its voice files to the build output and stops there — its own targets have
+       no publish step — so a published bot loads the model and then cannot find a voice to speak in.
+       They are small and the voice is a runtime setting, so all of them ship rather than only the
+       configured one. -->
+  <Target Name="PublishKokoroVoices" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <_KokoroVoice Include="$(OutputPath)voices/**/*" />
+      <ResolvedFileToPublish Include="@(_KokoroVoice)">
+        <RelativePath>voices/%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="DropWindowsOnnxNatives" AfterTargets="ComputeFilesToPublish"
+          Condition="'$(RuntimeIdentifier)' != '' and !$(RuntimeIdentifier.StartsWith('win'))">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Remove="@(ResolvedFileToPublish)"
+        Condition="'%(Extension)' == '.dll' and $([System.String]::Copy('%(Filename)').StartsWith('onnxruntime'))" />
+    </ItemGroup>
+  </Target>
 
   <Target Name="SetSourceRevisionId" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;CoreCompile"
           Condition="'$(SourceRevisionId)' == ''">

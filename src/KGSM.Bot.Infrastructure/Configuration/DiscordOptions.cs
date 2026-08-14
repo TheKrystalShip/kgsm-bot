@@ -473,4 +473,42 @@ public class VoiceOptions
     [LeafField("voiceLogTranscripts", "Log everything heard", Group = "voice",
         Risk = LeafRisk.Wiring, DependsOn = "voiceEnabled")]
     public bool LogTranscripts { get; set; } = false;
+
+    /// <panel>Whether the bot says its answers out loud as well as posting them. Off, it still
+    /// listens and still answers — in the voice channel's chat.</panel>
+    [LeafField("voiceSpeak", "Answer out loud", Group = "voice", DependsOn = "voiceEnabled")]
+    public bool Speak { get; set; } = true;
+
+    /// <summary>The Kokoro model used to synthesise speech.</summary>
+    /// <remarks>
+    /// Beside the recognition model and outside the install prefix, for the same reason: the deploy
+    /// syncs that prefix with <c>rsync --delete</c>.
+    /// </remarks>
+    /// <panel>The speech synthesis model file. Without it the bot answers in text only.</panel>
+    [LeafField("voiceSpeechModelPath", "Synthesis model", Group = "voice", Type = LeafType.Path,
+        DependsOn = "voiceSpeak")]
+    public string SpeechModelPath { get; set; } = "/var/lib/kgsm-bot/models/kokoro.onnx";
+
+    /// <panel>Which voice the bot speaks in. The names are Kokoro's own — <code>af_heart</code>,
+    /// <code>af_bella</code>, <code>am_michael</code> and so on.</panel>
+    [LeafField("voiceSpeechVoice", "Speaking voice", Group = "voice", DependsOn = "voiceSpeak")]
+    public string SpeechVoice { get; set; } = "af_heart";
+
+    /// <panel>Whether to synthesise speech on the graphics card. Around eight times faster than the
+    /// processor and worth roughly 700MB of video memory; a host without a usable card falls back on
+    /// its own.</panel>
+    [LeafField("voiceSpeakUseGpu", "Synthesise on the GPU", Group = "voice", DependsOn = "voiceSpeak")]
+    public bool SpeakUseGpu { get; set; } = true;
+
+    /// <summary>How much of a reply is worth saying out loud.</summary>
+    /// <remarks>
+    /// A cap rather than a summary: what is spoken is always a prefix of what was posted, cut at a
+    /// sentence, and the whole reply is in the channel. Synthesis time scales with length, so this is
+    /// also the ceiling on how long somebody waits to hear an answer start.
+    /// </remarks>
+    /// <panel>How much of an answer to say out loud before leaving the rest to be read. The full
+    /// answer is always posted in the channel.</panel>
+    [LeafField("voiceSpeakMaxCharacters", "Longest spoken answer", Group = "voice",
+        Min = 40, Max = 4000, DependsOn = "voiceSpeak")]
+    public int SpeakMaxCharacters { get; set; } = 400;
 }

@@ -22,15 +22,24 @@ namespace KGSM.Bot.Core.Tests.Voice;
 public class RecognisingUtteranceSinkTests
 {
     private readonly ISpeechToText _speech = Substitute.For<ISpeechToText>();
-    private readonly IVoiceCommandHandler _handler = Substitute.For<IVoiceCommandHandler>();
-    private readonly List<VoiceCommand> _dispatched = [];
+    private readonly VoiceCommandQueue _queue = new();
 
-    public RecognisingUtteranceSinkTests()
+    private readonly List<VoiceCommand> _taken = [];
+
+    /// <summary>
+    /// What the sink handed over — drained from the queue rather than intercepted, and accumulated,
+    /// because a queue read twice is a queue that looks empty the second time.
+    /// </summary>
+    private List<VoiceCommand> _dispatched
     {
-        _speech.IsAvailable.Returns(true);
-        _handler.HandleAsync(Arg.Do<VoiceCommand>(_dispatched.Add), Arg.Any<CancellationToken>())
-            .Returns(ValueTask.CompletedTask);
+        get
+        {
+            while (_queue.Reader.TryRead(out VoiceCommand? command)) _taken.Add(command);
+            return _taken;
+        }
     }
+
+    public RecognisingUtteranceSinkTests() => _speech.IsAvailable.Returns(true);
 
     private RecognisingUtteranceSink Sink(int followUpSeconds = 10)
     {
@@ -40,7 +49,7 @@ public class RecognisingUtteranceSinkTests
         });
 
         return new RecognisingUtteranceSink(
-            _speech, _handler, options, NullLogger<RecognisingUtteranceSink>.Instance);
+            _speech, _queue, options, NullLogger<RecognisingUtteranceSink>.Instance);
     }
 
     /// <summary>Feeds one utterance, with the transcript the recogniser would have produced.</summary>

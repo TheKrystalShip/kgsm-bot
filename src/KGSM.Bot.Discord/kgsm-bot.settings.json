@@ -173,7 +173,20 @@
       "UseGpu": true,
       "Triggers": "hey assistant",
       "FollowUpSeconds": 10,
-      "LogTranscripts": false
+      "LogTranscripts": false,
+
+      // Answering out loud. Synthesis on the card is around eight times faster than on the processor
+      // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
+      // cuDNN, which recognition does not) falls back on its own and says so in the log.
+      //
+      // What is spoken is a PREFIX of what is posted, cut at a sentence — never a summary, because a
+      // surface that rewords a reply on its way to being read out is one that says things the
+      // assistant did not. The whole answer is always in the channel.
+      "Speak": true,
+      "SpeechModelPath": "/var/lib/kgsm-bot/models/kokoro.onnx",
+      "SpeechVoice": "af_heart",
+      "SpeakUseGpu": true,
+      "SpeakMaxCharacters": 400
     },
 
     // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active

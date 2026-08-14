@@ -112,6 +112,10 @@ public class Program
                 // channel's chat and offers the same confirmation buttons the @-mention surface does.
                 services.AddSingleton<IVoiceCommandHandler, Voice.AssistantVoiceCommandHandler>();
 
+                // Drains the queue the audio path fills, so a turn that takes seconds does not run
+                // on the loop that closes other speakers' sentences.
+                services.AddHostedService<KGSM.Bot.Infrastructure.Discord.Voice.VoiceCommandWorker>();
+
                 // Register hosted service
                 services.AddHostedService<BotService>();
 

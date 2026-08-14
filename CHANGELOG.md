@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.19.0] - 2026-08-14
+
+### Added — the bot answers out loud
+
+An answer is spoken into the voice channel as well as posted in its chat. Verified live in a channel
+with four people in it: eight requests asked and answered aloud, three to six seconds from the end of
+somebody's sentence to the start of the reply.
+
+Synthesis is Kokoro, in this process, **on the GPU** — measured at 40ms for a short reply against
+355ms on the processor, for about 700MB of video memory. It asks for CUDA and accepts the processor,
+so a host without a usable card answers more slowly rather than not at all, and which one it settled
+on is logged because an eightfold difference is otherwise invisible. Unlike recognition, cost scales
+with how much is said: a reply that answers the question and stops arrives sooner as well as being
+easier to listen to.
+
+The synthesiser is warmed with one throwaway phrase at startup. Loading the model is not the whole
+cost of the first call, and measured in a live channel the difference — 1441ms against 340-600ms for
+every answer after it — landed entirely on the first person to ask.
+
+`SpokenText` strips what a chat reply carries for the eye: fenced blocks go whole (a stack trace read
+aloud is a minute nobody can follow), emphasis and code markers go in place, and the rest is cut to a
+sentence under a budget. **What is spoken is always a prefix of what was posted**, never a summary — a
+surface that rewords a reply on its way to being read out is one that says things the assistant did
+not.
+
+A staged action is spoken as "I've put a confirmation in the chat", and the buttons remain the only
+way to approve one. Approving out loud would be a second and weaker gate in front of an irreversible
+operation, on the surface where mishearing is routine.
+
+### Changed — the bot joins unmuted, and answering happens off the audio path
+
+A bot that joined muted was one whose replies went nowhere with no error to say so.
+
+Recognised requests now cross a bounded queue to a worker instead of being answered inline. A turn
+takes seconds, and all of it used to run inside the tick that closes utterances — one person asking a
+question stopped every other speaker's sentence from being finished for as long as it took to answer.
+It is also what makes the wiring acyclic: the session owns the connection, so answering out loud goes
+back through it, which wired directly is a circle the container refuses at startup.
+
+### Fixed — the deploy carries what synthesis needs
+
+Three things the package would not have delivered on its own. The ONNX Runtime lays its Windows
+natives flat beside the Linux ones and P/Invokes the literal name `onnxruntime.dll`, so the resolver
+found the Windows file and failed on its ELF header; those are dropped when publishing for a
+non-Windows runtime. The same import name never probes `libonnxruntime.so` at all under a single-file
+publish, which an ordinary one hides behind the RID asset mapping, so the import is resolved
+explicitly. And KokoroSharp copies its voice files on build only — its own targets have no publish
+step — leaving a deployed bot with a model and no voice to speak in.
+
+`setup.sh` fetches the synthesis model beside the recognition one, digest-pinned, because the library
+otherwise downloads it into the install prefix that every deploy erases.
+
 ## [3.18.0] - 2026-08-14
 
 ### Added — a spoken request reaches the assistant

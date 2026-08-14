@@ -79,3 +79,62 @@ public static class PcmDownsampler
     public static TimeSpan DurationOfMono16k(int monoByteCount) =>
         TimeSpan.FromSeconds(monoByteCount / 2.0 / 16000.0);
 }
+
+/// <summary>
+/// Turns synthesised speech into the PCM Discord will accept: 24 kHz mono, 16-bit signed
+/// little-endian, up to 48 kHz stereo.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The inverse trip to <see cref="PcmDownsampler"/>, and simpler for it. The ratio is exactly 2:1 in
+/// the other direction, so each input sample becomes two output samples and nothing accumulates.
+/// </para>
+/// <para>
+/// Each sample is repeated rather than interpolated between neighbours. Duplication mirrors the
+/// spectrum above 12 kHz into the top of the output band, which is real distortion — and it sits
+/// above where speech carries meaning, in a signal that is about to be Opus-encoded for a voice call
+/// at a bitrate that discards most of that region anyway. Interpolating would be more correct and
+/// inaudible here; sample-and-hold is what the Opus encoder is going to smooth regardless.
+/// </para>
+/// <para>
+/// Mono becomes two identical channels because that is what Discord's stream expects, not because
+/// there is anything stereo about one synthesised voice.
+/// </para>
+/// </remarks>
+public static class PcmUpsampler
+{
+    /// <summary>Bytes in one 48 kHz stereo frame: two channels, two bytes each.</summary>
+    public const int TargetFrameBytes = 4;
+
+    /// <summary>
+    /// Converts <paramref name="mono24k"/> — 24 kHz mono signed 16-bit LE — to the 48 kHz stereo of
+    /// the same sample format that a Discord voice stream is written in.
+    /// </summary>
+    public static byte[] ToStereo48k(ReadOnlySpan<byte> mono24k)
+    {
+        int samples = mono24k.Length / 2;
+        if (samples == 0) return [];
+
+        // One input sample becomes two output samples, each of two channels.
+        var output = new byte[samples * 2 * TargetFrameBytes];
+
+        for (int i = 0; i < samples; i++)
+        {
+            short sample = BitConverter.ToInt16(mono24k[(i * 2)..]);
+            int at = i * 2 * TargetFrameBytes;
+
+            for (int repeat = 0; repeat < 2; repeat++)
+            {
+                int offset = at + (repeat * TargetFrameBytes);
+                BitConverter.TryWriteBytes(output.AsSpan(offset), sample);
+                BitConverter.TryWriteBytes(output.AsSpan(offset + 2), sample);
+            }
+        }
+
+        return output;
+    }
+
+    /// <summary>How long <paramref name="stereoByteCount"/> bytes of 48 kHz stereo audio lasts.</summary>
+    public static TimeSpan DurationOfStereo48k(int stereoByteCount) =>
+        TimeSpan.FromSeconds(stereoByteCount / (double)TargetFrameBytes / 48000.0);
+}

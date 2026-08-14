@@ -142,10 +142,19 @@ public static class DependencyInjection
         // than recognising one.
         services.AddSingleton<ISpeechToText, global::KGSM.Bot.Infrastructure.Discord.Voice.WhisperSpeechToText>();
 
+        // Saying an answer out loud. A singleton for the same reason as recognition — the model is
+        // hundreds of megabytes — and best-effort throughout: without it the bot answers in the
+        // channel's chat and nothing else changes.
+        services.AddSingleton<ITextToSpeech, global::KGSM.Bot.Infrastructure.Discord.Voice.KokoroTextToSpeech>();
+
         // Hearing a request and acting on one are separate registrations on purpose: only the second
         // needs to know the assistant exists. IVoiceCommandHandler is registered by the Discord layer
         // (Program.cs) rather than here, because answering means posting to Discord and offering the
         // same confirmation buttons the @-mention surface does.
+        // The handoff between hearing and answering. A singleton because it IS the queue, and the
+        // thing that makes the voice wiring acyclic: the session owns the connection, so answering
+        // out loud goes back through it, which wired directly would be a circle.
+        services.AddSingleton<global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceCommandQueue>();
         services.AddSingleton<IVoiceUtteranceSink, global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink>();
 
         // The bot's voice connections. A singleton because it owns them: Discord allows one per
