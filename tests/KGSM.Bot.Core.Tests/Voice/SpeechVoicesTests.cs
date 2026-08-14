@@ -55,10 +55,19 @@ public class SpeechVoicesTests
         SpeechVoices.Preferred.Should().OnlyHaveUniqueItems();
 
     [Fact]
-    public void BritishComesFirst()
+    public void TheDefaultLeadsTheList()
     {
-        // Not cosmetic: the list is what the panel shows in order and what autocomplete suggests
-        // before anything is typed, so the first entries are the ones most people will ever try.
-        SpeechVoices.Preferred.Take(8).Should().OnlyContain(v => v.StartsWith('b'));
+        // Not cosmetic: this is the order the panel's dropdown shows and the order autocomplete
+        // suggests before anything is typed. A picker opening on the value it is already set to reads
+        // as a setting; one opening elsewhere reads as a list to go hunting through.
+        SpeechVoices.Preferred[0].Should().Be(new VoiceOptions().SpeechVoice);
+    }
+
+    [Fact]
+    public void AccentsAreNotInterleaved()
+    {
+        // Grouped, because somebody choosing a voice has usually already chosen an accent.
+        var accents = SpeechVoices.Preferred.Select(v => v[0]).Distinct();
+        accents.Should().HaveCount(2, "each accent should appear as one contiguous run");
     }
 }

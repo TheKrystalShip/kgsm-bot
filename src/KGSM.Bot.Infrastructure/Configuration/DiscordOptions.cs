@@ -654,16 +654,16 @@ public class VoiceOptions
     /// Changing this restarts the bot, so it leaves any voice channel it is sitting in.</panel>
     [LeafField("voiceSpeechVoice", "Speaking voice", Group = "voice", DependsOn = "voiceSpeak",
         Type = LeafType.Enum, Values = [
-            // British — bf_emma is the only one of these with hours of speech behind it.
-            "bf_emma", "bf_isabella", "bf_alice", "bf_lily",
-            "bm_george", "bm_fable", "bm_lewis", "bm_daniel",
             // American — af_heart and af_bella are the best-trained voices Kokoro ships at all.
             "af_heart", "af_bella", "af_nicole", "af_aoede", "af_kore", "af_sarah",
             "af_alloy", "af_nova", "af_sky", "af_jessica", "af_river",
             "am_fenrir", "am_michael", "am_puck", "am_echo", "am_eric",
             "am_liam", "am_onyx", "am_santa", "am_adam",
+            // British — bf_emma is the only one of these with hours of speech behind it.
+            "bf_emma", "bf_isabella", "bf_alice", "bf_lily",
+            "bm_george", "bm_fable", "bm_lewis", "bm_daniel",
         ])]
-    public string SpeechVoice { get; set; } = "bf_emma";
+    public string SpeechVoice { get; set; } = "af_heart";
 
     /// <panel>Whether to synthesise speech on the graphics card. Around eight times faster than the
     /// processor and worth roughly 700MB of video memory; a host without a usable card falls back on

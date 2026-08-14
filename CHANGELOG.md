@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.34.0] - 2026-08-14
+
+### Fixed — 61MB held to speak in one voice
+
+⚠ **`KokoroVoiceManager` bulk-loads every voice on disk** the first time it is asked for one, and that
+is not the 54 English voices it looks like — it walks subdirectories, and `voices-zh` brings the total
+to **157 `.npy` arrays**. Measured on hotrod: **1848MB → 1787MB** resident after loading exactly the
+one voice in use. Each array is over the large-object threshold, so they sat on the LOH and were never
+compacted away.
+
+`KokoroVoice.FromPath` reads a single voice — about half a megabyte and a few milliseconds. A fresh
+process now holds only the configured one, and `/voice speak-as` reads whatever it is asked for, so
+memory follows what has actually been tried rather than what exists. Listing the available voices
+reads the **directory** and loads nothing at all.
+
+⚠ A voice named in configuration that this host does not have now reports the names it *does* have,
+rather than failing with the name that was already known to be wrong.
+
+### Changed — `af_heart` is the default
+
+The best-graded voice Kokoro ships, and the one this host speaks in. The picker leads with it, since a
+dropdown opening on its current value reads as a setting rather than as a list to hunt through.
+
 ## [3.33.0] - 2026-08-14
 
 ### Added — `/voice speak-as`, which swaps the voice without a restart

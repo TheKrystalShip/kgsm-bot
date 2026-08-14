@@ -94,6 +94,24 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
     private volatile KokoroVoice? _voice;
     private bool _disposed;
 
+    /// <summary>Where the <c>.npy</c> voice files live — beside the binary, as they are published.</summary>
+    private static readonly string VoicesDirectory =
+        Path.Combine(AppContext.BaseDirectory, "voices");
+
+    /// <summary>
+    /// The voices read off disk so far, by name.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ <b>Kept so a voice tried a second time is free, and never populated ahead of use.</b>
+    /// <see cref="KokoroVoiceManager"/> is deliberately untouched: its accessor loads <em>every</em>
+    /// voice in the directory the first time it is asked for one — and that directory holds 157 arrays
+    /// including every other language's, measured at 78MB of float32 resident to speak in one of them.
+    /// Each is over the large-object threshold, so they land on the LOH and are never compacted away.
+    /// <see cref="KokoroVoice.FromPath"/> reads exactly one.
+    /// </remarks>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, KokoroVoice> _loaded =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public KokoroTextToSpeech(IOptions<DiscordOptions> options, ILogger<KokoroTextToSpeech> logger)
     {
         _logger = logger;
@@ -116,8 +134,22 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
         {
             var timer = Stopwatch.StartNew();
             (_synth, string runtime) = Load(model, voice.SpeakUseGpu);
-            _voice = KokoroVoiceManager.GetVoice(voice.SpeechVoice);
+            _voice = Read(voice.SpeechVoice);
             timer.Stop();
+
+            if (_voice is null)
+            {
+                // Named, and every alternative named with it: the one thing somebody in this position
+                // needs is the spelling of a voice that exists.
+                _logger.LogError(
+                    "Voice: there is no voice called '{Voice}' in {Directory} — the bot will answer in "
+                    + "text and not out loud. Installed: {Installed}",
+                    voice.SpeechVoice, VoicesDirectory, string.Join(", ", Installed()));
+
+                _synth.Dispose();
+                _synth = null;
+                return;
+            }
 
             _logger.LogInformation(
                 "Voice: speech synthesis ready — {Voice} on the {Runtime}, loaded in {Elapsed}ms",
@@ -223,14 +255,65 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
                 .Select((name, at) => (name, at))
                 .ToDictionary(x => x.name, x => x.at, StringComparer.OrdinalIgnoreCase);
 
-            return KokoroVoiceManager.Voices
-                .Select(v => v.Name)
+            return Installed()
                 .Where(n => n.Length > 1 && n[0] is 'a' or 'b')
                 // A voice the preference list has never heard of sorts last rather than vanishing:
                 // this decides what is suggested first, never what may be used.
                 .OrderBy(n => order.TryGetValue(n, out int at) ? at : int.MaxValue)
                 .ThenBy(n => n, StringComparer.Ordinal)
                 .ToArray();
+        }
+    }
+
+    /// <summary>
+    /// The names of the voices on disk. Reading the directory, so nothing is loaded to find out what
+    /// could be.
+    /// </summary>
+    /// <remarks>
+    /// Top level only. The other languages Kokoro ships sit in a subdirectory, and walking into it is
+    /// how a listing becomes 157 entries — and, if anything then loads them, 78MB.
+    /// </remarks>
+    private static IEnumerable<string> Installed()
+    {
+        if (!Directory.Exists(VoicesDirectory)) return [];
+
+        return Directory
+            .EnumerateFiles(VoicesDirectory, "*.npy", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Select(n => n!);
+    }
+
+    /// <summary>
+    /// One voice, read from disk the first time it is asked for. Null when this host does not have it.
+    /// </summary>
+    /// <remarks>
+    /// About half a megabyte and a few milliseconds each — which is what makes loading them on demand
+    /// the obvious shape rather than a trade-off. A voice nobody selects costs nothing at all.
+    /// </remarks>
+    private KokoroVoice? Read(string name)
+    {
+        string wanted = (name ?? string.Empty).Trim();
+        if (wanted.Length == 0) return null;
+
+        if (_loaded.TryGetValue(wanted, out KokoroVoice? already)) return already;
+
+        // Matched against the directory rather than composed into a path: a name is configuration, and
+        // configuration that reaches the filesystem unchecked is how ".." gets read as a voice.
+        string? file = Installed()
+            .FirstOrDefault(n => n.Equals(wanted, StringComparison.OrdinalIgnoreCase));
+
+        if (file is null) return null;
+
+        try
+        {
+            KokoroVoice voice = KokoroVoice.FromPath(Path.Combine(VoicesDirectory, file + ".npy"));
+            return _loaded.GetOrAdd(file, voice);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Voice: could not read the voice '{Voice}'", file);
+            return null;
         }
     }
 
@@ -242,11 +325,9 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
         if (string.IsNullOrWhiteSpace(voice))
             return Result.Failure("Name a voice.");
 
-        KokoroVoice? found = KokoroVoiceManager.Voices
-            .FirstOrDefault(v => v.Name.Equals(voice.Trim(), StringComparison.OrdinalIgnoreCase));
-
-        // Looked up rather than asked for: the library's own accessor throws on an unknown name, and a
-        // person mistyping one is not an exceptional condition.
+        // Read here, so trying a voice is what loads it. The one being spoken in was the only one
+        // resident until somebody asked for another.
+        KokoroVoice? found = Read(voice);
         if (found is null)
             return Result.Failure($"I don't have a voice called \"{voice}\".");
 

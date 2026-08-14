@@ -27,14 +27,16 @@ public static class SpeechVoices
     /// <summary>English voices, best-trained first within each accent.</summary>
     public static readonly IReadOnlyList<string> Preferred =
     [
-        // British. bf_emma is the only one of these with hours of speech behind it.
-        "bf_emma", "bf_isabella", "bf_alice", "bf_lily",
-        "bm_george", "bm_fable", "bm_lewis", "bm_daniel",
-
-        // American. af_heart and af_bella are the best-trained voices Kokoro ships at all.
+        // American. af_heart and af_bella are the best-trained voices Kokoro ships at all, and
+        // af_heart is what this bot speaks in — a picker whose first entry is the current value reads
+        // as the setting it is, rather than as a list somebody has to find their own answer in.
         "af_heart", "af_bella", "af_nicole", "af_aoede", "af_kore", "af_sarah",
         "af_alloy", "af_nova", "af_sky", "af_jessica", "af_river",
         "am_fenrir", "am_michael", "am_puck", "am_echo", "am_eric",
         "am_liam", "am_onyx", "am_santa", "am_adam",
+
+        // British. bf_emma is the only one of these with hours of speech behind it.
+        "bf_emma", "bf_isabella", "bf_alice", "bf_lily",
+        "bm_george", "bm_fable", "bm_lewis", "bm_daniel",
     ];
 }

@@ -599,6 +599,12 @@ answers.
   enough, and leaves the answer in the room disagreeing with the answer in the channel. **How long a
   reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
   (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
+- ⚠ **Never call `KokoroVoiceManager` — it loads every voice on disk.** Its accessors bulk-load the
+  whole `voices/` tree the first time they are asked for anything, and that tree is **157 `.npy`
+  arrays** (every other language sits in a subdirectory it walks into): measured at **61MB of resident
+  float32 to speak in one voice**, on the LOH, never compacted. `KokoroTextToSpeech` reads one voice
+  with `KokoroVoice.FromPath` and caches what has actually been asked for, so a fresh process holds
+  exactly the configured voice. Listing what is available reads the *directory*, never the loaded set.
 - ⚠ **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
   stops that answer (`IVoiceSessions.StopSpeaking`, `Voice:Interruptible`), and the request that
   stopped it is answered next. Receiving never pauses for speaking — they are separate directions on

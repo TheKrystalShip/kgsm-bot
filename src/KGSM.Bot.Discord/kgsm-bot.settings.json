@@ -240,9 +240,10 @@
       "Interruptible": true,
 
       "SpeechModelPath": "/var/lib/kgsm-bot/models/kokoro.onnx",
-      // British, and the only British voice Kokoro trained on hours rather than minutes of speech —
-      // the rest of that accent's voices are graded a tier or two below it.
-      "SpeechVoice": "bf_emma",
+      // One voice is read from disk, not all of them: the directory holds 157 arrays including every
+      // other language's, and loading the lot to speak in one costs 78MB for nothing. Trying another
+      // with /voice speak-as reads that one too.
+      "SpeechVoice": "af_heart",
       "SpeakUseGpu": true
     },
 
