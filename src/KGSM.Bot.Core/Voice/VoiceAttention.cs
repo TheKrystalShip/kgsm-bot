@@ -101,6 +101,11 @@ public enum VoiceWaitingFor
 /// approval and a click are the same redemption and the second of them is refused.
 /// </param>
 /// <param name="Describes">The action in words, for asking about it again.</param>
+/// <param name="Kind">
+/// The engine's own word for what would happen — used to decide whether starting it is worth warning
+/// somebody about, since an install and a restart are the same shape of offer and very different
+/// waits.
+/// </param>
 /// <param name="Asked">
 /// How many times the bot has now asked. A question it cannot get a clear answer to is asked a
 /// bounded number of times and then left to the buttons — repeating forever is how a voice channel
@@ -111,4 +116,5 @@ public sealed record VoiceWaiting(
     DateTimeOffset Until,
     string? Token = null,
     string? Describes = null,
+    string? Kind = null,
     int Asked = 1);

@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.24.0] - 2026-08-14
+
+### Added — it says something while it works
+
+Silence reads as broken. An assistant turn takes seconds, and a confirmed install was measured on
+this host at **32 of them** — 17:05:09 to 17:05:41, every one silent after somebody said "go ahead".
+From inside a voice channel that is indistinguishable from a bot that never heard you, and the
+natural thing to do is say it again.
+
+So a request now gets an immediate spoken acknowledgement — *"Looking into it."*, *"One moment."* —
+and an approved job says so as it starts. A job that moves files around (install, uninstall, update,
+backup, restore) says it will take a while; starting and stopping do not, because the warning would
+be longer than the wait.
+
+**It costs no latency, because it is said alongside the work rather than before it.** The turn is
+started first and the phrase plays while it runs; the output stream serialises writes, so the answer
+queues behind the acknowledgement instead of overlapping it. Awaiting it before starting the work
+would have added a second to every request in order to appear faster.
+
+Short phrases are kept as the audio they became, so the second time one is said it is not synthesised
+again — a phrase whose whole value is arriving immediately should not pay to be generated. Bounded to
+a couple of dozen short entries; whole answers are never cached, since nobody hears one twice.
+
+The phrases vary. One that never changes stops being heard as a reply and becomes a noise the bot
+makes, and a person who has stopped listening to it has lost the thing it was for.
+
+`Discord:Voice:Acknowledge` switches it off.
+
 ## [3.23.0] - 2026-08-14
 
 ### Added — approving a staged action out loud

@@ -501,6 +501,22 @@ public class VoiceOptions
     [LeafField("voiceConfirmByVoice", "Approve out loud", Group = "voice", DependsOn = "voiceEnabled")]
     public bool ConfirmByVoice { get; set; } = true;
 
+    /// <summary>
+    /// Whether the bot says something short the moment it hears a request, before it has the answer.
+    /// </summary>
+    /// <remarks>
+    /// Spoken alongside the work rather than before it, so it costs no latency — the turn starts
+    /// first and the phrase plays while it runs. What it buys is that a person can tell the
+    /// difference between a bot that is thinking and one that did not hear them, which from inside a
+    /// voice channel are otherwise the same silence.
+    /// </remarks>
+    /// <panel>Whether the bot says something short — "Looking into it." — the moment it hears you,
+    /// instead of going quiet until the answer is ready. An approved job that takes a while says so
+    /// as it starts, rather than leaving you waiting without knowing anything happened.</panel>
+    [LeafField("voiceAcknowledge", "Say something while working", Group = "voice",
+        DependsOn = "voiceEnabled")]
+    public bool Acknowledge { get; set; } = true;
+
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>
     [LeafField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",

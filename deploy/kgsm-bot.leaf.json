@@ -767,6 +767,17 @@
       "dependsOn": "voiceEnabled"
     },
     {
+      "key": "voiceAcknowledge",
+      "env": "Discord__Voice__Acknowledge",
+      "label": "Say something while working",
+      "description": "Whether the bot says something short — \"Looking into it.\" — the moment it hears you, instead of going quiet until the answer is ready. An approved job that takes a while says so as it starts, rather than leaving you waiting without knowing anything happened.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
       "key": "voiceFollowUpSeconds",
       "env": "Discord__Voice__FollowUpSeconds",
       "label": "Wait after the trigger",

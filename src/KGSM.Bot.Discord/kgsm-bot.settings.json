@@ -193,6 +193,12 @@
       // because it was closer to yes than to no. The buttons are posted either way.
       "ConfirmByVoice": true,
 
+      // Silence reads as broken. A turn takes seconds and a confirmed install was measured at 32 of
+      // them, all silent — indistinguishable from a bot that never heard you. The phrase is spoken
+      // ALONGSIDE the work, never before it, so the first sound arrives sooner and the answer does
+      // not arrive later.
+      "Acknowledge": true,
+
       // Answering out loud. Synthesis on the card is around eight times faster than on the processor
       // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
       // cuDNN, which recognition does not) falls back on its own and says so in the log.

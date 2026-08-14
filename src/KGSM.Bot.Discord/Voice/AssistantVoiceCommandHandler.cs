@@ -151,6 +151,11 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         // the bot thought they said — an answer about the wrong server is otherwise inexplicable.
         await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}");
 
+        // Started, not awaited. The turn runs while this plays, so the first sound arrives in about
+        // a tenth of a second instead of after the model has finished thinking — awaiting it here
+        // would add a second to every request in order to appear faster.
+        Task acknowledged = AcknowledgeAsync(command, SpokenAcknowledgement.WhileThinking(), ct);
+
         Result<AssistantTurn> result;
         using (channel.EnterTypingState())
         {
@@ -166,6 +171,9 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
                 RoomFor(command),
                 Spoken: true), ct);
         }
+
+        // Waited for only now, so the answer is never written into the middle of the acknowledgement.
+        await acknowledged;
 
         if (result.IsFailure)
         {
@@ -253,7 +261,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         StagedAction staged = turn.StagedActions[0];
         Expect(command, new VoiceWaiting(
-            VoiceWaitingFor.Confirmation, Until(), staged.Token, Describe(staged)));
+            VoiceWaitingFor.Confirmation, Until(), staged.Token, Describe(staged), staged.Kind));
 
         _logger.LogInformation(
             "Voice: waiting for {Speaker} to confirm {Kind} of {Target} out loud",
@@ -316,9 +324,17 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}");
 
+        // A confirmed install was measured taking thirty-two seconds, every one of them silent after
+        // somebody said "go ahead". Said before the work rather than after it, and warning about the
+        // wait when the verb is one that has a wait worth warning about.
+        Task acknowledged = AcknowledgeAsync(
+            command, SpokenAcknowledgement.WhileWorking(waiting.Kind), ct);
+
         Result<AssistantOutcome> done = await _assistant.ConfirmAsync(
             new AssistantApproval(
                 command.SpeakerId.ToString(), command.SpeakerName, tier, waiting.Token!), ct);
+
+        await acknowledged;
 
         if (done.IsFailure)
         {
@@ -356,6 +372,29 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         string again = $"Sorry, I didn't catch a clear yes or no{about}. Say yes to go ahead, or no to cancel.";
         await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}\n🤔 {again}");
         await SayAsync(command, again, ct);
+    }
+
+    /// <summary>
+    /// Says a short thing immediately, so somebody knows they were heard.
+    /// </summary>
+    /// <remarks>
+    /// Never throws and never blocks the work it accompanies — it is started and awaited later, and
+    /// the output stream serialises writes anyway, so the answer queues behind it rather than
+    /// overlapping it. An acknowledgement that fails to be said costs nothing: the answer it was
+    /// standing in front of is still coming.
+    /// </remarks>
+    private async Task AcknowledgeAsync(VoiceCommand command, string phrase, CancellationToken ct)
+    {
+        if (!_options.Acknowledge) return;
+
+        try
+        {
+            await SayAsync(command, phrase, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Voice: could not acknowledge {Speaker}", command.SpeakerName);
+        }
     }
 
     private void Expect(VoiceCommand command, VoiceWaiting waiting) =>

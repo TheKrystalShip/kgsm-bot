@@ -66,6 +66,20 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
             });
     }
 
+    /// <summary>
+    /// Short phrases already synthesised, kept as the audio they became.
+    /// </summary>
+    /// <remarks>
+    /// The acknowledgements are said over and over, word for word, and they are the one thing here
+    /// whose whole value is arriving immediately — synthesising "One moment." again every time is
+    /// paying the latency it exists to hide. Bounded and only for short text, because a cache of
+    /// whole answers would hold megabytes of audio nobody will hear twice.
+    /// </remarks>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> _said = new();
+
+    private const int LongestWorthKeeping = 100;
+    private const int MostToKeep = 24;
+
     private readonly ILogger<KokoroTextToSpeech> _logger;
     private readonly SemaphoreSlim _one = new(1, 1);
     private readonly KokoroWavSynthesizer? _synth;
@@ -177,6 +191,11 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
     {
         if (_synth is null || _voice is null || string.IsNullOrWhiteSpace(text)) return null;
 
+        // Read before the lock: a phrase already synthesised does not queue behind whatever is being
+        // synthesised now, which is the difference between an acknowledgement that is immediate and
+        // one that waits for the answer it is meant to precede.
+        if (_said.TryGetValue(text, out byte[]? already)) return already;
+
         await _one.WaitAsync(ct);
         try
         {
@@ -192,6 +211,13 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
                 "Voice: synthesised {Characters} characters into {Audio:F1}s of audio in {Elapsed}ms",
                 text.Length, PcmUpsampler.DurationOfStereo48k(stereo48k.Length).TotalSeconds,
                 timer.ElapsedMilliseconds);
+
+            // Kept only while there is room, and never evicted to make room: the phrases worth
+            // holding are a fixed short list said constantly, so whatever fills this first is what
+            // it is for. A cache that churns would be paying bookkeeping to hold answers nobody
+            // repeats.
+            if (text.Length <= LongestWorthKeeping && _said.Count < MostToKeep)
+                _said[text] = stereo48k;
 
             return stereo48k;
         }
