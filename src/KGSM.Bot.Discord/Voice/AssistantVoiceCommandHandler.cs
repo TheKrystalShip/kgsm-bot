@@ -154,6 +154,16 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         // the bot thought they said — an answer about the wrong server is otherwise inexplicable.
         await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}");
 
+        // Asked OF the conversation rather than into it, so it is read before a turn exists. Putting
+        // "forget everything" to the model gets a reply saying it has, from something that remembers
+        // every word — the reply is all a turn can produce, and the reply is not what was asked for.
+        SpokenConversationCommand asked = SpokenConversationCommands.Read(command.Text);
+        if (asked != SpokenConversationCommand.None)
+        {
+            await RunConversationCommandAsync(channel, command, tier, asked, ct);
+            return;
+        }
+
         // Started, not awaited. The turn runs while this plays, so the first sound arrives in about
         // a tenth of a second instead of after the model has finished thinking — awaiting it here
         // would add a second to every request in order to appear faster.
@@ -547,6 +557,47 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         if (string.IsNullOrWhiteSpace(turn.Text)) return offer;
 
         return byVoice || many ? $"{turn.Text} {offer}" : $"{turn.Text} Approve it in the chat.";
+    }
+
+    /// <summary>
+    /// Clears or compacts the voice channel's conversation, and says what happened.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The assistant's wording, not this bot's.</b> What clearing means differs between a shared
+    /// room and one person's own chat, and whether this speaker may do it at all is the assistant's
+    /// answer to give — a refusal is read out exactly as it arrives, rather than being turned into a
+    /// sentence written here that guesses at the reason.
+    /// </para>
+    /// <para>
+    /// <b>Said out loud as well as posted</b>, because the person asking is in a voice channel and
+    /// everyone else in it has just had their conversation cleared out from under them. A room whose
+    /// memory silently vanishes is one where the next answer looks like a fault.
+    /// </para>
+    /// </remarks>
+    private async Task RunConversationCommandAsync(
+        IMessageChannel channel, VoiceCommand command, KgsmTier tier,
+        SpokenConversationCommand asked, CancellationToken ct)
+    {
+        string name = asked == SpokenConversationCommand.Compact ? "compact" : "new";
+
+        _logger.LogInformation(
+            "Voice: {Speaker} asked to {Command} the conversation in {Channel}",
+            command.SpeakerName, name, command.ChannelId);
+
+        Result<string> ran = await _assistant.RunCommandAsync(name, new AssistantAsk(
+            command.SpeakerId.ToString(),
+            command.SpeakerName,
+            tier,
+            command.ChannelId.ToString(),
+            command.Text,
+            RoomFor(command),
+            Spoken: true), ct);
+
+        string said = ran.IsSuccess ? ran.Value! : ran.Error!;
+
+        await channel.SendMessageAsync(ran.IsSuccess ? said : $"⚠️ {said}");
+        await SayAsync(command, said, ct);
     }
 
     /// <summary>Says an answer in the channel it was asked in, if this host can speak at all.</summary>

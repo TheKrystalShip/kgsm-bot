@@ -630,10 +630,13 @@ public class VoiceOptions
         DependsOn = "voiceSpeak")]
     public string SpeechModelPath { get; set; } = "/var/lib/kgsm-bot/models/kokoro.onnx";
 
-    /// <panel>Which voice the bot speaks in. The names are Kokoro's own — <code>af_heart</code>,
-    /// <code>af_bella</code>, <code>am_michael</code> and so on.</panel>
+    /// <panel>Which voice the bot speaks in. The names are Kokoro's own, and the first two letters say
+    /// what they are — <code>b</code> for British and <code>a</code> for American, then <code>f</code>
+    /// or <code>m</code>. <code>bf_emma</code>, <code>bm_george</code>, <code>af_heart</code>,
+    /// <code>am_michael</code>. How much speech each one was trained on varies a lot, and it is
+    /// audible: within an accent, the well-trained ones sound markedly less synthetic.</panel>
     [LeafField("voiceSpeechVoice", "Speaking voice", Group = "voice", DependsOn = "voiceSpeak")]
-    public string SpeechVoice { get; set; } = "af_heart";
+    public string SpeechVoice { get; set; } = "bf_emma";
 
     /// <panel>Whether to synthesise speech on the graphics card. Around eight times faster than the
     /// processor and worth roughly 700MB of video memory; a host without a usable card falls back on

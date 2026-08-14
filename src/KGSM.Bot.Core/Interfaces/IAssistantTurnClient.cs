@@ -46,6 +46,24 @@ public interface IAssistantTurnClient
     Task<Result<AssistantTurn>> AskAsync(AssistantAsk ask, CancellationToken ct = default);
 
     /// <summary>
+    /// Runs one of the assistant's own chat commands — <c>compact</c>, <c>new</c> — against the
+    /// conversation <paramref name="ask"/> names, and returns what the assistant said about it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not a question, and not answered by the model.</b> These act on the conversation itself, so
+    /// they go to the endpoint that owns it rather than being phrased as something to ask — a model
+    /// told to forget the conversation would reply that it had, and remember every word.
+    /// </para>
+    /// <para>
+    /// <b>The assistant decides what each one means and who may run it</b>, including refusing. This
+    /// carries a name and gets a sentence back; there is no second list of commands here to fall out of
+    /// step with the one the assistant publishes.
+    /// </para>
+    /// </remarks>
+    Task<Result<string>> RunCommandAsync(string command, AssistantAsk ask, CancellationToken ct = default);
+
+    /// <summary>
     /// Puts one question, reporting each step of the work as it happens.
     /// </summary>
     /// <remarks>

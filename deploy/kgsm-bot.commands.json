@@ -314,6 +314,18 @@
         ]
       },
       {
+        "name": "conversation clear",
+        "description": "Forget this channel\u0027s conversation and start fresh",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "conversation compact",
+        "description": "Summarise this channel\u0027s conversation to free up context",
+        "mutates": false,
+        "options": []
+      },
+      {
         "name": "history",
         "description": "What happened recently \u2014 one server\u0027s, or the whole host\u0027s",
         "mutates": false,

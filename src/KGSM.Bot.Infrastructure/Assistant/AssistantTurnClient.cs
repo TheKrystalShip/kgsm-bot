@@ -167,6 +167,63 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
         }
     }
 
+    public async Task<Result<string>> RunCommandAsync(
+        string command, AssistantAsk ask, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ask);
+
+        if (!IsConfigured)
+            return Result.Failure<string>("No assistant is configured on this host.");
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"/commands/{command}")
+            {
+                Content = JsonContent.Create(new CommandBody(ask.ConversationId), options: Json),
+            };
+
+            // The same headers a turn carries, so the command lands on the conversation the next
+            // question will continue. A room named here is the whole point: it is what makes clearing
+            // a channel's conversation reach that channel's conversation and not the asker's own.
+            _relay.Write(
+                request,
+                new RelayPrincipal(ask.UserId, ask.DisplayName, ask.Tier),
+                new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
+
+            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                return Result.Failure<string>(await DescribeFailureAsync(response, ct).ConfigureAwait(false));
+
+            var result = await response.Content
+                .ReadFromJsonAsync<CommandResultBody>(Json, ct).ConfigureAwait(false);
+
+            // The assistant's own wording, not this bot's. What /new does differs between a private
+            // chat and a shared room, and only the assistant knows which one it just did.
+            return string.IsNullOrWhiteSpace(result?.Message)
+                ? Result.Success("Done.")
+                : Result.Success(result.Message);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Assistant command /{Command} timed out after {Timeout}", command, _http.Timeout);
+            return Result.Failure<string>("The assistant took too long to answer.");
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Assistant command /{Command} failed to reach {Base}", command, _http.BaseAddress);
+            return Result.Failure<string>("I couldn't reach the assistant.");
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Assistant command /{Command} returned an unreadable body", command);
+            return Result.Failure<string>("The assistant answered with something I couldn't read.");
+        }
+    }
+
     /// <summary>
     /// Runs the turn over the frame stream, reporting each step as it arrives and assembling the same
     /// answer the buffered contract would have returned.
@@ -527,6 +584,15 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
     }
 
     private sealed record TurnResponseBody(string? Text, IReadOnlyList<ConfirmationBody>? Confirmations);
+
+    /// <summary>
+    /// What a chat command is asked against. The conversation id is sent for the same reason a turn
+    /// sends it — a room in the headers wins over it, and the assistant is what decides that.
+    /// </summary>
+    private sealed record CommandBody(
+        [property: JsonPropertyName("conversationId")] string? ConversationId);
+
+    private sealed record CommandResultBody(string? Command, string? Message);
 
     private sealed record ConfirmationBody(
         string? Kind, string? Target, string? InstanceName, string? Token,

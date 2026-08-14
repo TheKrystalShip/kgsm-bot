@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.31.0] - 2026-08-14
+
+### Added — clearing and compacting a channel's conversation
+
+`/conversation clear` and `/conversation compact`, and out loud: **"hey assistant, start over"**,
+"forget everything", "clear the conversation", "compact the conversation".
+
+A channel's conversation is shared and never ends, so without this it only ever grows. Clearing a
+shared one needs **operator** — it takes the memory from everybody in the channel, and they are not
+the person who asked — which the assistant decides and refuses; the refusal is shown and spoken
+exactly as it arrives. Compacting stays open to anyone, since the people who notice a conversation
+getting long are the ones talking in it.
+
+**Read before a turn exists, not asked of the model.** A model told to forget the conversation replies
+that it has and remembers every word: a reply is all a turn can produce, and the reply is not the thing
+being asked for. The spoken phrases are matched deterministically, like the yes/no reader and for the
+same reason — something that discards a room's memory should be readable, testable and identical every
+time.
+
+⚠ **Matched against the whole utterance, not by containment.** *"the server didn't start over the
+weekend, can you check"* is a question, and a matcher looking for "start over" anywhere would answer it
+by wiping the channel. "Forget it" is left out entirely: it almost always means "never mind about
+that", said in the exact moment somebody would be most annoyed to lose everything.
+
+### Changed — a British voice
+
+`Voice:SpeechVoice` is `bf_emma`. Kokoro's British voices vary widely in how much speech they were
+trained on and it is audible; this is the only one with hours behind it rather than minutes.
+
 ## [3.30.0] - 2026-08-14
 
 ### Added — cutting the bot off mid-answer

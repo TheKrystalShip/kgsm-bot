@@ -614,6 +614,15 @@ answers.
   the stream for good. Every path that abandons the stream disposes it, because a `BufferedWriteStream`
   owns a send loop that runs until something cancels it — a dropped reference is a second writer on the
   same connection as its replacement.
+- ⚠ **Clearing or compacting a conversation is read BEFORE a turn exists.** `/conversation clear` and
+  `/conversation compact`, and spoken ("start over", "forget everything") via
+  `SpokenConversationCommands` → `IAssistantTurnClient.RunCommandAsync` → the assistant's own
+  `/commands/{name}`. These act on the stored conversation, so they can never be a question: a model
+  told to forget replies that it has and remembers every word. The phrase list is matched
+  deterministically against the **whole utterance** — containment would turn *"the server didn't start
+  over the weekend"* into a wipe — and the assistant owns what each command does and who may run it,
+  including the operator gate on clearing a shared room. Its wording is shown and spoken verbatim;
+  nothing here forms a second opinion about what happened.
 - ⚠ **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
   surface posts and the spoken reply says so. The button re-derives authority at the click; a
   recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.

@@ -864,10 +864,10 @@
       "key": "voiceSpeechVoice",
       "env": "Discord__Voice__SpeechVoice",
       "label": "Speaking voice",
-      "description": "Which voice the bot speaks in. The names are Kokoro's own — af_heart, af_bella, am_michael and so on.",
+      "description": "Which voice the bot speaks in. The names are Kokoro's own, and the first two letters say what they are — b for British and a for American, then f or m. bf_emma, bm_george, af_heart, am_michael. How much speech each one was trained on varies a lot, and it is audible: within an accent, the well-trained ones sound markedly less synthetic.",
       "group": "voice",
       "type": "string",
-      "default": "af_heart",
+      "default": "bf_emma",
       "risk": "safe",
       "dependsOn": "voiceSpeak"
     },

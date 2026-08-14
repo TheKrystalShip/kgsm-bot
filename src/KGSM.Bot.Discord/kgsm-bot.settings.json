@@ -240,7 +240,9 @@
       "Interruptible": true,
 
       "SpeechModelPath": "/var/lib/kgsm-bot/models/kokoro.onnx",
-      "SpeechVoice": "af_heart",
+      // British, and the only British voice Kokoro trained on hours rather than minutes of speech —
+      // the rest of that accent's voices are graded a tier or two below it.
+      "SpeechVoice": "bf_emma",
       "SpeakUseGpu": true
     },
 
