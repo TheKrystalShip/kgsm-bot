@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.15.0] - 2026-08-14
+
+### Changed — Discord.Net 3.20.1, which is what a voice connection now requires
+
+Discord enforces the DAVE protocol (its MLS-based end-to-end encryption for audio and video) on
+every non-stage voice call, and rejects a client that cannot speak it with voice close code `4017`.
+Discord.Net gained `libdave` support in 3.19.0 and spent 3.19.1–3.20.1 fixing the receiving half of
+it. The pin moves to 3.20.1 across all four packages, which is the floor for the bot to hold a voice
+connection at all.
+
+`Discord.Net.Dave` arrives transitively with `Discord.Net.WebSocket` — there is no separate
+reference to add, and the encryption stays off until a client opts in with
+`EnableVoiceDaveEncryption`. Using it also needs a `libdave` native library resolvable at runtime,
+which nothing here ships yet.
+
+The upgrade costs no source change. The v3.18 component-type break lands on reading
+`IMessage.Components` and on modifying an existing message's components, and this bot does neither —
+its three `ModifyAsync` calls set `Content` or `Embed`. The modal and select-menu reworks across
+3.18–3.20 reach nothing, because the only components here are buttons.
+
 ## [3.14.1] - 2026-08-14
 
 ### Changed — relicensed from MIT to GPL-3.0-or-later
