@@ -113,10 +113,11 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             return Result<VoiceSession>.Failure($"I don't have permission to connect to **{channel.Name}**.");
 
         // Here rather than on the first thing anybody says, and here rather than after the handshake:
-        // loading the models takes a few seconds and this is the earliest moment it is known they will
+        // the engine takes a few seconds to load and this is the earliest moment it is known it will
         // be wanted, so it happens while Discord is negotiating the connection and people are settling
-        // into the channel. It does not block the join, and a host that cannot load them still joins —
-        // the bot listens and answers in the channel's chat.
+        // into the channel. It does not block the join, and a host with no speech engine still joins —
+        // the bot listens and answers in the channel's chat. Nothing tells it when to unload: the
+        // engine serves every surface on the host and idles out on its own schedule.
         _speech.Wake();
 
         await _gate.WaitAsync(ct);
@@ -181,10 +182,6 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
             await session.DisposeAsync();
             _logger.LogInformation("Voice: left {Channel}", session.ChannelName);
-
-            // Only when the last one goes: the bot can be in a channel on several Discord servers at
-            // once, and they share the one set of models.
-            if (_sessions.IsEmpty) _speech.Idle();
 
             return Result.Success();
         }

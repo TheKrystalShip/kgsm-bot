@@ -29,18 +29,11 @@
          project hosts nothing, it just needs the base class the entry point will host. -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.5" />
     <PackageReference Include="Discord.Net" Version="3.20.1" />
-    <!-- Speech recognition, in-process. The CUDA runtime is ~312MB and is carried even on a host
-         with no GPU: Whisper.net picks the first runtime that initialises, so shipping both is what
-         makes the same binary correct on a node with a card and on one without. -->
-    <PackageReference Include="Whisper.net" Version="1.9.1" />
-    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
-    <PackageReference Include="Whisper.net.Runtime.Cuda" Version="1.9.1" />
-    <!-- Speech synthesis. The ONNX GPU runtime is referenced directly rather than taken transitively
-         from KokoroSharp, because the direct reference is what decides which onnxruntime assembly
-         ships; its CUDA path additionally needs cuDNN on the host (packaged as an optdepend) and
-         falls back to the processor without it. -->
-    <PackageReference Include="KokoroSharp" Version="0.8.4" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.29.0" />
+    <!-- Hearing and speaking. The models are NOT here: they live in the kgsm-speech leaf, one
+         process per host serving every surface, because 1.6GB of models and the CUDA runtime behind
+         them cannot be given back by anything short of a process ending. This is the client and the
+         wire contract for its socket — a few kilobytes, no native dependency, and nothing to load. -->
+    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.KGSM.Auth.Users at
          this same version, so naming it here costs nothing and stops the store depending on which

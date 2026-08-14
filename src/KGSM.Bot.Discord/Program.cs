@@ -40,15 +40,6 @@ public class Program
             return;
         }
 
-        // The speech worker: this same binary, holding whisper and kokoro on behalf of the bot that
-        // started it. It gets no host, no Discord connection and no engine — a socket, two models, and
-        // the configuration the bot itself read.
-        if (args is [KGSM.Bot.Infrastructure.Speech.SpeechWorkerHost.Flag, string socket])
-        {
-            Environment.ExitCode = await RunSpeechWorkerAsync(socket);
-            return;
-        }
-
         // Create and configure the host
         using var host = CreateHostBuilder(args).Build();
 
@@ -58,41 +49,6 @@ public class Program
 
     /// <summary>The file declaring the bot's whole configurable surface, shipped beside the binary.</summary>
     private const string SettingsFile = "kgsm-bot.settings.json";
-
-    /// <summary>
-    /// Runs this process as the speech worker for the bot that started it.
-    /// </summary>
-    /// <remarks>
-    /// The configuration is read the same way the bot reads it — the settings file beside the binary,
-    /// then the environment — so a leaf override applied in the Control Panel reaches the models
-    /// without the bot having to forward anything. What it deliberately does not build is a host: no
-    /// Discord client, no engine, no hosted services, none of which a worker has any use for.
-    /// </remarks>
-    private static async Task<int> RunSpeechWorkerAsync(string socketPath)
-    {
-        string environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
-
-        IConfigurationRoot configuration = new ConfigurationBuilder()
-            .AddJsonFile(Path.Combine(AppContext.BaseDirectory, SettingsFile), optional: false)
-            .AddJsonFile(
-                Path.Combine(AppContext.BaseDirectory, $"kgsm-bot.settings.{environment}.json"),
-                optional: true)
-            .AddEnvironmentVariables()
-            .Build();
-
-        var voice = new KGSM.Bot.Infrastructure.Configuration.VoiceOptions();
-        configuration
-            .GetSection($"{KGSM.Bot.Infrastructure.Configuration.DiscordOptions.Section}:Voice")
-            .Bind(voice);
-
-        using ILoggerFactory loggers = LoggerFactory.Create(logging =>
-        {
-            logging.AddConfiguration(configuration.GetSection("Logging"));
-            logging.AddConsole();
-        });
-
-        return await KGSM.Bot.Infrastructure.Speech.SpeechWorkerHost.RunAsync(socketPath, voice, loggers);
-    }
 
     /// <summary>The value of a <c>--flag value</c> pair, or null when the flag is absent.</summary>
     private static string? ValueAfter(string[] args, string flag)

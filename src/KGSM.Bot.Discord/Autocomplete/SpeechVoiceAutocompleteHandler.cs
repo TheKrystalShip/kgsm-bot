@@ -24,7 +24,7 @@ namespace KGSM.Bot.Discord.Autocomplete;
 /// </remarks>
 public class SpeechVoiceAutocompleteHandler : AutocompleteHandler
 {
-    public override Task<AutocompletionResult> GenerateSuggestionsAsync(
+    public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
         IInteractionContext context,
         IAutocompleteInteraction autocompleteInteraction,
         IParameterInfo parameter,
@@ -33,12 +33,14 @@ public class SpeechVoiceAutocompleteHandler : AutocompleteHandler
         var speech = services.GetRequiredService<ITextToSpeech>();
         string typed = autocompleteInteraction.Data.Current.Value?.ToString() ?? string.Empty;
 
-        var matching = speech.Voices
+        (_, IReadOnlyList<string> voices) = await speech.VoicesAsync();
+
+        var matching = voices
             .Where(v => v.Contains(typed, StringComparison.OrdinalIgnoreCase))
             .Take(25)
             .Select(v => new AutocompleteResult(v, v))
             .ToList();
 
-        return Task.FromResult(AutocompletionResult.FromSuccess(matching));
+        return AutocompletionResult.FromSuccess(matching);
     }
 }

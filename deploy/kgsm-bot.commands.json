@@ -273,7 +273,7 @@
       },
       {
         "name": "voice speak-as",
-        "description": "Try a different speaking voice, until the bot next restarts",
+        "description": "Try a different speaking voice for this host, until the engine restarts",
         "mutates": false,
         "options": [
           {

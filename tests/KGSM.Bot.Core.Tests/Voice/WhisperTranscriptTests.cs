@@ -23,23 +23,23 @@ public class WhisperTranscriptTests
     {
         // Left in, these reach the matcher as though they were words — and a bare trigger's follow-up
         // window would be spent by a cough, handing "[BLANK_AUDIO]" to the assistant as a request.
-        WorkerSpeechToText.Spoken(raw).Should().BeEmpty();
+        LeafSpeechToText.Spoken(raw).Should().BeEmpty();
     }
 
     [Fact]
     public void WordsSurviveTheAnnotationAroundThem()
     {
-        WorkerSpeechToText.Spoken("[BLANK_AUDIO] Hey assistant, restart factorio")
+        LeafSpeechToText.Spoken("[BLANK_AUDIO] Hey assistant, restart factorio")
             .Should().Be("Hey assistant, restart factorio");
 
-        WorkerSpeechToText.Spoken("Hey assistant (coughs), restart factorio")
+        LeafSpeechToText.Spoken("Hey assistant (coughs), restart factorio")
             .Should().Be("Hey assistant , restart factorio");
     }
 
     [Fact]
     public void OrdinarySpeechIsUntouched()
     {
-        WorkerSpeechToText.Spoken(" Hey assistant, is stationeers running? ")
+        LeafSpeechToText.Spoken(" Hey assistant, is stationeers running? ")
             .Should().Be("Hey assistant, is stationeers running?");
     }
 
@@ -48,14 +48,14 @@ public class WhisperTranscriptTests
     {
         // Whisper's bracketing is not guaranteed balanced, and a stray opener that ate everything
         // after it would silently drop the request while looking like a clean transcript.
-        WorkerSpeechToText.Spoken("Hey assistant, restart factorio]")
+        LeafSpeechToText.Spoken("Hey assistant, restart factorio]")
             .Should().Be("Hey assistant, restart factorio");
     }
 
     [Fact]
     public void NothingAtAllIsEmptyRatherThanAFailure()
     {
-        WorkerSpeechToText.Spoken("").Should().BeEmpty();
-        WorkerSpeechToText.Spoken("   ").Should().BeEmpty();
+        LeafSpeechToText.Spoken("").Should().BeEmpty();
+        LeafSpeechToText.Spoken("   ").Should().BeEmpty();
     }
 }

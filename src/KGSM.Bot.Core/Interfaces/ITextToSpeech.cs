@@ -6,9 +6,10 @@ namespace KGSM.Bot.Core.Interfaces;
 /// Turns an answer into audio.
 /// </summary>
 /// <remarks>
-/// The mirror of <see cref="ISpeechToText"/>, and absent for the same kinds of reason — no model, no
-/// card, switched off. A host that cannot speak still answers in the channel, so every caller treats
-/// this as an enhancement and never as the way an answer is delivered.
+/// The mirror of <see cref="ISpeechToText"/>, and absent for the same kinds of reason — no speech
+/// installed on the host, no model, no card, switched off. A host that cannot speak still answers in
+/// the channel, so every caller treats this as an enhancement and never as the way an answer is
+/// delivered.
 /// </remarks>
 public interface ITextToSpeech
 {
@@ -21,38 +22,31 @@ public interface ITextToSpeech
     /// </summary>
     Task<byte[]?> SynthesizeAsync(string text, CancellationToken ct = default);
 
-    /// <summary>The voice being spoken in right now. Empty when there is no synthesiser.</summary>
-    string SpeakingAs { get; }
-
     /// <summary>
-    /// The voices this host actually has, in the order they are worth choosing from. Empty when there
-    /// is no synthesiser.
+    /// The voices this host has, in the order they are worth choosing from, and the one it speaks in.
     /// </summary>
     /// <remarks>
-    /// What is <em>installed</em>, read off the disk rather than from a list written down somewhere —
-    /// a name offered here and then refused would be the surface lying about its own capabilities.
-    /// Answering costs a directory listing and loads nothing, so it is the same answer on a host whose
-    /// synthesiser has never been started.
+    /// <b>A question for the host, not for this process.</b> The voices belong to whatever holds the
+    /// models, which serves every surface here — so this is asked rather than remembered, and what
+    /// comes back is what is installed rather than what a list claims. Empty is the honest answer on a
+    /// host with no speech.
     /// </remarks>
-    IReadOnlyList<string> Voices { get; }
+    Task<(string Speaking, IReadOnlyList<string> Voices)> VoicesAsync(CancellationToken ct = default);
 
     /// <summary>
-    /// Speaks in <paramref name="voice"/> from the next sentence on. Fails, changing nothing, when
-    /// this host does not have that voice.
+    /// Speaks in <paramref name="voice"/> from the next sentence on.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It costs a name.</b> A voice is a small array of features handed to the synthesiser per
-    /// sentence, so this changes which name goes with the next request — no model is reloaded and
-    /// nothing is re-warmed. The half-megabyte the new voice takes is read the first time it is
-    /// actually spoken in.
+    /// ⚠ <b>It changes the voice for the whole host, not just for this bot.</b> One engine serves
+    /// every surface, which is what makes a person hear the same assistant in Discord as in a
+    /// browser — and means a caller has to say so rather than presenting it as a local preference.
     /// </para>
     /// <para>
-    /// ⚠ <b>It lasts until the process does.</b> The durable setting is the leaf's own, and this does
-    /// not write to it — deliberately, because a bot speaking in a voice its configuration does not
-    /// name is two sources of truth, and the one nobody can see wins. It is for hearing a voice before
-    /// choosing it; a caller that changes this has to say that it will not survive a restart.
+    /// ⚠ <b>It lasts until the engine restarts.</b> The durable setting is that leaf's own; nothing
+    /// here writes to it, because a voice its configuration does not name is two sources of truth and
+    /// the one nobody can see wins. This is for hearing a voice before choosing it.
     /// </para>
     /// </remarks>
-    Result SpeakAs(string voice);
+    Task<Result> SpeakAsAsync(string voice, CancellationToken ct = default);
 }

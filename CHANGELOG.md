@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.36.0] - 2026-08-15
+
+### Changed — speech is a leaf now, not a worker this bot starts
+
+The models moved out of this repo into **kgsm-speech**: one engine per host, socket-activated at
+`/run/kgsm-speech/speech.sock`, serving every surface that listens or speaks rather than a child
+process this bot owns. Nothing about the bot's memory changes — it was already 145MB idle — but the
+engine is no longer the bot's to start, to configure, or to keep.
+
+- **`TheKrystalShip.KGSM.Speech`** (the client and the wire contract) replaces the Whisper.net,
+  KokoroSharp and ONNX Runtime references. `HostSpeech` owns the connection; `LeafSpeechToText` and
+  `LeafTextToSpeech` are what the rest of the bot asks. `ISpeechToText`/`ITextToSpeech` keep their
+  shape, so nothing above the seam changed.
+- **The engine owns the voice.** Requests name no voice, which is what makes a person hear the same
+  assistant in Discord as anywhere else on the host. `/voice speak-as` therefore changes it **for the
+  whole host** and now says so.
+- **The bot no longer decides how long the models stay loaded.** It says speech is about to be wanted
+  when it joins a channel, and that is all: a bot leaving a channel is not evidence that nobody else
+  is speaking, and the engine idles out on its own schedule.
+- **A host without the leaf is the ordinary case** — the bot joins, hears nothing, and answers in the
+  channel's chat, exactly as it did on a host with no model files.
+
+### Removed — six settings that belong to the engine
+
+`Voice:ModelPath`, `Voice:UseGpu`, `Voice:SpeechModelPath`, `Voice:SpeechVoice`, `Voice:SpeakUseGpu`
+and `Voice:WorkerIdleMinutes` are gone; `Voice:SpeechSocket` (blank = the standard path) replaces
+them. ⚠ An existing `Discord__Voice__SpeechVoice` override — the Control Panel writes one to
+`/var/lib/kgsm-api/leaf-overrides/bot.env` — now binds to nothing. Set the voice on the **Speech**
+leaf instead.
+
+`deploy/setup.sh` no longer fetches the two models (813MB); kgsm-speech's does, adopting the files
+this project left in `/var/lib/kgsm-bot/models` rather than downloading them again.
+
 ## [3.35.0] - 2026-08-15
 
 ### Changed — the speech models moved into a worker process

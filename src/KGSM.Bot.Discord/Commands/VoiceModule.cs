@@ -99,18 +99,23 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It costs nothing and interrupts nothing.</b> Every voice is already in memory, and the
-    /// synthesiser takes one per sentence — so this swaps a reference. Nothing is reloaded, the bot
-    /// stays in the channel, and a conversation carries on mid-flow.
+    /// <b>It interrupts nothing.</b> The engine takes a voice per sentence, so this changes which one
+    /// the next sentence uses. Nothing is reloaded, the bot stays in the channel, and a conversation
+    /// carries on mid-flow.
     /// </para>
     /// <para>
-    /// ⚠ <b>It does not survive a restart, and the reply says so.</b> The durable setting is the
-    /// leaf's own, in the Control Panel; writing to it from here would be a second source of truth for
-    /// the same thing, and the one nobody can see would be winning. This is for hearing a voice before
-    /// choosing it.
+    /// ⚠ <b>It changes the voice for the whole host, not just for Discord.</b> One engine serves every
+    /// surface here, which is what makes a person hear the same assistant wherever they reach it — so
+    /// the reply says so rather than letting it read as a setting for this channel.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>It does not survive the engine restarting, and the reply says that too.</b> The durable
+    /// setting is that leaf's own, in the Control Panel; writing to it from here would be a second
+    /// source of truth for the same thing, and the one nobody can see would be winning. This is for
+    /// hearing a voice before choosing it.
     /// </para>
     /// </remarks>
-    [SlashCommand("speak-as", "Try a different speaking voice, until the bot next restarts")]
+    [SlashCommand("speak-as", "Try a different speaking voice for this host, until the engine restarts")]
     public async Task SpeakAsAsync(
         [Summary("voice", "Which voice to speak in")]
         [Autocomplete(typeof(SpeechVoiceAutocompleteHandler))]
@@ -122,24 +127,31 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
-        string before = _speech.SpeakingAs;
-        Result changed = _speech.SpeakAs(voice);
+        // Deferred: this is a round trip to the speech engine, and Discord gives an interaction three
+        // seconds to be acknowledged.
+        await DeferAsync();
+
+        (string before, _) = await _speech.VoicesAsync();
+        Result changed = await _speech.SpeakAsAsync(voice);
 
         if (changed.IsFailure)
         {
-            await RespondAsync($"{changed.Error} Start typing and I'll suggest the ones I have.", ephemeral: true);
+            await FollowupAsync(
+                $"{changed.Error} Start typing and I'll suggest the ones it has.", ephemeral: true);
             return;
         }
 
+        (string after, _) = await _speech.VoicesAsync();
+
         _logger.LogInformation(
-            "Voice: {User} changed the speaking voice from {Before} to {After}",
-            Context.User.Username, before, _speech.SpeakingAs);
+            "Voice: {User} changed this host's speaking voice from {Before} to {After}",
+            Context.User.Username, before, after);
 
         // In the open, because everybody in the channel is about to hear it change, and unhelpfully
         // mysterious if only the person who did it knows why.
-        await RespondAsync(
-            $"Now speaking as **{_speech.SpeakingAs}**. This lasts until the bot restarts — "
-            + "set `Speaking voice` in the Control Panel to keep it.");
+        await FollowupAsync(
+            $"Now speaking as **{after}** — everywhere on this host, not just here. This lasts until "
+            + "the speech engine restarts; set `Speaking voice` in the Control Panel to keep it.");
     }
 
     [SlashCommand("status", "Where the bot is listening, and what it has heard")]

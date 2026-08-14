@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Speech;
 
 namespace KGSM.Bot.Infrastructure.Speech;
 
@@ -29,7 +30,7 @@ namespace KGSM.Bot.Infrastructure.Speech;
 /// changes.
 /// </para>
 /// </remarks>
-internal sealed class WorkerSpeechToText : ISpeechToText
+internal sealed class LeafSpeechToText : ISpeechToText
 {
     /// <summary>
     /// How often to look for servers having been installed or removed.
@@ -41,24 +42,24 @@ internal sealed class WorkerSpeechToText : ISpeechToText
     /// </remarks>
     private static readonly TimeSpan VocabularyInterval = TimeSpan.FromMinutes(2);
 
-    private readonly SpeechWorker _worker;
+    private readonly HostSpeech _speech;
     private readonly IKgsmStateCache _inventory;
     private readonly IVoiceTally _tally;
-    private readonly ILogger<WorkerSpeechToText> _logger;
+    private readonly ILogger<LeafSpeechToText> _logger;
     private readonly string[] _triggers;
     private readonly bool _prime;
 
     private string _vocabulary = string.Empty;
     private DateTimeOffset _vocabularyCheckedAt = DateTimeOffset.MinValue;
 
-    public WorkerSpeechToText(
-        SpeechWorker worker,
+    public LeafSpeechToText(
+        HostSpeech speech,
         IOptions<DiscordOptions> options,
         IKgsmStateCache inventory,
         IVoiceTally tally,
-        ILogger<WorkerSpeechToText> logger)
+        ILogger<LeafSpeechToText> logger)
     {
-        _worker = worker;
+        _speech = speech;
         _inventory = inventory;
         _tally = tally;
         _logger = logger;
@@ -69,7 +70,7 @@ internal sealed class WorkerSpeechToText : ISpeechToText
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
-    public bool IsAvailable => _worker.CanHear;
+    public bool IsAvailable => _speech.Enabled && _speech.Installed;
 
     public Task<string?> TranscribeAsync(VoiceUtterance utterance, CancellationToken ct = default) =>
         RecogniseAsync(utterance, ifIdle: false, ct);
@@ -80,13 +81,13 @@ internal sealed class WorkerSpeechToText : ISpeechToText
     private async Task<string?> RecogniseAsync(
         VoiceUtterance utterance, bool ifIdle, CancellationToken ct)
     {
-        if (!_worker.CanHear) return null;
+        if (!IsAvailable) return null;
 
         string vocabulary = await PrimingAsync(ct);
 
         var timer = Stopwatch.StartNew();
         (SpeechProtocol.Outcome outcome, string text) =
-            await _worker.TranscribeAsync(utterance.Audio, vocabulary, ifIdle, ct);
+            await _speech.Client.TranscribeAsync(utterance.Audio, vocabulary, ifIdle, ct);
         timer.Stop();
 
         if (outcome == SpeechProtocol.Outcome.Busy)

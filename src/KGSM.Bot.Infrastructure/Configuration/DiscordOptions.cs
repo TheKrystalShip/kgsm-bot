@@ -418,25 +418,6 @@ public class VoiceOptions
     public bool LeaveWhenAlone { get; set; } = true;
 
     /// <summary>
-    /// The whisper model used to recognise speech, as a path to a <c>ggml-*.bin</c> file.
-    /// </summary>
-    /// <remarks>
-    /// Not under the install prefix: <c>deploy.sh</c> syncs that with <c>rsync --delete</c> and would
-    /// take a model file with it on every deploy. The state directory is the bot's own and survives.
-    /// </remarks>
-    /// <panel>The speech recognition model file. <code>ggml-small.en.bin</code> is the one to want —
-    /// on a GPU it is both more accurate and faster than the smaller models are on a CPU. Without a
-    /// model nothing said in a voice channel is understood.</panel>
-    [LeafField("voiceModelPath", "Speech model", Group = "voice", Type = LeafType.Path,
-        DependsOn = "voiceEnabled")]
-    public string ModelPath { get; set; } = "/var/lib/kgsm-bot/models/ggml-small.en.bin";
-
-    /// <panel>Whether to recognise speech on the graphics card. A host with no usable GPU falls back
-    /// to the processor on its own — which works, and is around forty times slower.</panel>
-    [LeafField("voiceUseGpu", "Recognise on the GPU", Group = "voice", DependsOn = "voiceEnabled")]
-    public bool UseGpu { get; set; } = true;
-
-    /// <summary>
     /// What somebody says to address the bot. Several, comma-separated, all equal.
     /// </summary>
     /// <remarks>
@@ -620,85 +601,26 @@ public class VoiceOptions
         DependsOn = "voiceSpeak")]
     public bool Interruptible { get; set; } = true;
 
-    /// <summary>The Kokoro model used to synthesise speech.</summary>
-    /// <remarks>
-    /// Beside the recognition model and outside the install prefix, for the same reason: the deploy
-    /// syncs that prefix with <c>rsync --delete</c>.
-    /// </remarks>
-    /// <panel>The speech synthesis model file. Without it the bot answers in text only.</panel>
-    [LeafField("voiceSpeechModelPath", "Synthesis model", Group = "voice", Type = LeafType.Path,
-        DependsOn = "voiceSpeak")]
-    public string SpeechModelPath { get; set; } = "/var/lib/kgsm-bot/models/kokoro.onnx";
-
     /// <summary>
-    /// Which of Kokoro's voices to speak in.
+    /// Where the host's speech engine listens. Blank is the standard path.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The English ones, listed best-first within each accent.</b> Kokoro ships voices for eight
-    /// other languages and they are on disk beside these, but they expect text in those languages —
-    /// offered here they would be twenty-odd ways to read an English answer badly. Anything Kokoro can
-    /// load still works if it is set directly; what this list is, is the set worth choosing from.
+    /// <b>The models are not the bot's.</b> Hearing and speaking are done by the kgsm-speech leaf —
+    /// one process per host, serving every surface — because the models and the CUDA runtime behind
+    /// them cost about 1.6GB that nothing short of a process ending gives back. Which voice it speaks
+    /// in, which card it uses and how long it stays loaded are all that leaf's configuration, not
+    /// this one's.
     /// </para>
     /// <para>
-    /// <b>Ordered by how much speech each was trained on, because that is what is audible.</b> The
-    /// difference between the top of a group and the bottom is not accent or timbre — it is how
-    /// synthetic the voice sounds, and it is not subtle.
+    /// A host without it installed is the ordinary case: the bot joins, hears nothing, and answers in
+    /// the channel's chat, exactly as it does on a host with no model files.
     /// </para>
     /// </remarks>
-    /// <panel>Which voice the bot speaks in. The first two letters are the accent and the speaker —
-    /// <code>b</code> British, <code>a</code> American, then <code>f</code> or <code>m</code>. They are
-    /// listed best-first within each accent, and the gap is worth hearing: the ones at the top of each
-    /// group were trained on hours of speech and the ones at the bottom on minutes, which is the
-    /// difference between a voice that sounds like a person and one that sounds like a synthesiser.
-    /// Changing this restarts the bot, so it leaves any voice channel it is sitting in.</panel>
-    [LeafField("voiceSpeechVoice", "Speaking voice", Group = "voice", DependsOn = "voiceSpeak",
-        Type = LeafType.Enum, Values = [
-            // American — af_heart and af_bella are the best-trained voices Kokoro ships at all.
-            "af_heart", "af_bella", "af_nicole", "af_aoede", "af_kore", "af_sarah",
-            "af_alloy", "af_nova", "af_sky", "af_jessica", "af_river",
-            "am_fenrir", "am_michael", "am_puck", "am_echo", "am_eric",
-            "am_liam", "am_onyx", "am_santa", "am_adam",
-            // British — bf_emma is the only one of these with hours of speech behind it.
-            "bf_emma", "bf_isabella", "bf_alice", "bf_lily",
-            "bm_george", "bm_fable", "bm_lewis", "bm_daniel",
-        ])]
-    public string SpeechVoice { get; set; } = "af_heart";
-
-    /// <panel>Whether to synthesise speech on the graphics card. Around eight times faster than the
-    /// processor and worth roughly 700MB of video memory; a host without a usable card falls back on
-    /// its own.</panel>
-    [LeafField("voiceSpeakUseGpu", "Synthesise on the GPU", Group = "voice", DependsOn = "voiceSpeak")]
-    public bool SpeakUseGpu { get; set; } = true;
-
-    /// <summary>
-    /// How long the speech models may sit loaded with nobody in a voice channel. Zero keeps them.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The models run in a separate process, and only ending it gives the memory back.</b> Whisper
-    /// and Kokoro on the card cost this host about 1.6GB and a gigabyte of video memory, and neither
-    /// releases it when the model is disposed — the CUDA runtime behind them is resident for the life
-    /// of whatever process loaded it. So the bot starts a worker when it joins a channel, and stopping
-    /// that worker is the only lever there is.
-    /// </para>
-    /// <para>
-    /// <b>Zero, the default, keeps the worker up once it has started.</b> Loading costs about three
-    /// seconds and the first sentence after that is slower again, so a host with the memory to spare
-    /// should not pay that on every join. A number here trades those seconds for the memory: the worker
-    /// stops that long after the last channel empties, and the next join loads it again.
-    /// </para>
-    /// <para>
-    /// Either way a bot that never joins a voice channel never starts one, which is the case this is
-    /// really about — the models are the whole footprint, and most of the time nobody is listening.
-    /// </para>
-    /// </remarks>
-    /// <panel>How many minutes to keep the speech models loaded after the last voice channel empties.
-    /// They cost around 1.6GB of memory and a gigabyte of video memory, all of which comes back when
-    /// they are unloaded — but loading them again takes a few seconds, which the next person to speak
-    /// waits for. Zero keeps them loaded until the bot restarts. A bot that never joins a voice channel
-    /// never loads them at all.</panel>
-    [LeafField("voiceWorkerIdleMinutes", "Unload speech after", Group = "voice", Unit = "minutes",
-        Min = 0, Max = 1440, DependsOn = "voiceEnabled")]
-    public int WorkerIdleMinutes { get; set; } = 0;
+    /// <panel>The socket the host's speech engine (kgsm-speech) listens on. Leave blank unless you
+    /// have moved it — the bot uses the standard path. Without that leaf installed the bot still
+    /// joins voice channels; it just cannot hear or speak, and answers in the channel instead.</panel>
+    [LeafField("voiceSpeechSocket", "Speech engine socket", Group = "voice", Type = LeafType.Path,
+        Risk = LeafRisk.Wiring, DependsOn = "voiceEnabled")]
+    public string SpeechSocket { get; set; } = string.Empty;
 }

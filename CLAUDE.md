@@ -599,31 +599,27 @@ answers.
   enough, and leaves the answer in the room disagreeing with the answer in the channel. **How long a
   reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
   (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
-- ⚠ **The speech models run in a separate process, because ending one is the only way to get their
-  memory back.** Measured on this host: the bot with voice switched off is **145MB**; whisper on the
-  card adds **360MB**, and kokoro adds **1285MB** — of which **919MB appears on the first sentence
-  synthesised**, when cuDNN pages in its kernels. Disposing the session returns the video memory and
-  about a quarter of the host memory; the rest belongs to the CUDA runtime until the process exits.
-  So `SpeechWorker` starts **this same binary with `--speech <socket>`** (`SpeechWorkerHost`) when the
-  bot joins a voice channel, and everything above it still asks through `ISpeechToText`/`ITextToSpeech`
-  as before. Same artifact, same settings file, no version skew. A bot that never joins a voice channel
-  never loads a model.
-  - **The bot listens and the worker connects back**, which removes the race — there is no window
-    where the socket does not exist yet, and nothing polls for a file.
-  - **The worker exits when the connection closes**, which is also what happens if the bot is killed.
-    There is no supervision loop: an orphan holding a gigabyte and a slice of the card is the thing
-    this design exists to prevent.
-  - **It stays up once started** (`Voice:WorkerIdleMinutes` = `0`), because loading is ~3s and the
-    first sentence after that is slower again. Minutes there trade those seconds back for the memory.
-  - **The worker holds no state**: the names to expect and the voice to speak in travel with every
-    request, so priming, echo detection, the phrase cache and the 24k→48k upsample all live bot-side.
-- ⚠ **Never call `KokoroVoiceManager` — it loads every voice on disk.** Its accessors bulk-load the
-  whole `voices/` tree the first time they are asked for anything, and that tree is **157 `.npy`
-  arrays** (every other language sits in a subdirectory it walks into): measured at **61MB of resident
-  float32 to speak in one voice**, on the LOH, never compacted. `SpeechSynthesiser` reads one voice
-  with `KokoroVoice.FromPath` and caches what has actually been asked for. Listing what is available
-  is `InstalledVoices`, a *directory* read — which is why the picker and `/voice speak-as` work on a
-  bot with no worker running at all.
+- ⚠ **Hearing and speaking are not in this process — they are the `kgsm-speech` leaf.** One engine
+  per host, reached over `/run/kgsm-speech/speech.sock`, serving every surface that listens or speaks.
+  The reason is measured: the models cost about 1.6GB and 1.1GB of video memory, and **unloading them
+  inside a running process does not give that back** (whisper returned 9MB of 383MB, kokoro 331MB of
+  1319MB, after an aggressive compacting GC and `malloc_trim`) — the CUDA runtime behind them is
+  resident until the process exits. `HostSpeech` owns the connection; `LeafSpeechToText` and
+  `LeafTextToSpeech` are what the rest of the bot asks.
+  - **The bot at idle is ~145MB**, and a host that never uses voice never loads a model at all.
+  - **The engine owns the voice**, not this leaf: every request omits the voice name, which is what
+    makes a person hear the same assistant here as anywhere else on the host. `/voice speak-as`
+    therefore changes it **for the whole host** and says so. There is deliberately no `SpeechVoice`
+    setting here to disagree with it.
+  - **The bot does not decide how long the models stay loaded** (`ISpeechEngine` has `Wake` and no
+    counterpart). A bot leaving a channel is not evidence nobody else is speaking; the engine idles
+    out on its own schedule, which is the only place the whole picture is visible.
+  - **A host without the leaf is the ordinary case**, and it is the same degraded shape as a host with
+    no model files: the bot joins, hears nothing, and answers in the channel's chat. ⚠ This is the one
+    place the bot's voice *surface* depends on a sibling leaf — the bot itself does not, exactly as
+    slash commands and announcements need no assistant.
+  - **What stays on this side is what the engine does not know**: this host's server names (priming),
+    the echo check, the phrase cache, and the 24kHz→48kHz upsample Discord needs.
 - ⚠ **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
   stops that answer (`IVoiceSessions.StopSpeaking`, `Voice:Interruptible`), and the request that
   stopped it is answered next. Receiving never pauses for speaking — they are separate directions on

@@ -169,8 +169,6 @@
       "MinUtteranceMs": 400,
       "MaxUtteranceSeconds": 20,
       "LeaveWhenAlone": true,
-      "ModelPath": "/var/lib/kgsm-bot/models/ggml-small.en.bin",
-      "UseGpu": true,
       "Triggers": "hey assistant",
       "FollowUpSeconds": 10,
       "LogTranscripts": false,
@@ -239,20 +237,13 @@
       // bot every time two of them did. Only the sound stops — the answer is already in the chat.
       "Interruptible": true,
 
-      "SpeechModelPath": "/var/lib/kgsm-bot/models/kokoro.onnx",
-      // One voice is read from disk, not all of them: the directory holds 157 arrays including every
-      // other language's, and loading the lot to speak in one costs 78MB for nothing. Trying another
-      // with /voice speak-as reads that one too.
-      "SpeechVoice": "af_heart",
-      "SpeakUseGpu": true,
-
-      // The models run in a worker process the bot starts when it joins a voice channel, because
-      // ending a process is the only thing that gives their memory back — around 1.6GB of this host's
-      // and a gigabyte of the card's, none of which is released by unloading a model inside a running
-      // process. Zero keeps the worker up once it has started, so nobody waits the few seconds it
-      // takes to load; minutes here trade those seconds for the memory. A bot that never joins a
-      // voice channel never starts one either way.
-      "WorkerIdleMinutes": 0
+      // Hearing and speaking are done by the kgsm-speech leaf — one process per host, serving every
+      // surface, because the models and the CUDA runtime behind them cost about 1.6GB that nothing
+      // short of a process ending gives back. Which voice this host speaks in, which card it uses and
+      // how long it stays loaded are that leaf's configuration, not this one's. Blank uses the
+      // standard socket path; without that leaf installed the bot still joins a voice channel and
+      // simply answers in the chat.
+      "SpeechSocket": ""
     },
 
     // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active
