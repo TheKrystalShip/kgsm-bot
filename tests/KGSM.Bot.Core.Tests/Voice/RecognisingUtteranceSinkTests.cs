@@ -32,6 +32,13 @@ public class RecognisingUtteranceSinkTests
 
     private readonly IVoiceChimes _chimes = Substitute.For<IVoiceChimes>();
 
+    /// <summary>
+    /// The voice connection, so that cutting the bot off can be asserted on. Returns true from
+    /// <see cref="IVoiceSessions.StopSpeaking"/> by default — the interesting question is whether the
+    /// sink asks, not what the session finds when it looks.
+    /// </summary>
+    private readonly IVoiceSessions _sessions = Substitute.For<IVoiceSessions>();
+
     private readonly List<VoiceCommand> _taken = [];
 
     /// <summary>
@@ -47,17 +54,26 @@ public class RecognisingUtteranceSinkTests
         }
     }
 
-    public RecognisingUtteranceSinkTests() => _speech.IsAvailable.Returns(true);
+    public RecognisingUtteranceSinkTests()
+    {
+        _speech.IsAvailable.Returns(true);
+        _sessions.StopSpeaking(Arg.Any<ulong>()).Returns(true);
+    }
 
-    private RecognisingUtteranceSink Sink(int followUpSeconds = 10)
+    private RecognisingUtteranceSink Sink(int followUpSeconds = 10, bool interruptible = true)
     {
         var options = Options.Create(new DiscordOptions
         {
-            Voice = new VoiceOptions { Triggers = "hey assistant", FollowUpSeconds = followUpSeconds },
+            Voice = new VoiceOptions
+            {
+                Triggers = "hey assistant",
+                FollowUpSeconds = followUpSeconds,
+                Interruptible = interruptible,
+            },
         });
 
         return new RecognisingUtteranceSink(
-            _speech, _queue, _tally, _attention, _chimes, options,
+            _speech, _queue, _tally, _attention, _chimes, () => _sessions, options,
             NullLogger<RecognisingUtteranceSink>.Instance);
     }
 
@@ -444,5 +460,96 @@ public class RecognisingUtteranceSinkTests
 
         _dispatched.Should().ContainSingle();
         _dispatched[0].Text.Should().Be("stop minecraft");
+    }
+
+    [Fact]
+    public async Task TheTriggerStopsAnAnswerBeingSaidOutLoud()
+    {
+        // Somebody who addresses the bot part-way through an answer wants that answer to stop.
+        RecognisingUtteranceSink sink = Sink();
+
+        await SayAsync(sink, "Hey assistant, what's the status of terraria");
+
+        _sessions.Received().StopSpeaking(7);
+    }
+
+    [Fact]
+    public async Task TheTriggerStopsItBeforeTheSentenceIsFinished()
+    {
+        // The whole value of cutting in is in when it happens. Waiting for the finished sentence
+        // would leave the bot talking over the person for another second after they cut in.
+        RecognisingUtteranceSink sink = Sink();
+
+        await StartSayingAsync(sink, "Hey assistant, what's");
+
+        _sessions.Received().StopSpeaking(7);
+    }
+
+    [Fact]
+    public async Task TalkingOverTheBotWithoutTheTriggerDoesNotStopIt()
+    {
+        // ⚠ The one that makes this usable in a room. People talk over each other in a voice
+        // channel, and any weaker signal than the trigger silences the bot every time two of them do.
+        RecognisingUtteranceSink sink = Sink();
+
+        await SayAsync(sink, "no I said go left, they're behind the ridge");
+
+        _sessions.DidNotReceive().StopSpeaking(Arg.Any<ulong>());
+    }
+
+    [Fact]
+    public async Task AnsweringAQuestionTheBotAskedDoesNotStopIt()
+    {
+        // Continuing a conversation is not cutting into one. The bot asked, they answered — and the
+        // answer reaching the assistant without a trigger is exactly what the window is for.
+        RecognisingUtteranceSink sink = Sink();
+        _attention.Expect(1, 9, new VoiceWaiting(
+            VoiceWaitingFor.Answer, DateTimeOffset.UtcNow.AddSeconds(20)));
+
+        await SayAsync(sink, "the modded one");
+
+        _sessions.DidNotReceive().StopSpeaking(Arg.Any<ulong>());
+        _dispatched.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task FinishingACutOffRequestDoesNotStopIt()
+    {
+        // The ceiling cut them off mid-sentence; what they say next is the end of that request. The
+        // bot is answering nothing yet, and there is nothing to cut into.
+        RecognisingUtteranceSink sink = Sink();
+
+        await SayAsync(sink, "Hey assistant, restart", truncated: true);
+        _sessions.ClearReceivedCalls();
+
+        await SayAsync(sink, "the valheim server");
+
+        _sessions.DidNotReceive().StopSpeaking(Arg.Any<ulong>());
+    }
+
+    [Fact]
+    public async Task SwitchedOffTheBotTalksOverBeingInterrupted()
+    {
+        RecognisingUtteranceSink sink = Sink(interruptible: false);
+
+        await SayAsync(sink, "Hey assistant, what's the status of terraria");
+
+        _sessions.DidNotReceive().StopSpeaking(Arg.Any<ulong>());
+
+        // Still heard, still answered — only the cutting off is off.
+        _dispatched.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task ASessionThatThrowsDoesNotCostTheRequest()
+    {
+        // Being unable to stop an answer is not a reason to drop the request that stopped it.
+        RecognisingUtteranceSink sink = Sink();
+        _sessions.StopSpeaking(Arg.Any<ulong>()).Returns(_ => throw new InvalidOperationException());
+
+        await SayAsync(sink, "Hey assistant, stop terraria");
+
+        _dispatched.Should().ContainSingle();
+        _dispatched[0].Text.Should().Be("stop terraria");
     }
 }

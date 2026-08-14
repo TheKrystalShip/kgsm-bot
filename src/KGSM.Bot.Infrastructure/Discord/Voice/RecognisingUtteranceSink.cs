@@ -34,6 +34,13 @@ namespace KGSM.Bot.Infrastructure.Discord.Voice;
 /// pending — this speaker has not finished — so both hold what there is so far and complete it from
 /// what they say next.
 /// </para>
+/// <para>
+/// <b>The trigger also cuts the bot off.</b> Hearing and speaking are separate directions on the same
+/// connection, so the bot is still listening while it talks — and somebody who addresses it part-way
+/// through an answer wants that answer to stop. Only the trigger counts: a voice channel is a room
+/// where people talk over each other, and any weaker signal would silence the bot every time two of
+/// them did.
+/// </para>
 /// </remarks>
 public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
 {
@@ -42,10 +49,12 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     private readonly IVoiceTally _tally;
     private readonly VoiceAttention _attention;
     private readonly IVoiceChimes _chimes;
+    private readonly Func<IVoiceSessions> _sessions;
     private readonly ILogger<RecognisingUtteranceSink> _logger;
     private readonly WakeWordDetector _wake;
     private readonly TimeSpan _followUp;
     private readonly bool _logTranscripts;
+    private readonly bool _interruptible;
 
     /// <summary>Speakers who have addressed the bot and not yet finished saying what they want.</summary>
     private readonly ConcurrentDictionary<ulong, Pending> _pending = new();
@@ -60,6 +69,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         IVoiceTally tally,
         VoiceAttention attention,
         IVoiceChimes chimes,
+        Func<IVoiceSessions> sessions,
         IOptions<DiscordOptions> options,
         ILogger<RecognisingUtteranceSink> logger)
     {
@@ -68,11 +78,13 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         _tally = tally;
         _attention = attention;
         _chimes = chimes;
+        _sessions = sessions;
         _logger = logger;
 
         VoiceOptions voice = options.Value.Voice;
         _followUp = TimeSpan.FromSeconds(Math.Max(1, voice.FollowUpSeconds));
         _logTranscripts = voice.LogTranscripts;
+        _interruptible = voice.Speak && voice.Interruptible;
 
         string[] triggers = voice.Triggers
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -126,6 +138,11 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         // send a "yes" to the assistant as a fresh question and leave the action unconfirmed.
         VoiceWaiting? answering = _attention.Take(utterance.SpeakerId, utterance.ChannelId, now);
         bool triggered = asked is not null;
+
+        // Somebody addressed the bot, and the bot may well be in the middle of talking. Only the
+        // trigger does this — an answer to a question it asked, or the rest of a request cut off at
+        // the ceiling, are both people continuing a conversation rather than cutting into one.
+        if (triggered) StopTalking(utterance);
 
         if (asked is null)
         {
@@ -244,7 +261,46 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
             "Voice: {Speaker} is addressing the bot — answering before they've finished",
             utterance.SpeakerName);
 
+        // The one thing this path does besides making a sound, and it earns the exception: stopping
+        // an answer undoes nothing — the reply is in the chat and the turn behind it has finished —
+        // while being slow about it is the whole failure. Waiting for the finished sentence would
+        // leave the bot talking over the person for another second after they cut in, which is the
+        // second that makes an interruption feel ignored.
+        StopTalking(utterance);
+
         await _chimes.PlayAsync(utterance.GuildId, VoiceChime.Listening, ct);
+    }
+
+    /// <summary>
+    /// Stops an answer already being said out loud, because this speaker has cut into it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Silent when the bot was not talking</b>, which is the ordinary case — the same trigger is
+    /// spotted twice for one interruption, once mid-sentence and once from the finished one, and only
+    /// the first of those finds anything to stop.
+    /// </para>
+    /// <para>
+    /// <b>Never a fault.</b> The session is resolved on use, and the reasons it might not be there —
+    /// no connection, the bot never spoke — are all the ordinary shape of a room. Nothing said here
+    /// is worth failing an utterance over.
+    /// </para>
+    /// </remarks>
+    private void StopTalking(VoiceUtterance utterance)
+    {
+        if (!_interruptible) return;
+
+        try
+        {
+            if (_sessions().StopSpeaking(utterance.GuildId))
+                _logger.LogInformation(
+                    "Voice: {Speaker} cut in while the bot was talking — the rest of that answer was "
+                    + "not said out loud", utterance.SpeakerName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Voice: could not stop the answer in progress");
+        }
     }
 
     /// <summary>

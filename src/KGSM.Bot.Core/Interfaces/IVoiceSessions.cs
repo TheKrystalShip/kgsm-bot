@@ -51,6 +51,25 @@ public interface IVoiceSessions
     /// </remarks>
     Task<Result> SpeakAsync(
         ulong guildId, byte[] pcm, TimeSpan? waitAtMost = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Drops the rest of whatever is being said out loud in this guild. Returns whether there was
+    /// anything to drop.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What is dropped is the sound, never the answer.</b> The reply is already in the chat and
+    /// the turn that produced it has finished — this ends a recital, and nothing is undone by ending
+    /// it. That is what makes cutting the bot off safe to get wrong: the worst case is somebody
+    /// reading the rest instead of hearing it.
+    /// </para>
+    /// <para>
+    /// <b>Answered rather than requested, so the caller can tell.</b> A false return means the bot
+    /// was not talking, which is a different thing from having been stopped, and only the session
+    /// knows which.
+    /// </para>
+    /// </remarks>
+    bool StopSpeaking(ulong guildId);
 }
 
 /// <summary>

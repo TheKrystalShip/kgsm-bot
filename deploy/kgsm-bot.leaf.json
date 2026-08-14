@@ -839,6 +839,17 @@
       "dependsOn": "voiceEnabled"
     },
     {
+      "key": "voiceInterruptible",
+      "env": "Discord__Voice__Interruptible",
+      "label": "Cut in while it is talking",
+      "description": "Whether saying the trigger phrase while the bot is talking stops it mid-answer, so you do not have to wait out a long reply to ask something else. Only the trigger does it — ordinary talking over the bot does not, or a busy channel would cut it off constantly. The answer stays in the chat either way.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceSpeak"
+    },
+    {
       "key": "voiceSpeechModelPath",
       "env": "Discord__Voice__SpeechModelPath",
       "label": "Synthesis model",

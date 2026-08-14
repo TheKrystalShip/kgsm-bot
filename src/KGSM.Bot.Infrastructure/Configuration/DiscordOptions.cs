@@ -596,6 +596,30 @@ public class VoiceOptions
     [LeafField("voiceSpeak", "Answer out loud", Group = "voice", DependsOn = "voiceEnabled")]
     public bool Speak { get; set; } = true;
 
+    /// <summary>
+    /// Whether saying the trigger phrase while the bot is talking stops it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The trigger, and nothing weaker.</b> Somebody starting to speak is not an interruption in a
+    /// voice channel — it is a room where people talk over each other, and treating that as a signal
+    /// would silence the bot every time two people spoke at once. Requiring the phrase makes cutting
+    /// in something a person does on purpose, which is the same bargain the trigger already is for
+    /// being heard at all.
+    /// </para>
+    /// <para>
+    /// Only the sound stops. The turn that produced the answer has already finished and the answer is
+    /// already in the chat, so there is nothing to undo and nothing left half-done.
+    /// </para>
+    /// </remarks>
+    /// <panel>Whether saying the trigger phrase while the bot is talking stops it mid-answer, so you
+    /// do not have to wait out a long reply to ask something else. Only the trigger does it —
+    /// ordinary talking over the bot does not, or a busy channel would cut it off constantly. The
+    /// answer stays in the chat either way.</panel>
+    [LeafField("voiceInterruptible", "Cut in while it is talking", Group = "voice",
+        DependsOn = "voiceSpeak")]
+    public bool Interruptible { get; set; } = true;
+
     /// <summary>The Kokoro model used to synthesise speech.</summary>
     /// <remarks>
     /// Beside the recognition model and outside the install prefix, for the same reason: the deploy

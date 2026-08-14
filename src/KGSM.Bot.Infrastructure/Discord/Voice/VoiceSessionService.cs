@@ -158,6 +158,9 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         return await session.SpeakAsync(pcm, waitAtMost, ct);
     }
 
+    public bool StopSpeaking(ulong guildId) =>
+        _sessions.TryGetValue(guildId, out Session? session) && session.StopSpeaking();
+
     public async Task<Result> LeaveAsync(ulong guildId, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
@@ -252,6 +255,9 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         // rather than on joining, so a session nobody speaks into never builds an encoder.
         private readonly SemaphoreSlim _mouth = new(1, 1);
         private AudioOutStream? _out;
+
+        /// <summary>What is being said right now, or null when the bot is quiet.</summary>
+        private Speech? _saying;
         private readonly DateTimeOffset _joinedAt = DateTimeOffset.UtcNow;
         private long _utterances;
 
@@ -330,19 +336,40 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             using var bounded = CancellationTokenSource.CreateLinkedTokenSource(ct);
             bounded.CancelAfter(budget);
 
+            // Published only now: until the mouth is held there is nothing playing to cut off, and a
+            // stop arriving before then would cancel an answer that had not started.
+            var speech = new Speech(bounded);
+            _saying = speech;
+
             try
             {
                 _out ??= audio.CreatePCMStream(
                     AudioApplication.Voice, bufferMillis: SendableAudio.BufferMillis);
 
-                await _out.WriteAsync(audible, bounded.Token);
-                await _out.FlushAsync(bounded.Token);
+                await _out.WriteAsync(audible, speech.Token);
+                await _out.FlushAsync(speech.Token);
 
                 logger.LogDebug(
                     "Voice: said {Seconds:F1}s in {Channel}",
                     PcmUpsampler.DurationOfStereo48k(pcm.Length).TotalSeconds, channel.Name);
 
                 return Result.Success();
+            }
+            catch (OperationCanceledException) when (speech.Stopped)
+            {
+                // ⚠ Cancelling stops the writing, not the sound. Up to a whole buffer of audio is
+                // already queued and would keep playing for a second after somebody cut in — so the
+                // stream is thrown away with what it was holding, and the next answer builds a new
+                // one. That is the only way to drop queued frames: the writer's own Clear dequeues
+                // them without releasing the slots they held, which starves the stream for good.
+                Drop();
+
+                logger.LogInformation(
+                    "Voice: stopped part-way through {Seconds:F1}s of speech in {Channel} — somebody "
+                    + "addressed the bot while it was talking",
+                    PcmUpsampler.DurationOfStereo48k(audible.Length).TotalSeconds, channel.Name);
+
+                return Result.Failure("Somebody cut in, so I stopped talking.");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -358,7 +385,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                     + "rebuilding it for the next one",
                     channel.Name, PcmUpsampler.DurationOfStereo48k(audible.Length).TotalSeconds);
 
-                _out = null;
+                Drop();
                 return Result.Failure("I couldn't say that out loud.");
             }
             catch (OperationCanceledException)
@@ -373,7 +400,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                     + "speech — it was not said",
                     channel.Name, PcmUpsampler.DurationOfStereo48k(audible.Length).TotalSeconds);
 
-                _out = null;
+                Drop();
                 return Result.Failure("I lost the voice connection before I could say that.");
             }
             catch (Exception ex)
@@ -381,13 +408,53 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 // A broken output stream is not a broken session: the connection may still be
                 // delivering audio in the other direction, and the answer is already in the chat.
                 logger.LogWarning(ex, "Voice: could not speak in {Channel}", channel.Name);
-                _out = null;
+                Drop();
                 return Result.Failure("I couldn't say that out loud.");
             }
             finally
             {
+                // Cleared only if it is still ours: a stop takes the field on its way past, and the
+                // next answer may already have claimed it.
+                Interlocked.CompareExchange(ref _saying, null, speech);
                 _mouth.Release();
             }
+        }
+
+        /// <summary>
+        /// Ends what is being said now. False when the bot was not talking.
+        /// </summary>
+        /// <remarks>
+        /// Taken rather than read, so two things noticing the same interruption — the trigger spotted
+        /// mid-sentence, and the same trigger read again from the finished one — stop one answer
+        /// between them rather than reporting two.
+        /// </remarks>
+        public bool StopSpeaking()
+        {
+            Speech? saying = Interlocked.Exchange(ref _saying, null);
+            if (saying is null) return false;
+
+            saying.Stop();
+            return true;
+        }
+
+        /// <summary>
+        /// Throws the output stream away, along with whatever it still had queued.
+        /// </summary>
+        /// <remarks>
+        /// Disposed rather than dropped on the floor: the stream owns a loop that goes on pacing
+        /// frames onto the connection until something cancels it, so letting go of the reference
+        /// leaves a second writer running against the same connection as its replacement. Nothing
+        /// below it is shared — each stream builds its own chain down to the socket — so this costs
+        /// an encoder and touches nothing else.
+        /// </remarks>
+        private void Drop()
+        {
+            AudioOutStream? going = _out;
+            _out = null;
+            if (going is null) return;
+
+            try { going.Dispose(); }
+            catch (Exception ex) { logger.LogDebug(ex, "Voice: error closing the output stream"); }
         }
 
 
@@ -617,6 +684,36 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
             audio.Dispose();
             _cts.Dispose();
+        }
+
+        /// <summary>
+        /// One answer on its way out, and the lever that ends it early.
+        /// </summary>
+        /// <remarks>
+        /// <b>Why the flag and not just the token.</b> A write can be cancelled for three reasons that
+        /// look identical where it is caught — the caller gave up, the budget ran out, or the
+        /// connection went away — and each of those is a different thing to tell whoever reads the
+        /// log afterwards. Being stopped on purpose is the fourth, and it is the only one that is not
+        /// a fault at all.
+        /// </remarks>
+        private sealed class Speech(CancellationTokenSource source)
+        {
+            /// <summary>Whether it was ended deliberately.</summary>
+            public bool Stopped { get; private set; }
+
+            public CancellationToken Token => source.Token;
+
+            public void Stop()
+            {
+                // Set first: the write may be cancelled and caught before this method returns, and it
+                // reads this to know why.
+                Stopped = true;
+
+                // The source belongs to the write, which disposes it on the way out. Losing that race
+                // means the answer had already finished — which is the outcome being asked for.
+                try { source.Cancel(); }
+                catch (ObjectDisposedException) { }
+            }
         }
 
         /// <summary>

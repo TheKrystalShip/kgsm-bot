@@ -232,6 +232,13 @@
       // call. How long an answer runs is the assistant's to control: a spoken turn already asks for
       // a reply written to be heard.
       "Speak": true,
+
+      // Saying the trigger phrase while the bot is talking stops it, so a long answer is not
+      // something you have to wait out. Deliberately the trigger and nothing weaker: people talk over
+      // each other in a voice channel, and treating any speech as an interruption would silence the
+      // bot every time two of them did. Only the sound stops — the answer is already in the chat.
+      "Interruptible": true,
+
       "SpeechModelPath": "/var/lib/kgsm-bot/models/kokoro.onnx",
       "SpeechVoice": "af_heart",
       "SpeakUseGpu": true

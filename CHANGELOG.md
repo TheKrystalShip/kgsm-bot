@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.30.0] - 2026-08-14
+
+### Added — cutting the bot off mid-answer
+
+Saying the trigger phrase while the bot is talking stops it, and the request that stopped it is
+answered next. Now that a whole reply is spoken, a long one was something you had to wait out.
+
+**Only the trigger does it.** A voice channel is a room where people talk over each other, and the
+cheap signal — somebody starting to speak — is in the pipe already and free, at about twenty
+milliseconds against the second and a half a trigger match costs. It was rejected anyway: acting on
+it would silence the bot every time two people spoke at once. Cutting in has to be deliberate, which
+is the same bargain the trigger already is for being heard at all. Continuing a conversation is not
+cutting into one, so neither an answer to a question the bot asked nor the rest of a request cut off
+at the ceiling stops anything.
+
+It is spotted twice for one interruption — mid-sentence by the early look-ahead, then again from the
+finished sentence — and the first to find an answer playing is the one that stops it. The
+mid-sentence path is allowed to act, alone among the things it may do, because stopping an answer
+undoes nothing: the reply is already in the chat and the turn behind it has finished. Being slow
+about it is the entire failure.
+
+Switched with `Voice:Interruptible` (on).
+
+### Fixed — an interrupted answer really stops
+
+Cancelling the write stops the writing, not the sound: up to a whole buffer of audio is already
+queued and plays on for about a second. The output stream is now thrown away with what it was
+holding, and the next answer builds a new one.
+
+⚠ The writer's own `ClearAsync` cannot be used for this — it dequeues frames without releasing the
+slots they occupied or returning their buffers to the pool, so one call starves the stream
+permanently. Discarding queued audio means discarding the stream.
+
+The stream is also now **disposed** on every path that abandons it, rather than having its reference
+dropped. A `BufferedWriteStream` owns a loop that goes on pacing frames onto the connection until
+something cancels it, so letting go of one left a second writer running against the same connection
+as its replacement.
+
 ## [3.29.0] - 2026-08-14
 
 ### Removed — the cap on how much of an answer is spoken

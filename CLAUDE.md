@@ -578,7 +578,9 @@ answers.
   `UtteranceAssembler.Peek` hands out a copy at `EarlyTriggerMs`, and `RecognisingUtteranceSink`
   matches the trigger in it. **Nothing is dispatched, counted, or opened from a partial**: it is half
   an instruction, and the complete copy arrives moments later. That is exactly what makes it safe for
-  whisper to be wrong about a fragment. It is **skipped, never queued**, when the recogniser is busy
+  whisper to be wrong about a fragment. The one thing it may do besides sounding a tone is **stop an
+  answer being spoken** — that undoes nothing, since the reply is in the chat and the turn behind it
+  has finished, and being slow about it is the whole failure. It is **skipped, never queued**, when the recogniser is busy
   (`TranscribeIfIdleAsync`) — a look ahead at an unfinished sentence must never delay a finished one —
   and it costs a full recognition pass on most of what a room says, since whisper pads to a fixed
   window. `0` turns it off.
@@ -597,6 +599,21 @@ answers.
   enough, and leaves the answer in the room disagreeing with the answer in the channel. **How long a
   reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
   (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
+- ⚠ **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
+  stops that answer (`IVoiceSessions.StopSpeaking`, `Voice:Interruptible`), and the request that
+  stopped it is answered next. Receiving never pauses for speaking — they are separate directions on
+  one connection — so the cheap signal, *somebody started talking*, is already in the pipe at ~20ms
+  against the ~1.5s a trigger match costs. It is deliberately not used: a voice channel is a room
+  where people talk over each other, and acting on it silences the bot every time two of them do.
+  Continuing a conversation is not cutting into one, so an answer inside a `VoiceAttention` window and
+  the rest of a request truncated at the ceiling both leave the speech alone.
+- ⚠ **Stopping the write does not stop the sound — the stream has to go.** Up to `BufferMillis` of
+  audio is already queued in the writer and plays on regardless, so an interrupt disposes `_out` and
+  the next answer builds a new one. The writer's own `ClearAsync` **cannot** be used: it dequeues
+  frames without releasing the queue slots or returning their buffers to the pool, so one call starves
+  the stream for good. Every path that abandons the stream disposes it, because a `BufferedWriteStream`
+  owns a send loop that runs until something cancels it — a dropped reference is a second writer on the
+  same connection as its replacement.
 - ⚠ **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
   surface posts and the spoken reply says so. The button re-derives authority at the click; a
   recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.

@@ -172,7 +172,20 @@ public static class DependencyInjection
         // thing that makes the voice wiring acyclic: the session owns the connection, so answering
         // out loud goes back through it, which wired directly would be a circle.
         services.AddSingleton<global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceCommandQueue>();
-        services.AddSingleton<IVoiceUtteranceSink, global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink>();
+        // The session is handed over as a factory for the same reason the tones get one: the session
+        // is built with the recogniser, so asking for it here would close a circle the container
+        // refuses. It is needed because the trigger, recognised in here, is also what stops an answer
+        // the session is part-way through saying.
+        services.AddSingleton<IVoiceUtteranceSink>(sp =>
+            new global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink(
+                sp.GetRequiredService<ISpeechToText>(),
+                sp.GetRequiredService<global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceCommandQueue>(),
+                sp.GetRequiredService<IVoiceTally>(),
+                sp.GetRequiredService<global::KGSM.Bot.Core.Voice.VoiceAttention>(),
+                sp.GetRequiredService<IVoiceChimes>(),
+                sp.GetRequiredService<IVoiceSessions>,
+                sp.GetRequiredService<IOptions<DiscordOptions>>(),
+                sp.GetRequiredService<ILogger<global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink>>()));
 
         // The bot's voice connections. A singleton because it owns them: Discord allows one per
         // guild, and a second instance would hold a connection the first one does not know about and
