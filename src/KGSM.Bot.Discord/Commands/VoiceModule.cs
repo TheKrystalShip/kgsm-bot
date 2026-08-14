@@ -4,6 +4,7 @@ using Discord.WebSocket;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Core.Voice;
 
 using Microsoft.Extensions.Logging;
 
@@ -33,11 +34,13 @@ namespace KGSM.Bot.Discord.Commands;
 public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IVoiceSessions _voice;
+    private readonly IVoiceTally _tally;
     private readonly ILogger<VoiceModule> _logger;
 
-    public VoiceModule(IVoiceSessions voice, ILogger<VoiceModule> logger)
+    public VoiceModule(IVoiceSessions voice, IVoiceTally tally, ILogger<VoiceModule> logger)
     {
         _voice = voice;
+        _tally = tally;
         _logger = logger;
     }
 
@@ -102,15 +105,31 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
+        VoiceCounts counts = _tally.Read();
+
+        // The four numbers in the order speech passes through them, so the one that drops to zero is
+        // the stage that is failing. A single "heard" count cannot distinguish a bot that understands
+        // nobody from one that understands everybody and is never addressed.
         var embed = new EmbedBuilder()
             .WithTitle("🎙️ Voice")
             .WithColor(Color.Green)
             .AddField("Channel", session.ChannelName, inline: true)
             .AddField("Speakers", session.Speakers.ToString(), inline: true)
-            .AddField("Heard", $"{session.Utterances} utterance(s)", inline: true)
-            .WithFooter($"Joined {session.JoinedAt:HH:mm:ss} UTC")
-            .Build();
+            .AddField("Heard here", $"{session.Utterances} utterance(s)", inline: true)
+            .AddField(
+                "Since the bot started",
+                $"**{counts.Heard}** heard → **{counts.Recognised}** recognised → "
+                + $"**{counts.Addressed}** addressed → **{counts.Answered}** answered");
 
-        await RespondAsync(embed: embed, ephemeral: true);
+        if (counts.Echoed > 0)
+            embed.AddField(
+                "Discarded",
+                $"{counts.Echoed} transcript(s) were the primed server names coming back, not speech.");
+
+        if (counts.Diagnosis is string diagnosis)
+            embed.WithColor(Color.Orange).AddField("What that means", diagnosis);
+
+        await RespondAsync(
+            embed: embed.WithFooter($"Joined {session.JoinedAt:HH:mm:ss} UTC").Build(), ephemeral: true);
     }
 }

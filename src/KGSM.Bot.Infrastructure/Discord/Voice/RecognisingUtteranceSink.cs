@@ -39,6 +39,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
 {
     private readonly ISpeechToText _speech;
     private readonly VoiceCommandQueue _queue;
+    private readonly IVoiceTally _tally;
     private readonly ILogger<RecognisingUtteranceSink> _logger;
     private readonly WakeWordDetector _wake;
     private readonly TimeSpan _followUp;
@@ -54,11 +55,13 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     public RecognisingUtteranceSink(
         ISpeechToText speech,
         VoiceCommandQueue queue,
+        IVoiceTally tally,
         IOptions<DiscordOptions> options,
         ILogger<RecognisingUtteranceSink> logger)
     {
         _speech = speech;
         _queue = queue;
+        _tally = tally;
         _logger = logger;
 
         VoiceOptions voice = options.Value.Voice;
@@ -87,8 +90,12 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     {
         if (!_speech.IsAvailable) return;
 
+        _tally.Heard();
+
         string? transcript = await _speech.TranscribeAsync(utterance, ct);
         if (string.IsNullOrWhiteSpace(transcript)) return;
+
+        _tally.Recognised();
 
         // Deliberately the whole transcript and deliberately off by default: this is what an operator
         // tunes a trigger phrase against, and there is no way to show them how the recogniser heard
@@ -120,6 +127,10 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
             asked = Join(owed.Text, asked);
         }
 
+        // Everything from here was said to the bot, whether it opened with the trigger or is the rest
+        // of something that did.
+        _tally.Addressed();
+
         if (utterance.Truncated)
         {
             // The ceiling cut them off mid-sentence: what they say next is the end of this request,
@@ -148,6 +159,8 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         var command = new VoiceCommand(
             utterance.SpeakerId, utterance.SpeakerName, utterance.GuildId, utterance.ChannelId,
             asked, transcript, utterance.Duration);
+
+        _tally.Answered();
 
         // Handed over rather than answered here: answering takes seconds, and this runs on the loop
         // that closes other speakers' sentences.

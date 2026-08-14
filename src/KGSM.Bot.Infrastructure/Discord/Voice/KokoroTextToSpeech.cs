@@ -14,21 +14,20 @@ using Microsoft.Extensions.Options;
 namespace KGSM.Bot.Infrastructure.Discord.Voice;
 
 /// <summary>
-/// Speaks with Kokoro, in this process and on the processor.
+/// Speaks with Kokoro, in this process and on the card.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>On the processor, while recognition is on the card.</b> Kokoro can run on a GPU — it is an
-/// ONNX model and takes session options — but that path needs cuDNN, which is a different dependency
-/// from the cuBLAS whisper uses and is not what makes the difference here anyway. One card already
-/// holds the language model, and that model is where a spoken answer spends most of its time; a
-/// short reply synthesises in about 350ms on the processor and contends with nothing.
+/// <b>On the card, beside recognition and the language model.</b> Measured here, a short reply is
+/// around 40ms on the GPU against 355ms on the processor, for roughly 700MB of video memory — which
+/// the card has spare alongside gemma4 and whisper. The path needs cuDNN, a heavier dependency than
+/// the cuBLAS whisper uses, so a host without it falls back rather than refusing.
 /// </para>
 /// <para>
 /// <b>Cost scales with how much is said</b>, which is the opposite of recognition and worth knowing:
-/// "yes, it is" is around 350ms and a paragraph is a second or more. A reply that answers the
-/// question and stops is not merely nicer to listen to, it arrives sooner — which is why keeping
-/// replies short buys more here than moving the work to the card would.
+/// recognition pays a fixed price per utterance whatever its length, and this pays per character. A
+/// reply that answers the question and stops is not merely nicer to listen to — a paragraph is
+/// twelve seconds of talking nobody can skim.
 /// </para>
 /// <para>
 /// Kokoro produces 24 kHz mono; Discord takes 48 kHz stereo. The conversion is exact and lives in

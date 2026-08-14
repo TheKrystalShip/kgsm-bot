@@ -7,6 +7,8 @@ using KGSM.Bot.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using TheKrystalShip.KGSM.Core.Models;
+
 using Whisper.net;
 using Whisper.net.LibraryLoader;
 
@@ -34,19 +36,53 @@ namespace KGSM.Bot.Infrastructure.Discord.Voice;
 /// length is therefore not a latency knob, and batching several together would be a real saving that
 /// nothing here can take, because the person is waiting for the first one.
 /// </para>
+/// <para>
+/// <b>It is primed with this host's own names.</b> A recogniser that has never been told a server is
+/// called <c>Ketchup</c> spells it "catch-up", which is a correct reading of the sound and the wrong
+/// answer. <see cref="SpokenVocabulary"/> composes the prior context and it is refreshed from the
+/// inventory as servers come and go — see there for why this is done at the recogniser rather than by
+/// correcting names afterwards.
+/// </para>
 /// </remarks>
 public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
 {
+    /// <summary>
+    /// How often to look for servers having been installed or removed.
+    /// </summary>
+    /// <remarks>
+    /// The inventory is cached, so asking is cheap — but it is asked on the path between somebody
+    /// finishing a sentence and the answer starting, and rebuilding the processor is not free. A
+    /// server installed is not heard about for up to this long, which costs one misheard name.
+    /// </remarks>
+    private static readonly TimeSpan VocabularyInterval = TimeSpan.FromMinutes(2);
+
     private readonly ILogger<WhisperSpeechToText> _logger;
+    private readonly IKgsmStateCache _inventory;
+    private readonly IVoiceTally _tally;
     private readonly SemaphoreSlim _one = new(1, 1);
     private readonly WhisperFactory? _factory;
-    private readonly WhisperProcessor? _processor;
+    private readonly string[] _triggers;
+    private readonly bool _prime;
+
+    private WhisperProcessor? _processor;
+    private string _vocabulary = string.Empty;
+    private DateTimeOffset _vocabularyCheckedAt = DateTimeOffset.MinValue;
     private bool _disposed;
 
-    public WhisperSpeechToText(IOptions<DiscordOptions> options, ILogger<WhisperSpeechToText> logger)
+    public WhisperSpeechToText(
+        IOptions<DiscordOptions> options,
+        IKgsmStateCache inventory,
+        IVoiceTally tally,
+        ILogger<WhisperSpeechToText> logger)
     {
         _logger = logger;
+        _inventory = inventory;
+        _tally = tally;
         VoiceOptions voice = options.Value.Voice;
+
+        _prime = voice.PrimeWithServerNames;
+        _triggers = voice.Triggers
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (!voice.Enabled) return;
 
@@ -73,7 +109,7 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
         {
             var timer = Stopwatch.StartNew();
             _factory = WhisperFactory.FromPath(model);
-            _processor = _factory.CreateBuilder().WithLanguage("en").Build();
+            _processor = Build(string.Empty);
             timer.Stop();
 
             _logger.LogInformation(
@@ -97,6 +133,9 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
         await _one.WaitAsync(ct);
         try
         {
+            await PrimeAsync(ct);
+            if (_processor is null) return null;
+
             var timer = Stopwatch.StartNew();
             using var wav = WavStream(utterance.Audio);
 
@@ -110,6 +149,18 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
             _logger.LogDebug(
                 "Voice: recognised {Spoken:F1}s from {Speaker} in {Elapsed}ms",
                 utterance.Duration.TotalSeconds, utterance.SpeakerName, timer.ElapsedMilliseconds);
+
+            if (SpokenVocabulary.IsEchoOf(transcript, _vocabulary))
+            {
+                _tally.Echoed();
+                // Whisper continuing the context it was primed with rather than admitting it heard
+                // nothing. Reported at debug and as a count, because a run of these is how an operator
+                // finds out the priming is misfiring on a quiet channel.
+                _logger.LogDebug(
+                    "Voice: discarded a transcript from {Speaker} that was the primed vocabulary coming back",
+                    utterance.SpeakerName);
+                return null;
+            }
 
             return transcript.Length == 0 ? null : transcript;
         }
@@ -127,6 +178,75 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
         finally
         {
             _one.Release();
+        }
+    }
+
+    /// <summary>Builds a processor conditioned on <paramref name="vocabulary"/>.</summary>
+    private WhisperProcessor Build(string vocabulary)
+    {
+        WhisperProcessorBuilder builder = _factory!.CreateBuilder().WithLanguage("en");
+        return (vocabulary.Length == 0 ? builder : builder.WithPrompt(vocabulary)).Build();
+    }
+
+    /// <summary>
+    /// Keeps the prior context in step with what is installed, rebuilding the processor when it moves.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Called with the lock held and on the recognition path, so it does as little as it can: the
+    /// inventory is only consulted every couple of minutes, and the processor is only rebuilt when the
+    /// composed text actually differs — installing a server changes it, and the twenty checks that
+    /// find nothing do not.
+    /// </para>
+    /// <para>
+    /// An inventory that cannot be read leaves the previous context standing rather than clearing it.
+    /// The names did not stop being the names because the engine could not be asked, and a recogniser
+    /// that forgets them mid-outage starts mishearing every server at the moment somebody most needs
+    /// to ask about one.
+    /// </para>
+    /// </remarks>
+    private async Task PrimeAsync(CancellationToken ct)
+    {
+        if (!_prime || _factory is null) return;
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (now - _vocabularyCheckedAt < VocabularyInterval) return;
+        _vocabularyCheckedAt = now;
+
+        string composed;
+        try
+        {
+            IReadOnlyDictionary<string, Instance> instances = await _inventory.GetInstancesAsync(ct);
+            IReadOnlyDictionary<string, Blueprint> blueprints = await _inventory.GetBlueprintsAsync(ct);
+            composed = SpokenVocabulary.Compose(_triggers, instances.Keys, blueprints.Keys);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Voice: could not read the inventory to prime the recogniser");
+            return;
+        }
+
+        if (composed == _vocabulary) return;
+
+        try
+        {
+            WhisperProcessor rebuilt = Build(composed);
+            _processor?.Dispose();
+            _processor = rebuilt;
+            _vocabulary = composed;
+
+            _logger.LogInformation(
+                "Voice: recogniser primed with {Characters} characters of this host's names", composed.Length);
+        }
+        catch (Exception ex)
+        {
+            // The processor that was working is still in place, so this costs the priming and not the
+            // ability to recognise anything.
+            _logger.LogWarning(ex, "Voice: could not prime the recogniser — carrying on without it");
         }
     }
 

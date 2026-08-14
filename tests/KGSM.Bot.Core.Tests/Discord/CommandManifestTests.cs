@@ -57,6 +57,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IServerHistory>());
         services.AddSingleton(Substitute.For<IBotHealth>());
         services.AddSingleton(Substitute.For<IVoiceSessions>());
+        services.AddSingleton(Substitute.For<KGSM.Bot.Core.Voice.IVoiceTally>());
         return services.BuildServiceProvider();
     }
 

@@ -24,6 +24,9 @@ public class RecognisingUtteranceSinkTests
     private readonly ISpeechToText _speech = Substitute.For<ISpeechToText>();
     private readonly VoiceCommandQueue _queue = new();
 
+    /// <summary>The real one, so the counts a surface reports are the ones this produces.</summary>
+    private readonly VoiceTally _tally = new();
+
     private readonly List<VoiceCommand> _taken = [];
 
     /// <summary>
@@ -49,7 +52,7 @@ public class RecognisingUtteranceSinkTests
         });
 
         return new RecognisingUtteranceSink(
-            _speech, _queue, options, NullLogger<RecognisingUtteranceSink>.Instance);
+            _speech, _queue, _tally, options, NullLogger<RecognisingUtteranceSink>.Instance);
     }
 
     /// <summary>Feeds one utterance, with the transcript the recogniser would have produced.</summary>

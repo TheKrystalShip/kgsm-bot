@@ -725,10 +725,21 @@
       "key": "voiceTriggers",
       "env": "Discord__Voice__Triggers",
       "label": "Trigger phrase",
-      "description": "What somebody says to get the bot's attention, like hey assistant. It has to be the start of the sentence, which is what stops the bot answering a conversation that merely mentions it. Several may be given, separated by commas.",
+      "description": "What somebody says to get the bot's attention, like hey assistant. It is found anywhere in a sentence, so leading into a request works — and so does quoting the phrase, which will get you an answer. Several may be given, separated by commas.",
       "group": "voice",
       "type": "string",
       "default": "hey assistant",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voicePrimeWithServerNames",
+      "env": "Discord__Voice__PrimeWithServerNames",
+      "label": "Prime with server names",
+      "description": "Whether the bot tells the recogniser what this host's servers are called before it listens. Names like Ketchup are otherwise heard as ordinary words — \"catch-up\" — because nothing has told it the server exists. The list is refreshed as servers are installed and removed.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
       "risk": "safe",
       "dependsOn": "voiceEnabled"
     },

@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.20.0] - 2026-08-14
+
+### Added — the recogniser is told what this host's servers are called
+
+Whisper knows English, not this host. A server called `Ketchup` came back as "catch-up" and
+`projectzomboid` as "Project Sambite" — correct readings of the sound and the wrong answer, and no
+amount of audio quality fixes it. `SpokenVocabulary` composes the trigger phrase and the host's
+instance and blueprint names into the prior context whisper is conditioned on, refreshed from the
+inventory every couple of minutes so a server installed is heard about without a restart.
+
+Measured on the same synthesised phrases with and without it, so the audio was identical and the
+prior context was the only variable: **four of eight names recognised, against seven of eight**.
+`Ketchup` and `projectzomboid` both came right, at no cost in latency. `necesse` still comes back as
+"nessus".
+
+Nothing downstream rewrites what anybody said, and correcting a misheard name after the fact was
+measured to be impossible rather than merely risky: `nessus` sits at 0.43 similarity to `necesse`,
+*below* `restart` → `romestead` at 0.44 and `stations` → `stationeers` at 0.73. Every threshold that
+catches the real correction also rewrites the verb in half the commands people speak. A name that
+survives all this is left as it was said, for the assistant to ask about.
+
+Priming has a failure of its own — given audio with nothing recognisable in it, whisper sometimes
+continues the context instead of returning nothing — so a transcript that is a run of the context
+reproduced in order is discarded and counted. A single name is not: "minecraft" on its own is
+somebody answering which server they meant.
+
+`Discord:Voice:PrimeWithServerNames` switches it off.
+
+### Added — `/voice status` says which stage is failing
+
+"It didn't hear me" has four causes and from inside a voice channel they are the same silence.
+`/voice status` now reports **heard → recognised → addressed → answered** since the bot started, and
+names the stage where the numbers stop, so a trigger phrase that is not matching is distinguishable
+from a model that is not loaded without switching on transcript logging — which writes down every
+private word said in the room to diagnose what is usually one phrase. Counts only; nothing here
+holds anything anybody said, which is what makes it safe to leave on.
+
 ## [3.19.0] - 2026-08-14
 
 ### Added — the bot answers out loud

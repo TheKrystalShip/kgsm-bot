@@ -175,6 +175,13 @@
       "FollowUpSeconds": 10,
       "LogTranscripts": false,
 
+      // The recogniser knows English, not this host: a server called "Ketchup" comes back as
+      // "catch-up" until something tells whisper the name exists. Naming the servers as prior context
+      // shifts it toward this host's spellings, refreshed as they are installed and removed. Nothing
+      // downstream rewrites what anybody said — correcting a misheard name after the fact means
+      // guessing which server was meant and then acting on the guess.
+      "PrimeWithServerNames": true,
+
       // Answering out loud. Synthesis on the card is around eight times faster than on the processor
       // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
       // cuDNN, which recognition does not) falls back on its own and says so in the log.

@@ -544,6 +544,43 @@ engine, the event journal, the KGSM account store, the guild store and the assis
   disagree with it**, because both read the same live objects rather than either deriving from the
   other. Nothing is cached or held between calls.
 
+### Voice: hear a room, answer out loud
+
+`/voice join|leave|status` at operator (not `[Mutating]` — the gate is on what it exposes, since
+everybody in the channel is heard, not only whoever invited it). `Discord:Voice` is off by default.
+The path is **hear → recognise → match the trigger → assistant → speak**, and the pieces are
+deliberately separable: capture knows nothing about recognition, and recognition nothing about who
+answers.
+
+- **DAVE is not optional.** Discord refuses a voice connection from a client that cannot negotiate its
+  MLS encryption (close code 4017). `libdave` is packaged in `packaging/libdave/`, and
+  `EnableVoiceDaveEncryption` plus `GuildVoiceStates` are required. Identity and segmentation come
+  free — streams are keyed by Discord account id — so there is no diarization and no echo problem.
+- **Answering must not run on the audio path.** A turn takes seconds, and run inside the tick that
+  closes utterances it froze every other speaker's sentence for the whole time. `VoiceCommandQueue` is
+  the handoff, and it is also what makes the wiring acyclic: session → sink → handler → session is a
+  circle the container refuses.
+- **The silence that ends a sentence has to be looked for.** Frames stop arriving when somebody stops
+  talking, so the read loop cannot notice the gap it is sitting in — a ticker closes utterances.
+- ⚠ **The trigger is matched anywhere in an utterance, not at the start.** Requiring it first was
+  measured refusing real requests: people lead in ("okay let me try — hey assistant, …") and that is
+  one breath, therefore one utterance. Accepted cost: quoting the phrase fires it.
+- **The recogniser is primed with this host's names** (`SpokenVocabulary`), because whisper knows
+  English and not that a server is called `Ketchup`. Nothing downstream rewrites what was said — see
+  the CHANGELOG for why correcting a misheard name afterwards is not merely risky but unachievable at
+  any threshold.
+- **What is spoken is a prefix of what was posted, cut at a sentence — never a summary.** A surface
+  that rewords a reply on its way to being read out says things the assistant did not, and nothing in
+  the channel would show it happened. The chat message is the record.
+- ⚠ **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
+  surface posts and the spoken reply says so. The button re-derives authority at the click; a
+  recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.
+- **Speaking is best-effort throughout.** No model, no card, or a broken output stream costs the audio
+  and nothing else — the answer is already in the channel.
+- **Nothing is written to disk.** An utterance is bytes in memory handed to a sink and released. This
+  is a bot that hears a room, not one that records it, and the difference is structural rather than a
+  setting. `LogTranscripts` is the one exception, opt-in, and warns while it is on.
+
 ### Read commands answer one person
 
 `/status`, `/list`, `/is-active` and `/supervision` reply ephemerally under `EphemeralReads` (on) — a

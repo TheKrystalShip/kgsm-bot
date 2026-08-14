@@ -444,11 +444,28 @@ public class VoiceOptions
     /// the recogniser renders the phrase is what has to be matched, and an operator who sees a
     /// variant in the log adds it here with nothing to retrain.
     /// </remarks>
-    /// <panel>What somebody says to get the bot's attention, like <code>hey assistant</code>. It has
-    /// to be the start of the sentence, which is what stops the bot answering a conversation that
-    /// merely mentions it. Several may be given, separated by commas.</panel>
+    /// <panel>What somebody says to get the bot's attention, like <code>hey assistant</code>. It is
+    /// found anywhere in a sentence, so leading into a request works — and so does quoting the
+    /// phrase, which will get you an answer. Several may be given, separated by commas.</panel>
     [LeafField("voiceTriggers", "Trigger phrase", Group = "voice", DependsOn = "voiceEnabled")]
     public string Triggers { get; set; } = "hey assistant";
+
+    /// <summary>
+    /// Whether to tell the recogniser this host's server names before asking it to recognise anything.
+    /// </summary>
+    /// <remarks>
+    /// A knob rather than a certainty because conditioning a recogniser on text has a failure of its
+    /// own — given audio with no speech in it, whisper sometimes hands back the context instead of
+    /// nothing. That is caught and discarded, and the discards are counted; this switch is what an
+    /// operator turns off if a host somehow makes it worse than the misheard names it fixes.
+    /// </remarks>
+    /// <panel>Whether the bot tells the recogniser what this host's servers are called before it
+    /// listens. Names like <code>Ketchup</code> are otherwise heard as ordinary words — "catch-up" —
+    /// because nothing has told it the server exists. The list is refreshed as servers are installed
+    /// and removed.</panel>
+    [LeafField("voicePrimeWithServerNames", "Prime with server names", Group = "voice",
+        DependsOn = "voiceEnabled")]
+    public bool PrimeWithServerNames { get; set; } = true;
 
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>

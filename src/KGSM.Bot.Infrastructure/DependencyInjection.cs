@@ -1,4 +1,5 @@
 using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Core.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 using Internal = KGSM.Bot.Infrastructure.Configuration;
@@ -135,6 +136,11 @@ public static class DependencyInjection
         // so nothing is held between calls — every check is run at the moment it is reported, which
         // is the only way an answer about right now can be one.
         services.AddSingleton<IBotHealth, BotHealthService>();
+
+        // What became of everything heard, as counts and never as content. Registered before the
+        // recogniser because both it and the sink report into it, and the numbers are only worth
+        // reading as one sequence: heard, recognised, addressed, answered.
+        services.AddSingleton<IVoiceTally, global::KGSM.Bot.Core.Voice.VoiceTally>();
 
         // Speech recognition runs in this process: it sits between somebody finishing a sentence and
         // the assistant starting work, so a hop added here is added to every wait. A singleton
