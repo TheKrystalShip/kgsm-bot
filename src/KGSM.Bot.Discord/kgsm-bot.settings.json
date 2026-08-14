@@ -144,6 +144,24 @@
       "Moderation": true
     },
 
+    // Whether the bot may sit in a voice channel and listen. OFF by default and deliberately so:
+    // every other surface acts on what somebody typed at it, while this one takes in everybody in the
+    // room — including people who never addressed the bot and cannot see that it is listening.
+    // Nothing is written to disk either way; an utterance lives in memory only as long as it takes to
+    // hand it on.
+    //
+    // The three durations decide where one person's sentence ends. The silence gap is the one worth
+    // tuning: too short cuts people off mid-thought, too long makes every answer wait for it. The
+    // ceiling is not a limit on how long somebody may talk, it is a limit on how much audio is held
+    // for one of them at a time.
+    "Voice": {
+      "Enabled": false,
+      "SilenceGapMs": 800,
+      "MinUtteranceMs": 400,
+      "MaxUtteranceSeconds": 20,
+      "LeaveWhenAlone": true
+    },
+
     // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active
     // and /supervision are one person's question, and a busy channel does not need everyone else's in
     // its scrollback. The commands whose point is to be SHARED — /connect above all — are deliberately

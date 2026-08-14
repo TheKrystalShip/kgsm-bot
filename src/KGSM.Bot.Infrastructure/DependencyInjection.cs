@@ -69,8 +69,19 @@ public static class DependencyInjection
         // Discord.Net services
         services.AddSingleton<DiscordSocketConfig>(sp => new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent,
-            LogLevel = LogSeverity.Info
+            // GuildVoiceStates is what makes the gateway report who is in which voice channel, which
+            // is how /voice finds the caller and how the bot notices a channel emptying. It is not a
+            // privileged intent and costs nothing when the voice surface is off.
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages
+                | GatewayIntents.MessageContent | GatewayIntents.GuildVoiceStates,
+            LogLevel = LogSeverity.Info,
+
+            // Discord refuses a non-stage voice connection from a client that cannot negotiate DAVE,
+            // its end-to-end encryption, and answers one that tries with close code 4017. Enabling it
+            // needs libdave resolvable at runtime (packaged; installed at /usr/lib/libdave.so) — with
+            // the library absent Discord.Net logs that it is unavailable and voice cannot connect,
+            // while every other surface carries on untouched.
+            EnableVoiceDaveEncryption = true,
         });
 
         services.AddSingleton<DiscordSocketClient>();
@@ -124,6 +135,12 @@ public static class DependencyInjection
         // so nothing is held between calls — every check is run at the moment it is reported, which
         // is the only way an answer about right now can be one.
         services.AddSingleton<IBotHealth, BotHealthService>();
+
+        // The bot's voice connections. A singleton because it owns them: Discord allows one per
+        // guild, and a second instance would hold a connection the first one does not know about and
+        // cannot be told to leave.
+        services.AddSingleton<IVoiceUtteranceSink, global::KGSM.Bot.Infrastructure.Discord.Voice.LoggingUtteranceSink>();
+        services.AddSingleton<IVoiceSessions, global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceSessionService>();
 
         return services;
     }

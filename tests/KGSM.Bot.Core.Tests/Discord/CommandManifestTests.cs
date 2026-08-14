@@ -56,6 +56,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IStagedRestores>());
         services.AddSingleton(Substitute.For<IServerHistory>());
         services.AddSingleton(Substitute.For<IBotHealth>());
+        services.AddSingleton(Substitute.For<IVoiceSessions>());
         return services.BuildServiceProvider();
     }
 
@@ -175,8 +176,12 @@ public sealed class CommandManifestTests
         // names host paths and the reasons stores could not be opened. The reads that sit at operator
         // are named here, the same way the admin bucket names its own, so adding another is a
         // decision somebody made rather than a gate that drifted.
+        // The voice commands act on no server at all, so nothing but the tier puts them here: a bot
+        // sitting in a voice channel hears everybody in the room, including people who never
+        // addressed it and cannot see that it is listening.
         manifest.Gates[KgsmTiers.Operator].Where(c => !c.Mutates).Select(c => c.Name)
-            .Should().BeEquivalentTo(["health", "logs"]);
+            .Should().BeEquivalentTo(
+                ["health", "logs", "voice join", "voice leave", "voice status"]);
 
         // Nothing is gated at "none": every slash module requires an account here, which is the
         // property the test below pins, and this is the manifest saying the same thing.

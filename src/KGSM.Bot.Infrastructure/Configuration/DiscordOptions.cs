@@ -230,6 +230,7 @@ public class DiscordOptions
 
     public StatusOptions Status { get; set; } = new();
     public AnnouncementOptions Announce { get; set; } = new();
+    public VoiceOptions Voice { get; set; } = new();
     /// <panel>Whether announcements are deleted again after a while, so a busy channel does not fill
     /// with them. On, the channel keeps no record of what happened.</panel>
     [LeafField("deleteStatusMessages", "Clean up announcements", Group = "channels")]
@@ -366,4 +367,53 @@ public class StatusOptions
     /// <panel>Shown beside a server that is no longer installed.</panel>
     [LeafField("statusUninstalled", "Uninstalled marker", Group = "channels")]
     public string Uninstalled { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// The voice surface: whether the bot may sit in a voice channel and listen, and how it decides
+/// where one person's speech ends.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Off by default, and deliberately.</b> Every other surface here acts on what somebody typed at
+/// it; this one takes in everybody in the room, including people who never addressed the bot and
+/// cannot see that it is listening. That is an operator's decision to make on purpose, not one to
+/// inherit from a default.
+/// </para>
+/// <para>
+/// Nothing is written to disk and nothing is kept: an utterance exists as bytes in memory for as
+/// long as it takes to hand it on, and no configuration here can turn that into recording.
+/// </para>
+/// </remarks>
+public class VoiceOptions
+{
+    /// <panel>Whether the bot may join a voice channel and listen to what is said in it. Off, the
+    /// voice commands refuse and no audio is ever received. Everyone in a channel the bot is in is
+    /// heard, not only whoever invited it.</panel>
+    [LeafField("voiceEnabled", "Voice listening", Group = "voice", Risk = LeafRisk.Wiring)]
+    public bool Enabled { get; set; } = false;
+
+    /// <panel>How long somebody has to stop talking before the bot treats their sentence as
+    /// finished. Too short cuts people off mid-sentence; too long makes every answer wait.</panel>
+    [LeafField("voiceSilenceGapMs", "End-of-speech silence", Group = "voice",
+        Min = 100, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
+    public int SilenceGapMs { get; set; } = 800;
+
+    /// <panel>The shortest sound worth passing on. Below this it is a cough or a keyboard, not
+    /// speech.</panel>
+    [LeafField("voiceMinUtteranceMs", "Shortest utterance", Group = "voice",
+        Min = 100, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
+    public int MinUtteranceMs { get; set; } = 400;
+
+    /// <panel>The longest one person may talk before the bot cuts it and takes what it has. Somebody
+    /// talking without pausing is normal; an unbounded buffer is not.</panel>
+    [LeafField("voiceMaxUtteranceSeconds", "Longest utterance", Group = "voice",
+        Min = 1, Max = 120, Unit = "s", DependsOn = "voiceEnabled")]
+    public int MaxUtteranceSeconds { get; set; } = 20;
+
+    /// <panel>Whether the bot leaves once it is the only one left in the channel. Off, it stays until
+    /// somebody tells it to leave.</panel>
+    [LeafField("voiceLeaveWhenAlone", "Leave an empty channel", Group = "voice",
+        DependsOn = "voiceEnabled")]
+    public bool LeaveWhenAlone { get; set; } = true;
 }

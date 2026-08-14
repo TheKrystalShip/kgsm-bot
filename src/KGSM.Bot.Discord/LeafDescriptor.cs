@@ -35,6 +35,7 @@ using TheKrystalShip.KGSM.LeafConfig;
 [assembly: LeafGroup("kgsm", "KGSM connection", 9)]
 [assembly: LeafGroup("cache", "Inventory cache", 10)]
 [assembly: LeafGroup("assistant", "Assistant", 11)]
+[assembly: LeafGroup("voice", "Voice", 12)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
 [assembly: LeafFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]

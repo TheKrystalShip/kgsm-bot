@@ -258,6 +258,24 @@
             "autocomplete": true
           }
         ]
+      },
+      {
+        "name": "voice join",
+        "description": "Join the voice channel you are in and start listening",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "voice leave",
+        "description": "Stop listening and leave the voice channel",
+        "mutates": false,
+        "options": []
+      },
+      {
+        "name": "voice status",
+        "description": "Where the bot is listening, and what it has heard",
+        "mutates": false,
+        "options": []
       }
     ],
     "viewer": [

@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.16.0] - 2026-08-14
+
+### Added — the bot listens in a voice channel
+
+`/voice join` brings the bot into the channel the caller is already in, `/voice leave` sends it away,
+and `/voice status` says where it is and how much it has heard. It joins nowhere on its own: a
+microphone that lets itself into a room is a different product from one somebody carried in.
+
+Received audio arrives one stream per speaker, keyed by Discord account and already through DAVE
+decryption and the Opus decoder — so who said something is measured rather than worked out, and two
+people talking at once are two streams rather than a separation problem. `PcmDownsampler` converts
+Discord's 48 kHz stereo to the 16 kHz mono recognition wants, averaging each group of three rather
+than picking one of them: dropping samples folds everything above 8 kHz back over the speech band,
+which lands as noise exactly where consonants are told apart.
+
+`UtteranceAssembler` decides where one person's speech ends. Frames arrive only while somebody is
+talking, so the silences are already in the stream and nothing has to detect them — what is left is
+how long a gap has to run before it ends a sentence instead of sitting inside one. A read loop
+blocked on the next frame cannot notice the gap it is waiting in, so a ticker alongside it is what
+closes an utterance during a conversation; the read loop only ever closes one by hitting the
+ceiling.
+
+The commands sit at operator and are not `[Mutating]` — they act on no server at all. What gates
+them is that a bot in a voice channel hears everyone present, including people who never addressed
+it, which is the same reason `/logs` is there. Joining says so in the channel, naming who asked, and
+that message is the only notice anybody else gets.
+
+`Discord:Voice` is **off by default**: every other surface here acts on what somebody typed at it,
+and this one takes in the whole room. Nothing is written to disk on any setting — an utterance is
+bytes in memory handed on and released.
+
+### Changed — the gateway connects with voice enabled
+
+`GuildVoiceStates` reports who is in which channel, which is how `/voice join` finds the caller and
+how an emptied channel is noticed. `EnableVoiceDaveEncryption` is on because Discord answers a client
+that cannot negotiate DAVE with close code 4017; it needs `libdave` resolvable at runtime, and
+without it voice cannot connect while every other surface is untouched.
+
 ## [3.15.1] - 2026-08-14
 
 ### Added — a package for libdave, built from Discord's source

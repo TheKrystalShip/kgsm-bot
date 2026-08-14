@@ -75,6 +75,11 @@
       "id": "assistant",
       "label": "Assistant",
       "order": 11
+    },
+    {
+      "id": "voice",
+      "label": "Voice",
+      "order": 12
     }
   ],
   "fields": [
@@ -630,6 +635,69 @@
       "min": 1,
       "unit": "s",
       "risk": "safe"
+    },
+    {
+      "key": "voiceEnabled",
+      "env": "Discord__Voice__Enabled",
+      "label": "Voice listening",
+      "description": "Whether the bot may join a voice channel and listen to what is said in it. Off, the voice commands refuse and no audio is ever received. Everyone in a channel the bot is in is heard, not only whoever invited it.",
+      "group": "voice",
+      "type": "bool",
+      "default": "false",
+      "risk": "wiring"
+    },
+    {
+      "key": "voiceSilenceGapMs",
+      "env": "Discord__Voice__SilenceGapMs",
+      "label": "End-of-speech silence",
+      "description": "How long somebody has to stop talking before the bot treats their sentence as finished. Too short cuts people off mid-sentence; too long makes every answer wait.",
+      "group": "voice",
+      "type": "int",
+      "default": "800",
+      "min": 100,
+      "max": 5000,
+      "unit": "ms",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceMinUtteranceMs",
+      "env": "Discord__Voice__MinUtteranceMs",
+      "label": "Shortest utterance",
+      "description": "The shortest sound worth passing on. Below this it is a cough or a keyboard, not speech.",
+      "group": "voice",
+      "type": "int",
+      "default": "400",
+      "min": 100,
+      "max": 5000,
+      "unit": "ms",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceMaxUtteranceSeconds",
+      "env": "Discord__Voice__MaxUtteranceSeconds",
+      "label": "Longest utterance",
+      "description": "The longest one person may talk before the bot cuts it and takes what it has. Somebody talking without pausing is normal; an unbounded buffer is not.",
+      "group": "voice",
+      "type": "int",
+      "default": "20",
+      "min": 1,
+      "max": 120,
+      "unit": "s",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "voiceLeaveWhenAlone",
+      "env": "Discord__Voice__LeaveWhenAlone",
+      "label": "Leave an empty channel",
+      "description": "Whether the bot leaves once it is the only one left in the channel. Off, it stays until somebody tells it to leave.",
+      "group": "voice",
+      "type": "bool",
+      "default": "true",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
     }
   ]
 }
