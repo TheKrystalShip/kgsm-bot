@@ -554,7 +554,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     {
         if (!_options.Speak || !_speech.IsAvailable) return;
 
-        string spoken = SpokenText.From(answer, Math.Max(40, _options.SpeakMaxCharacters));
+        string spoken = SpokenText.From(answer);
         if (spoken.Length == 0) return;
 
         byte[]? audio = await _speech.SynthesizeAsync(spoken, ct);

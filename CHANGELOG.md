@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.29.0] - 2026-08-14
+
+### Removed — the cap on how much of an answer is spoken
+
+`Voice:SpeakMaxCharacters` (400) cut a spoken reply at a sentence boundary and left the rest to be
+read. The whole reply is now spoken, with only the markup stripped.
+
+A cap here decides that somebody has heard enough, which is not a judgement this surface is in any
+position to make — and it leaves the answer in the room disagreeing with the answer in the channel,
+with nothing anywhere to say which one was the answer. **How long a reply runs belongs to the
+assistant**: a spoken turn already asks for one written to be heard (`ReplyStyle.Voice`), and that is
+the lever to reach for if answers run long.
+
+The key is gone from the settings file, the options class and the generated descriptor. An
+environment variable still setting `Discord__Voice__SpeakMaxCharacters` now binds to nothing, which
+is harmless.
+
 ## [3.28.1] - 2026-08-14
 
 ### Fixed — a dropped voice connection was reported as a wedged audio stream

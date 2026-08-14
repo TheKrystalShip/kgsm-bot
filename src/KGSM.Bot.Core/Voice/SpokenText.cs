@@ -14,25 +14,26 @@ namespace KGSM.Bot.Core.Voice;
 /// dropped, and neither is as good as the assistant answering "yes, it is".
 /// </para>
 /// <para>
-/// <b>Nothing is summarised.</b> Cutting to a sentence boundary under a budget is the one liberty
-/// taken, and the full reply is in the channel either way — so what is spoken is always a prefix of
-/// what was said, never a paraphrase of it. Rewording a reply on its way to being read out is how a
-/// surface comes to say something the assistant did not.
+/// <b>Nothing is summarised and nothing is cut short.</b> The whole reply is spoken: what is read out
+/// is what was written, minus the markup that only means anything on a screen. Stopping an answer
+/// part-way is the surface deciding somebody has heard enough, which is not a judgement it is in any
+/// position to make — and rewording one on its way to being read out is how a surface comes to say
+/// something the assistant did not.
+/// </para>
+/// <para>
+/// <b>How long an answer is belongs to the assistant, not here.</b> A spoken turn already asks for a
+/// reply written to be heard, and that is the thing to change if answers run long. Trimming at this
+/// end would leave the reply in the room disagreeing with the reply in the channel, with nothing
+/// anywhere to say which one was the answer.
 /// </para>
 /// </remarks>
 public static class SpokenText
 {
     /// <summary>
-    /// Strips the markup a chat reply carries and trims it to <paramref name="maxCharacters"/> at a
-    /// sentence boundary. Empty when there is nothing left worth speaking.
+    /// Strips the markup a chat reply carries. Empty when there is nothing left worth speaking.
     /// </summary>
-    public static string From(string? reply, int maxCharacters)
-    {
-        if (string.IsNullOrWhiteSpace(reply)) return string.Empty;
-
-        string plain = Plain(reply);
-        return plain.Length <= maxCharacters ? plain : ToSentenceBoundary(plain, maxCharacters);
-    }
+    public static string From(string? reply) =>
+        string.IsNullOrWhiteSpace(reply) ? string.Empty : Plain(reply);
 
     /// <summary>
     /// Removes fenced blocks whole, and markup characters in place.
@@ -103,23 +104,5 @@ public static class SpokenText
         }
 
         return builder.ToString().Trim();
-    }
-
-    /// <summary>
-    /// Cuts at the last sentence end within the budget, or at the last word if there is no sentence
-    /// end to cut at — a reply stopped mid-word sounds like a fault rather than an abbreviation.
-    /// </summary>
-    private static string ToSentenceBoundary(string text, int max)
-    {
-        string window = text[..max];
-
-        // Any sentence end beats any word end, however early it falls. Leaving budget unused is not
-        // a cost worth paying for: what is on the other side of it is by definition an unbroken run
-        // with no sentence in it, and a clean stop is better than a fragment of one.
-        int sentence = window.LastIndexOfAny(['.', '!', '?']);
-        if (sentence >= 0) return window[..(sentence + 1)].Trim();
-
-        int word = window.LastIndexOf(' ');
-        return (word > 0 ? window[..word] : window).Trim() + "…";
     }
 }

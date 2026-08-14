@@ -870,19 +870,6 @@
       "default": "true",
       "risk": "safe",
       "dependsOn": "voiceSpeak"
-    },
-    {
-      "key": "voiceSpeakMaxCharacters",
-      "env": "Discord__Voice__SpeakMaxCharacters",
-      "label": "Longest spoken answer",
-      "description": "How much of an answer to say out loud before leaving the rest to be read. The full answer is always posted in the channel.",
-      "group": "voice",
-      "type": "int",
-      "default": "400",
-      "min": 40,
-      "max": 4000,
-      "risk": "safe",
-      "dependsOn": "voiceSpeak"
     }
   ]
 }

@@ -616,16 +616,4 @@ public class VoiceOptions
     /// its own.</panel>
     [LeafField("voiceSpeakUseGpu", "Synthesise on the GPU", Group = "voice", DependsOn = "voiceSpeak")]
     public bool SpeakUseGpu { get; set; } = true;
-
-    /// <summary>How much of a reply is worth saying out loud.</summary>
-    /// <remarks>
-    /// A cap rather than a summary: what is spoken is always a prefix of what was posted, cut at a
-    /// sentence, and the whole reply is in the channel. Synthesis time scales with length, so this is
-    /// also the ceiling on how long somebody waits to hear an answer start.
-    /// </remarks>
-    /// <panel>How much of an answer to say out loud before leaving the rest to be read. The full
-    /// answer is always posted in the channel.</panel>
-    [LeafField("voiceSpeakMaxCharacters", "Longest spoken answer", Group = "voice",
-        Min = 40, Max = 4000, DependsOn = "voiceSpeak")]
-    public int SpeakMaxCharacters { get; set; } = 400;
 }

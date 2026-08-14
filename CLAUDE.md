@@ -591,9 +591,12 @@ answers.
   English and not that a server is called `Ketchup`. Nothing downstream rewrites what was said — see
   the CHANGELOG for why correcting a misheard name afterwards is not merely risky but unachievable at
   any threshold.
-- **What is spoken is a prefix of what was posted, cut at a sentence — never a summary.** A surface
-  that rewords a reply on its way to being read out says things the assistant did not, and nothing in
-  the channel would show it happened. The chat message is the record.
+- **What is spoken is the whole reply, markup stripped — never a summary and never cut short.** A
+  surface that rewords a reply on its way to being read out says things the assistant did not, and
+  nothing in the channel would show it happened; one that stops part-way has decided somebody heard
+  enough, and leaves the answer in the room disagreeing with the answer in the channel. **How long a
+  reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
+  (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
 - ⚠ **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
   surface posts and the spoken reply says so. The button re-derives authority at the click; a
   recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.

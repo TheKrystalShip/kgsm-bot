@@ -12,19 +12,17 @@ namespace KGSM.Bot.Core.Tests.Voice;
 /// </summary>
 public class SpokenTextTests
 {
-    private const int Budget = 400;
-
     [Fact]
     public void AShortDirectAnswerIsSpokenAsItIs()
     {
         // The answer this surface is for. Nothing to strip, nothing to cut.
-        SpokenText.From("Yes, it is.", Budget).Should().Be("Yes, it is.");
+        SpokenText.From("Yes, it is.").Should().Be("Yes, it is.");
     }
 
     [Fact]
     public void EmphasisAndCodeMarkersAreNotVoiced()
     {
-        SpokenText.From("**minecraft** is running on `port 25565`", Budget)
+        SpokenText.From("**minecraft** is running on `port 25565`")
             .Should().Be("minecraft is running on port 25565");
     }
 
@@ -35,7 +33,7 @@ public class SpokenTextTests
         // would go to read it.
         string reply = "It crashed. Here's the tail:\n```\nSegfault at 0x0\nat main()\n```\nI'd restart it.";
 
-        SpokenText.From(reply, Budget).Should().Be("It crashed. Here's the tail: I'd restart it.");
+        SpokenText.From(reply).Should().Be("It crashed. Here's the tail: I'd restart it.");
     }
 
     [Fact]
@@ -43,7 +41,7 @@ public class SpokenTextTests
     {
         string reply = "## Servers\n- minecraft is up\n- factorio is down";
 
-        SpokenText.From(reply, Budget).Should().Be("Servers minecraft is up factorio is down");
+        SpokenText.From(reply).Should().Be("Servers minecraft is up factorio is down");
     }
 
     [Fact]
@@ -51,41 +49,30 @@ public class SpokenTextTests
     {
         // Commas and full stops are what a synthesiser paces on; stripping them with the markup
         // would produce one flat run-on.
-        SpokenText.From("Yes, it's running. It has been up for three hours!", Budget)
+        SpokenText.From("Yes, it's running. It has been up for three hours!")
             .Should().Be("Yes, it's running. It has been up for three hours!");
     }
 
     [Fact]
-    public void ALongAnswerIsCutAtASentence()
+    public void ALongAnswerIsSpokenInFull()
     {
-        string reply = "Minecraft is running. It has four players on it. " + new string('x', 500);
+        // ⚠ Nothing here decides that somebody has heard enough. A cap used to cut a reply at a
+        // sentence boundary, which left the answer in the room disagreeing with the answer in the
+        // channel and nothing anywhere to say which was which. How long a reply runs is the
+        // assistant's to control — a spoken turn already asks for one written to be heard.
+        string reply = string.Join(" ", Enumerable.Repeat("Minecraft is running.", 60));
 
-        string spoken = SpokenText.From(reply, Budget);
-
-        spoken.Should().Be("Minecraft is running. It has four players on it.");
+        SpokenText.From(reply).Should().Be(reply);
     }
 
     [Fact]
-    public void WithNoSentenceToCutAtItStopsAtAWord()
+    public void WhatIsSpokenIsAlwaysWhatWasWritten()
     {
-        // Stopping mid-word sounds like a fault rather than an abbreviation.
-        string reply = string.Join(' ', Enumerable.Repeat("running", 200));
-
-        string spoken = SpokenText.From(reply, Budget);
-
-        spoken.Should().EndWith("…");
-        spoken.Should().NotContain("runn…");
-        spoken.Length.Should().BeLessThanOrEqualTo(Budget + 1);
-    }
-
-    [Fact]
-    public void WhatIsSpokenIsAlwaysAPrefixOfWhatWasWritten()
-    {
-        // The property that matters: this may shorten a reply and must never reword one. A surface
+        // The property that matters: this strips markup and must never reword anything. A surface
         // that paraphrases on the way to being read out says things the assistant did not.
         string reply = "Minecraft is running. Factorio is stopped. Ketchup is running.";
 
-        SpokenText.From(reply, 30).Should().Be("Minecraft is running.");
+        SpokenText.From(reply).Should().Be(reply);
     }
 
     [Theory]
@@ -95,7 +82,7 @@ public class SpokenTextTests
     [InlineData("```\njust a code block\n```")]
     public void NothingWorthSayingComesBackEmpty(string? reply)
     {
-        SpokenText.From(reply, Budget).Should().BeEmpty();
+        SpokenText.From(reply).Should().BeEmpty();
     }
 }
 

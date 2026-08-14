@@ -226,14 +226,15 @@
       // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
       // cuDNN, which recognition does not) falls back on its own and says so in the log.
       //
-      // What is spoken is a PREFIX of what is posted, cut at a sentence — never a summary, because a
-      // surface that rewords a reply on its way to being read out is one that says things the
-      // assistant did not. The whole answer is always in the channel.
+      // The WHOLE reply is spoken, with only the markup stripped — never a summary and never cut
+      // short. A surface that rewords a reply on its way to being read out says things the assistant
+      // did not, and one that stops part-way has decided somebody heard enough, which is not its
+      // call. How long an answer runs is the assistant's to control: a spoken turn already asks for
+      // a reply written to be heard.
       "Speak": true,
       "SpeechModelPath": "/var/lib/kgsm-bot/models/kokoro.onnx",
       "SpeechVoice": "af_heart",
-      "SpeakUseGpu": true,
-      "SpeakMaxCharacters": 400
+      "SpeakUseGpu": true
     },
 
     // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active
