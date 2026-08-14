@@ -204,4 +204,81 @@ public class UtteranceAssemblerTests
         assembler.Append(Audio(500), T0.AddSeconds(3));
         assembler.Close(T0.AddSeconds(5))!.Audio.Should().AllSatisfy(b => b.Should().Be(0));
     }
+
+    private static readonly TimeSpan Early = TimeSpan.FromMilliseconds(1500);
+
+    [Fact]
+    public void ThereIsNothingToLookAtBeforeEnoughHasBeenSaid()
+    {
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(900), T0);
+
+        assembler.Peek(Early).Should().BeNull();
+    }
+
+    [Fact]
+    public void TheOpeningOfASentenceCanBeReadWhileItIsStillBeingSaid()
+    {
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(1600), T0);
+
+        VoiceUtterance? sofar = assembler.Peek(Early);
+
+        sofar.Should().NotBeNull();
+        sofar!.Partial.Should().BeTrue("acting on half a sentence is the thing this flag prevents");
+        sofar.Audio.Length.Should().Be(1600 * 32);
+    }
+
+    [Fact]
+    public void LookingAheadTakesNothingAway()
+    {
+        // The speaker is mid-sentence and the audio has to still be there when they finish. A peek
+        // that consumed the buffer would deliver the sentence to the assistant with its opening gone.
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(1600), T0);
+        assembler.Peek(Early);
+
+        assembler.Append(Audio(1000), T0.AddMilliseconds(100));
+        VoiceUtterance? whole = assembler.Close(T0.AddSeconds(3));
+
+        whole.Should().NotBeNull();
+        whole!.Audio.Length.Should().Be(2600 * 32);
+        whole.Partial.Should().BeFalse();
+    }
+
+    [Fact]
+    public void OneSentenceIsOnlyLookedAtOnce()
+    {
+        // Every look costs a recognition pass, and the answer cannot usefully change: somebody
+        // addressing the bot does it at the start.
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(1600), T0);
+        assembler.Peek(Early).Should().NotBeNull();
+
+        assembler.Append(Audio(1000), T0.AddMilliseconds(100));
+
+        assembler.Peek(Early).Should().BeNull();
+    }
+
+    [Fact]
+    public void TheNextSentenceIsLookedAtAfresh()
+    {
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(1600), T0);
+        assembler.Peek(Early);
+        assembler.Close(T0.AddSeconds(2));
+
+        assembler.Append(Audio(1600), T0.AddSeconds(3));
+
+        assembler.Peek(Early).Should().NotBeNull();
+    }
+
+    [Fact]
+    public void LookingAheadIsOffWhenTheThresholdIsZero()
+    {
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(5000), T0);
+
+        assembler.Peek(TimeSpan.Zero).Should().BeNull();
+    }
 }

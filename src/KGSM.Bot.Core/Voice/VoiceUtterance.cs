@@ -30,6 +30,13 @@ namespace KGSM.Bot.Core.Voice;
 /// request read off a truncated utterance is a request missing its end — measured turning "stop
 /// minecraft" into "stop".
 /// </param>
+/// <param name="Partial">
+/// Whether this is a copy of a sentence still being spoken, taken to find out early whether the bot
+/// is being addressed. ⚠ <b>A partial utterance may not decide anything.</b> It is the opening of a
+/// sentence and the speaker has not finished, so acting on it would act on half an instruction —
+/// everything it is allowed to do is make a sound. The same audio arrives again, complete, when they
+/// stop talking, and that copy is the one that is read.
+/// </param>
 public sealed record VoiceUtterance(
     ulong SpeakerId,
     string SpeakerName,
@@ -38,7 +45,8 @@ public sealed record VoiceUtterance(
     byte[] Audio,
     TimeSpan Duration,
     DateTimeOffset StartedAt,
-    bool Truncated = false);
+    bool Truncated = false,
+    bool Partial = false);
 
 /// <summary>
 /// The three durations that decide where one utterance ends and the next begins.

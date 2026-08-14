@@ -62,6 +62,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     private readonly IKgsmAccounts _accounts;
     private readonly ITextToSpeech _speech;
     private readonly IVoiceSessions _sessions;
+    private readonly IVoiceChimes _chimes;
     private readonly VoiceAttention _attention;
     private readonly VoiceOptions _options;
     private readonly ILogger<AssistantVoiceCommandHandler> _logger;
@@ -72,6 +73,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         IKgsmAccounts accounts,
         ITextToSpeech speech,
         IVoiceSessions sessions,
+        IVoiceChimes chimes,
         VoiceAttention attention,
         IOptions<DiscordOptions> options,
         ILogger<AssistantVoiceCommandHandler> logger)
@@ -81,6 +83,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         _accounts = accounts;
         _speech = speech;
         _sessions = sessions;
+        _chimes = chimes;
         _attention = attention;
         _options = options.Value.Voice;
         _logger = logger;
@@ -154,7 +157,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         // Started, not awaited. The turn runs while this plays, so the first sound arrives in about
         // a tenth of a second instead of after the model has finished thinking — awaiting it here
         // would add a second to every request in order to appear faster.
-        Task acknowledged = AcknowledgeAsync(command, SpokenAcknowledgement.WhileThinking(), ct);
+        Task acknowledged = AcknowledgeHeardAsync(command, ct);
 
         Result<AssistantTurn> result;
         using (channel.EnterTypingState())
@@ -203,10 +206,17 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         // Opened before the answer is spoken, so somebody who replies the instant it stops talking is
         // already being listened to.
-        AwaitConfirmation(command, turn);
+        bool confirming = AwaitConfirmation(command, turn);
 
         await SayAsync(command, SpokenAnswer(turn), ct);
-        Await(command, turn);
+
+        bool answering = Await(command, turn);
+
+        // Played after the question rather than with the window it belongs to, because the two mark
+        // different things: the window opens early on purpose so nothing said over the tail of the
+        // answer is lost, and the tone marks where a person's turn actually begins.
+        if (confirming || answering)
+            await _chimes.PlayAsync(command.GuildId, VoiceChime.Listening, ct);
     }
 
     /// <summary>
@@ -226,28 +236,26 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// turn.
     /// </para>
     /// </remarks>
-    private void Await(VoiceCommand command, AssistantTurn turn)
+    /// <returns>Whether a window was opened.</returns>
+    private bool Await(VoiceCommand command, AssistantTurn turn)
     {
-        if (_options.ReplyWindowSeconds <= 0) return;
-        if (turn.StagedActions.Count > 0) return;
-        if (!VoiceAttention.InvitesAnAnswer(turn.Text)) return;
+        if (_options.ReplyWindowSeconds <= 0) return false;
+        if (turn.StagedActions.Count > 0) return false;
+        if (!VoiceAttention.InvitesAnAnswer(turn.Text)) return false;
 
         Expect(command, new VoiceWaiting(VoiceWaitingFor.Answer, Until()));
 
         _logger.LogInformation(
             "Voice: asked {Speaker} something — listening for their answer without the trigger",
             command.SpeakerName);
+
+        return true;
     }
 
     /// <summary>
     /// Listens for a yes or a no about an action that has just been staged.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Only when exactly one action is staged.</b> With two of them a spoken "yes" does not say
-    /// which, and picking one would be inventing the half of the instruction the person did not give.
-    /// Two offers are a job for the buttons, which name what each of them does.
-    /// </para>
     /// <para>
     /// <b>The buttons are posted either way and remain the answer of record.</b> Nothing here removes
     /// a way to approve; it adds one for a person whose hands are in a game. Both redeem the same
@@ -261,10 +269,11 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// actions the speaker did not ask for, and there is no path here that produces one.
     /// </para>
     /// </remarks>
-    private void AwaitConfirmation(VoiceCommand command, AssistantTurn turn)
+    /// <returns>Whether a window was opened.</returns>
+    private bool AwaitConfirmation(VoiceCommand command, AssistantTurn turn)
     {
-        if (_options.ConfirmByVoice is false || _options.ReplyWindowSeconds <= 0) return;
-        if (turn.StagedActions.Count == 0) return;
+        if (_options.ConfirmByVoice is false || _options.ReplyWindowSeconds <= 0) return false;
+        if (turn.StagedActions.Count == 0) return false;
 
         IReadOnlyList<string> tokens = [.. turn.StagedActions.Select(a => a.Token)];
 
@@ -276,6 +285,8 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         _logger.LogInformation(
             "Voice: waiting for {Speaker} to confirm {Count} action(s) out loud — {What}",
             command.SpeakerName, tokens.Count, DescribeAll(turn.StagedActions));
+
+        return true;
     }
 
     /// <summary>
@@ -413,7 +424,42 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         string again = $"Sorry, I didn't catch a clear yes or no{about}. Say yes to go ahead, or no to cancel.";
         await channel.SendMessageAsync($"🎙️ **{command.SpeakerName}:** {command.Text}\n🤔 {again}");
+
+        // Spoken, never a tone: a tone cannot say WHY it is asking again, and a rising tone on its own
+        // after a failed answer reads as "go ahead" when what happened is the opposite. The reason is
+        // the whole content of this message.
         await SayAsync(command, again, ct);
+
+        await _chimes.PlayAsync(command.GuildId, VoiceChime.Listening, ct);
+    }
+
+    /// <summary>
+    /// Marks the moment a request was taken, while the answer is still being worked out.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A tone where there is nothing to say.</b> All this moment conveys is "I have it" — no
+    /// detail, no reason, nothing a sentence could carry that a falling tone cannot. It is also the
+    /// most repeated event on the surface, and a fixed phrase heard for the twentieth time has stopped
+    /// being information; a tone does not wear out that way, and it costs no synthesis, so it arrives
+    /// immediately rather than after a model has produced a waveform.
+    /// </para>
+    /// <para>
+    /// Spoken instead where tones are switched off. The state still has to be reported either way: a
+    /// bot that is thinking and one that never heard you are the same silence.
+    /// </para>
+    /// </remarks>
+    private async Task AcknowledgeHeardAsync(VoiceCommand command, CancellationToken ct)
+    {
+        if (!_options.Acknowledge) return;
+
+        if (_options.Chimes)
+        {
+            await _chimes.PlayAsync(command.GuildId, VoiceChime.Working, ct);
+            return;
+        }
+
+        await AcknowledgeAsync(command, SpokenAcknowledgement.WhileThinking(), ct);
     }
 
     /// <summary>

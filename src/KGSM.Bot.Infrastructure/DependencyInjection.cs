@@ -7,6 +7,7 @@ using KGSM.Bot.Infrastructure.Discord;
 using KGSM.Bot.Infrastructure.KGSM;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Discord;
@@ -177,6 +178,16 @@ public static class DependencyInjection
         // guild, and a second instance would hold a connection the first one does not know about and
         // cannot be told to leave.
         services.AddSingleton<IVoiceSessions, global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceSessionService>();
+
+        // The tones marking whose turn it is to talk. The session is handed over as a factory rather
+        // than as an instance because the recogniser plays tones and the session is built with the
+        // recogniser: asking for it here would close a circle the container refuses. Resolved on the
+        // first tone, by which point everything exists.
+        services.AddSingleton<IVoiceChimes>(sp =>
+            new global::KGSM.Bot.Infrastructure.Discord.Voice.SessionVoiceChimes(
+                sp.GetRequiredService<IVoiceSessions>,
+                sp.GetRequiredService<IOptions<DiscordOptions>>(),
+                sp.GetRequiredService<ILogger<global::KGSM.Bot.Infrastructure.Discord.Voice.SessionVoiceChimes>>()));
 
         return services;
     }

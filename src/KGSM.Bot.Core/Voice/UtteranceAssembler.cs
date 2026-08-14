@@ -26,6 +26,7 @@ public sealed class UtteranceAssembler(
     private readonly List<byte> _audio = [];
     private DateTimeOffset _startedAt;
     private DateTimeOffset _lastAudioAt;
+    private bool _peeked;
 
     /// <summary>Whether audio is being collected right now.</summary>
     public bool IsCollecting => _audio.Count > 0;
@@ -69,10 +70,40 @@ public sealed class UtteranceAssembler(
         return utterance.Duration >= limits.MinDuration ? utterance : null;
     }
 
+    /// <summary>
+    /// A copy of the sentence so far, once per utterance, as soon as there is at least
+    /// <paramref name="after"/> of it. Null when there is not yet enough, or when this utterance has
+    /// already been looked at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing is consumed and nothing is closed.</b> The speaker is mid-sentence and the audio
+    /// stays where it is — this hands out a copy so the opening words can be read while the rest is
+    /// still being said, which is the only way to know the bot is being addressed before the person
+    /// has finished addressing it.
+    /// </para>
+    /// <para>
+    /// <b>Once per utterance</b>, because the answer cannot change usefully: a person addressing the
+    /// bot says so at the start, and re-reading a growing buffer every tick would spend a recognition
+    /// pass each time to learn the same thing.
+    /// </para>
+    /// </remarks>
+    public VoiceUtterance? Peek(TimeSpan after)
+    {
+        if (_peeked || !IsCollecting || after <= TimeSpan.Zero || Buffered < after) return null;
+
+        _peeked = true;
+
+        return new VoiceUtterance(
+            speakerId, speakerName, guildId, channelId, _audio.ToArray(),
+            Buffered, _startedAt, Truncated: false, Partial: true);
+    }
+
     private VoiceUtterance Take(bool truncated)
     {
         var audio = _audio.ToArray();
         _audio.Clear();
+        _peeked = false;
         return new VoiceUtterance(
             speakerId, speakerName, guildId, channelId, audio,
             PcmDownsampler.DurationOfMono16k(audio.Length), _startedAt, truncated);

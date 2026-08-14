@@ -131,6 +131,25 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
         if (_processor is null) return null;
 
         await _one.WaitAsync(ct);
+        return await RecogniseAsync(utterance, ct);
+    }
+
+    public async Task<string?> TranscribeIfIdleAsync(
+        VoiceUtterance utterance, CancellationToken ct = default)
+    {
+        if (_processor is null) return null;
+
+        // Taken without waiting, or abandoned. A speculative pass that queued would be sitting in
+        // front of the finished sentence somebody is actually waiting on, which is the opposite of
+        // what it is for.
+        if (!_one.Wait(0, CancellationToken.None)) return null;
+
+        return await RecogniseAsync(utterance, ct);
+    }
+
+    /// <summary>Runs one pass. The caller must already hold <see cref="_one"/>; this releases it.</summary>
+    private async Task<string?> RecogniseAsync(VoiceUtterance utterance, CancellationToken ct)
+    {
         try
         {
             await PrimeAsync(ct);
@@ -147,12 +166,16 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
             string transcript = Spoken(text.ToString());
 
             _logger.LogDebug(
-                "Voice: recognised {Spoken:F1}s from {Speaker} in {Elapsed}ms",
-                utterance.Duration.TotalSeconds, utterance.SpeakerName, timer.ElapsedMilliseconds);
+                "Voice: recognised {Spoken:F1}s{Partial} from {Speaker} in {Elapsed}ms",
+                utterance.Duration.TotalSeconds, utterance.Partial ? " so far" : string.Empty,
+                utterance.SpeakerName, timer.ElapsedMilliseconds);
 
             if (SpokenVocabulary.IsEchoOf(transcript, _vocabulary))
             {
-                _tally.Echoed();
+                // Not counted for a partial: the same audio comes back complete a moment later and
+                // would be counted again, turning one misfire into two in the numbers an operator
+                // reads to find out whether priming is misbehaving.
+                if (!utterance.Partial) _tally.Echoed();
                 // Whisper continuing the context it was primed with rather than admitting it heard
                 // nothing. Reported at debug and as a count, because a run of these is how an operator
                 // finds out the priming is misfiring on a quiet channel.

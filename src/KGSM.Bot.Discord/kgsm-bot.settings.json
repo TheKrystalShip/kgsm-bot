@@ -187,10 +187,10 @@
       // while an action is staged — approving is the buttons' job and stays there. 0 disables.
       "ReplyWindowSeconds": 20,
 
-      // Approving a staged action out loud, for hands that are in a game. Offered only for a single
-      // staged action — a spoken "yes" cannot say which of two it meant — and only on an unmistakable
-      // yes. Anything else is asked again in as many words; nothing is ever resolved toward approval
-      // because it was closer to yes than to no. The buttons are posted either way.
+      // Approving a staged action out loud, for hands that are in a game. Everything waiting is named
+      // before the question is asked, so one yes covers all of it — and only an unmistakable yes
+      // counts. Anything else is asked again in as many words; nothing is ever resolved toward
+      // approval because it was closer to yes than to no. The buttons are posted either way.
       "ConfirmByVoice": true,
 
       // Silence reads as broken. A turn takes seconds and a confirmed install was measured at 32 of
@@ -198,6 +198,29 @@
       // ALONGSIDE the work, never before it, so the first sound arrives sooner and the answer does
       // not arrive later.
       "Acknowledge": true,
+
+      // The two listening states, as tones rather than as sentences. Rising means the floor is yours
+      // and a window is counting down; falling means the request has been taken. The same pair of
+      // notes in opposite order, which is what makes them learnable without being explained.
+      //
+      // A tone does not wear out the way a fixed phrase does, and costs no synthesis — so it arrives
+      // immediately instead of after a model has produced a waveform. Off, those moments are spoken
+      // instead. Anything with something to TELL you — a long job, a yes it could not make out — is
+      // always spoken, because a tone cannot say why.
+      "Chimes": true,
+
+      // Recognition normally runs on a FINISHED sentence, which puts the "go ahead" tone after the
+      // words it was meant to encourage. This reads the opening of a sentence while the rest is still
+      // being spoken, purely to find out early that the bot is being addressed.
+      //
+      // A partial reading may only make a SOUND — never a decision. It is the first second and a half
+      // of a sentence nobody has finished, and the same audio arrives again complete a moment later;
+      // that copy is the one that is read and acted on.
+      //
+      // It costs a whole recognition pass (whisper pads to a fixed window, so 1.5s costs about what
+      // the sentence costs) on most of what is said in the channel, addressed to the bot or not. It is
+      // skipped outright whenever the recogniser is busy, so it can never delay a real answer. 0 off.
+      "EarlyTriggerMs": 1500,
 
       // Answering out loud. Synthesis on the card is around eight times faster than on the processor
       // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs

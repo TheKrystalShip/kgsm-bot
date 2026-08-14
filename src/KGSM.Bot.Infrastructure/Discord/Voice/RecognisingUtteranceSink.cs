@@ -41,6 +41,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     private readonly VoiceCommandQueue _queue;
     private readonly IVoiceTally _tally;
     private readonly VoiceAttention _attention;
+    private readonly IVoiceChimes _chimes;
     private readonly ILogger<RecognisingUtteranceSink> _logger;
     private readonly WakeWordDetector _wake;
     private readonly TimeSpan _followUp;
@@ -58,6 +59,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         VoiceCommandQueue queue,
         IVoiceTally tally,
         VoiceAttention attention,
+        IVoiceChimes chimes,
         IOptions<DiscordOptions> options,
         ILogger<RecognisingUtteranceSink> logger)
     {
@@ -65,6 +67,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
         _queue = queue;
         _tally = tally;
         _attention = attention;
+        _chimes = chimes;
         _logger = logger;
 
         VoiceOptions voice = options.Value.Voice;
@@ -92,6 +95,12 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     public async ValueTask OnUtteranceAsync(VoiceUtterance utterance, CancellationToken ct = default)
     {
         if (!_speech.IsAvailable) return;
+
+        if (utterance.Partial)
+        {
+            await NoticeAsync(utterance, ct);
+            return;
+        }
 
         _tally.Heard();
 
@@ -177,6 +186,11 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
             _pending[utterance.SpeakerId] = new Pending(string.Empty, now + _followUp);
             _logger.LogInformation(
                 "Voice: {Speaker} said the trigger — listening for what they want", utterance.SpeakerName);
+
+            // The one moment the bot is waiting and has said nothing about it. Somebody who addressed
+            // it and then heard silence has no way to tell a held door from a missed trigger, and the
+            // thing they do about it is say the phrase again.
+            await _chimes.PlayAsync(utterance.GuildId, VoiceChime.Listening, ct);
             return;
         }
 
@@ -196,6 +210,41 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
             _logger.LogWarning(
                 "Voice: dropped {Speaker}'s request — more arrived than could be answered",
                 utterance.SpeakerName);
+    }
+
+    /// <summary>
+    /// Reads the opening of a sentence still being spoken, and answers the tone if it was addressed
+    /// to the bot.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ⚠ <b>This path may only make a sound.</b> Nothing is dispatched, nothing is counted, no window
+    /// is opened and no state is touched — the speaker is mid-sentence, and every one of those would
+    /// be acting on half of an instruction they have not finished giving. The same audio arrives
+    /// again, complete, a moment later; that copy is the one that is read and acted on, so a partial
+    /// reading that is wrong costs a tone and nothing else.
+    /// </para>
+    /// <para>
+    /// <b>That is what makes it safe to be wrong.</b> Whisper given the opening of a sentence is
+    /// working from a fragment and will sometimes invent the end of a word — which is tolerable
+    /// exactly because the only thing riding on it is whether a tone plays.
+    /// </para>
+    /// <para>
+    /// <b>Skipped rather than queued when the recogniser is busy.</b> Somebody's finished sentence is
+    /// always worth more than a look ahead at somebody's unfinished one, so a tone is dropped in
+    /// favour of an answer every time.
+    /// </para>
+    /// </remarks>
+    private async Task NoticeAsync(VoiceUtterance utterance, CancellationToken ct)
+    {
+        string? sofar = await _speech.TranscribeIfIdleAsync(utterance, ct);
+        if (sofar is null || _wake.Match(sofar) is null) return;
+
+        _logger.LogDebug(
+            "Voice: {Speaker} is addressing the bot — answering before they've finished",
+            utterance.SpeakerName);
+
+        await _chimes.PlayAsync(utterance.GuildId, VoiceChime.Listening, ct);
     }
 
     /// <summary>

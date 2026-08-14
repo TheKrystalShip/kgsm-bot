@@ -30,6 +30,8 @@ public class RecognisingUtteranceSinkTests
     /// <summary>Who the bot is waiting to hear back from — empty unless a test opens a window.</summary>
     private readonly VoiceAttention _attention = new();
 
+    private readonly IVoiceChimes _chimes = Substitute.For<IVoiceChimes>();
+
     private readonly List<VoiceCommand> _taken = [];
 
     /// <summary>
@@ -55,7 +57,8 @@ public class RecognisingUtteranceSinkTests
         });
 
         return new RecognisingUtteranceSink(
-            _speech, _queue, _tally, _attention, options, NullLogger<RecognisingUtteranceSink>.Instance);
+            _speech, _queue, _tally, _attention, _chimes, options,
+            NullLogger<RecognisingUtteranceSink>.Instance);
     }
 
     /// <summary>Feeds one utterance, with the transcript the recogniser would have produced.</summary>
@@ -325,5 +328,121 @@ public class RecognisingUtteranceSinkTests
         await SayAsync(sink, "go ahead");
 
         _dispatched[0].Triggered.Should().BeFalse("they answered rather than addressing the bot again");
+    }
+
+    [Fact]
+    public async Task TheTriggerOnItsOwnIsAnsweredWithTheListeningTone()
+    {
+        // The one moment the bot is waiting and has otherwise said nothing about it. Silence here is
+        // indistinguishable from a missed trigger, and what a person does about that is repeat it.
+        RecognisingUtteranceSink sink = Sink();
+
+        await SayAsync(sink, "hey assistant");
+
+        await _chimes.Received(1).PlayAsync(7, VoiceChime.Listening, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ARequestSaidInOneBreathGetsNoListeningTone()
+    {
+        // Nothing is being waited for: the request is complete and on its way. The tone that belongs
+        // here is the falling one, and it is played where the request is taken up rather than here.
+        RecognisingUtteranceSink sink = Sink();
+
+        await SayAsync(sink, "Hey assistant, stop minecraft");
+
+        await _chimes.DidNotReceive().PlayAsync(
+            Arg.Any<ulong>(), Arg.Any<VoiceChime>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BeingCutOffMidSentenceIsNotToned()
+    {
+        // Also a waiting state, and deliberately silent: they are still talking, and a tone played
+        // over somebody mid-sentence interrupts the half of the request that has not been said yet.
+        RecognisingUtteranceSink sink = Sink();
+
+        await SayAsync(sink, "hey assistant, stop", truncated: true);
+
+        await _chimes.DidNotReceive().PlayAsync(
+            Arg.Any<ulong>(), Arg.Any<VoiceChime>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Feeds the opening of a sentence somebody is still in the middle of saying.</summary>
+    private async Task StartSayingAsync(
+        RecognisingUtteranceSink sink, string sofar, ulong speaker = 1)
+    {
+        var utterance = new VoiceUtterance(
+            speaker, $"speaker{speaker}", GuildId: 7, ChannelId: 9,
+            Audio: [], Duration: TimeSpan.FromMilliseconds(1500), StartedAt: DateTimeOffset.UtcNow,
+            Truncated: false, Partial: true);
+
+        _speech.TranscribeIfIdleAsync(utterance, Arg.Any<CancellationToken>()).Returns(sofar);
+        await sink.OnUtteranceAsync(utterance);
+    }
+
+    [Fact]
+    public async Task BeingAddressedIsNoticedBeforeTheSentenceIsFinished()
+    {
+        // The whole point: the tone that says "go ahead" arrives while somebody is still talking,
+        // rather than after they have already said everything they wanted to.
+        RecognisingUtteranceSink sink = Sink();
+
+        await StartSayingAsync(sink, "Hey assistant, is min");
+
+        await _chimes.Received(1).PlayAsync(7, VoiceChime.Listening, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AnOpeningNotAddressedToTheBotIsSilent()
+    {
+        RecognisingUtteranceSink sink = Sink();
+
+        await StartSayingAsync(sink, "so then I told him that the");
+
+        await _chimes.DidNotReceive().PlayAsync(
+            Arg.Any<ulong>(), Arg.Any<VoiceChime>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReadingAheadDecidesNothing()
+    {
+        // ⚠ The property the whole mechanism rests on. Half a sentence must never reach the
+        // assistant, be counted, or open a window — it is an instruction nobody has finished giving,
+        // and the complete copy arrives a moment later.
+        RecognisingUtteranceSink sink = Sink();
+
+        await StartSayingAsync(sink, "Hey assistant, uninstall min");
+
+        _dispatched.Should().BeEmpty();
+        _tally.Read().Heard.Should().Be(0);
+        _tally.Read().Addressed.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ABusyRecogniserSkipsTheLookAheadRatherThanQueueing()
+    {
+        // Null is "nothing recognised" and "nothing attempted" alike, and the response to both is to
+        // carry on: somebody's finished sentence is always worth more than a look at an unfinished one.
+        RecognisingUtteranceSink sink = Sink();
+
+        await StartSayingAsync(sink, null!);
+
+        await _chimes.DidNotReceive().PlayAsync(
+            Arg.Any<ulong>(), Arg.Any<VoiceChime>(), Arg.Any<CancellationToken>());
+        _dispatched.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task TheWholeSentenceIsStillReadAfterItWasNoticedEarly()
+    {
+        // The look ahead is additive. What it must not do is consume the request.
+        RecognisingUtteranceSink sink = Sink();
+
+        await StartSayingAsync(sink, "Hey assistant, stop min");
+        await SayAsync(sink, "Hey assistant, stop minecraft");
+
+        _dispatched.Should().ContainSingle();
+        _dispatched[0].Text.Should().Be("stop minecraft");
     }
 }

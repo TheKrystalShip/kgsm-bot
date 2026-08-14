@@ -28,6 +28,23 @@ public interface ISpeechToText
     /// to a caller and the implementation is free to return either.
     /// </remarks>
     Task<string?> TranscribeAsync(VoiceUtterance utterance, CancellationToken ct = default);
+
+    /// <summary>
+    /// Transcribes only if the recogniser is free this instant, and gives up rather than queueing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For work that is worth doing and never worth waiting for. A recogniser can only run one pass
+    /// at a time, so anything speculative that queued would sit in front of somebody's finished
+    /// sentence — spending the wait it was added to shorten.
+    /// </para>
+    /// <para>
+    /// Null therefore has a second meaning here: nothing was recognised, <em>or</em> nothing was
+    /// attempted. Both are the same to a caller, because the only correct response to either is to
+    /// carry on without it.
+    /// </para>
+    /// </remarks>
+    Task<string?> TranscribeIfIdleAsync(VoiceUtterance utterance, CancellationToken ct = default);
 }
 
 /// <summary>

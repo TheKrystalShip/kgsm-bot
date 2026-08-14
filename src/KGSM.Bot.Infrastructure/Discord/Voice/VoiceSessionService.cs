@@ -261,6 +261,9 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         private long _frames;
         private bool _warnedDeaf;
 
+        /// <summary>How much of a sentence to read early, looking for the trigger. Zero is off.</summary>
+        private readonly TimeSpan _early = TimeSpan.FromMilliseconds(Math.Max(0, options.EarlyTriggerMs));
+
         public string ChannelName => channel.Name;
 
         public void Start()
@@ -414,7 +417,10 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 while (await timer.WaitForNextTickAsync(ct))
                 {
                     foreach (Speaker speaker in _speakers.Values)
+                    {
+                        PeekAt(speaker);
                         await EmitAsync(speaker, force: false);
+                    }
 
                     WarnIfDeaf();
 
@@ -450,6 +456,27 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         private bool IsAlone() =>
             channel.ConnectedUsers.All(u => u.Id == channel.Guild.CurrentUser.Id);
 
+        /// <summary>
+        /// Hands over the opening of a sentence still being spoken, so being addressed can be noticed
+        /// before the speaker has finished addressing anybody.
+        /// </summary>
+        /// <remarks>
+        /// <b>Started and not awaited.</b> Reading it takes a recognition pass, and this loop is the
+        /// one that closes every other speaker's sentences — waiting here would hold up the finished
+        /// audio somebody is actually waiting on, in order to look ahead at audio nobody is. The
+        /// copy is taken under the lock; everything after that is off this loop.
+        /// </remarks>
+        private void PeekAt(Speaker speaker)
+        {
+            if (_early <= TimeSpan.Zero) return;
+
+            VoiceUtterance? sofar;
+            lock (speaker.Gate)
+                sofar = speaker.Assembler.Peek(_early);
+
+            if (sofar is not null) _ = HandAsync(sofar);
+        }
+
         private async Task EmitAsync(Speaker speaker, bool force)
         {
             VoiceUtterance? utterance;
@@ -461,7 +488,10 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
         private async Task HandAsync(VoiceUtterance utterance)
         {
-            Interlocked.Increment(ref _utterances);
+            // A partial is a copy of a sentence that has not happened yet, and counting it would
+            // report a room as having said twice as much as it did.
+            if (!utterance.Partial) Interlocked.Increment(ref _utterances);
+
             try
             {
                 await sink.OnUtteranceAsync(utterance, _cts.Token);

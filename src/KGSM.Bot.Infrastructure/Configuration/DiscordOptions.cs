@@ -494,10 +494,10 @@ public class VoiceOptions
     /// and stay the answer of record, so switching this off removes an option and breaks nothing.
     /// </remarks>
     /// <panel>Whether you can approve a staged action by saying so — "yes", "go ahead", "do it" —
-    /// instead of pressing the button, which is what you want when your hands are in a game. Only
-    /// offered when there is exactly one thing to approve, and only on a clear yes: anything the bot
-    /// is unsure of is asked again rather than treated as approval. The buttons are always posted as
-    /// well.</panel>
+    /// instead of pressing the button, which is what you want when your hands are in a game. Everything
+    /// waiting is named out loud before you are asked, so one yes covers all of it. Only a clear yes
+    /// counts: anything the bot is unsure of is asked again rather than treated as approval. The
+    /// buttons are always posted as well.</panel>
     [LeafField("voiceConfirmByVoice", "Approve out loud", Group = "voice", DependsOn = "voiceEnabled")]
     public bool ConfirmByVoice { get; set; } = true;
 
@@ -516,6 +516,56 @@ public class VoiceOptions
     [LeafField("voiceAcknowledge", "Say something while working", Group = "voice",
         DependsOn = "voiceEnabled")]
     public bool Acknowledge { get; set; } = true;
+
+    /// <summary>
+    /// Whether the two listening states are marked with a tone instead of a spoken phrase.
+    /// </summary>
+    /// <remarks>
+    /// A tone says the same thing in a fifth of the time and does not wear out with repetition, which
+    /// a fixed phrase does. Off, the same moments are spoken instead — the state still has to be
+    /// reported, since a bot waiting on somebody who does not know it is waiting eventually gets
+    /// nothing.
+    /// </remarks>
+    /// <panel>Whether the bot marks its listening with two short tones rather than by talking. A
+    /// rising tone means it is waiting for you to speak and a clock is running; a falling one means it
+    /// has your request and is working on it. Switched off, those moments are spoken instead. Anything
+    /// with something to tell you — a long job, a question it could not make out — is always
+    /// spoken.</panel>
+    [LeafField("voiceChimes", "Mark listening with tones", Group = "voice",
+        DependsOn = "voiceEnabled")]
+    public bool Chimes { get; set; } = true;
+
+    /// <summary>
+    /// How much of a sentence to read before it is finished, looking for the trigger. 0 waits for the
+    /// whole sentence.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Recognition normally runs on a finished sentence, so the earliest the bot can know it is being
+    /// addressed is after the person has stopped talking — which puts the tone that says "go ahead"
+    /// after the words it was meant to encourage. Reading the opening of the sentence while the rest
+    /// is still being said moves it to where a person expects it.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>It costs a whole recognition pass.</b> Whisper pads what it is given to a fixed window, so
+    /// reading a second and a half costs about what reading the sentence costs — and it is spent on
+    /// every utterance long enough to qualify, including the ones nobody addressed to the bot. It is
+    /// skipped outright whenever the recogniser is busy, so it can never delay a real answer, and what
+    /// it buys when it is skipped is nothing at all.
+    /// </para>
+    /// <para>
+    /// Long enough to contain the trigger and the speaker's run-up to it; shorter, and it reads a
+    /// fragment of the first word.
+    /// </para>
+    /// </remarks>
+    /// <panel>How much of a sentence the bot reads before you have finished saying it, to work out
+    /// early that you are talking to it — which is what lets the "go ahead" tone arrive while you are
+    /// still speaking rather than afterwards. It costs a full recognition pass on most of what is said
+    /// in the channel, so set it to 0 on a busy host or a slow one. It never delays an answer: it is
+    /// skipped whenever the recogniser is already working.</panel>
+    [LeafField("voiceEarlyTriggerMs", "Spot the trigger early", Group = "voice",
+        Min = 0, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
+    public int EarlyTriggerMs { get; set; } = 1500;
 
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>

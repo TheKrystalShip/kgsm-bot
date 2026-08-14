@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.26.0] - 2026-08-14
+
+### Added — the listening state is two tones, and one of them arrives mid-sentence
+
+A voice surface has two moments that are pure state and carry no content: the bot is waiting for you
+to speak, and the bot has your request and is working. Both were being reported by talking — "Looking
+into it" — which is information the first few times and noise by the twentieth, the same fatigue that
+makes a wake phrase tiresome to repeat. Both are now a tone: **rising to open, falling to close**, the
+same two notes (G5 and C6) in opposite order, which is the convention every device a person already
+owns uses and so needs no explaining. They are synthesised rather than shipped — a fundamental with
+two quiet partials and a struck-bell envelope — so there is no binary asset and the pitch is four
+constants. Peak amplitude is a fifth of full scale, deliberately quieter than the answers, and a tone
+costs no synthesis, so it starts playing immediately instead of after a model has produced a waveform.
+
+**Anything with something to tell you is still spoken.** A long-running job, a yes that could not be
+made out, a refusal — a tone cannot say *why*, and a rising tone alone after a failed confirmation
+would read as "go ahead" when the opposite happened.
+
+**The trigger is now spotted before the sentence is finished.** Recognition runs on a *closed*
+utterance, so the earliest the bot could previously know it was being addressed was after the speaker
+had stopped — which put the tone meaning "go ahead" after the words it was meant to encourage. The
+assembler now hands out a copy of a sentence's opening once it holds 1.5 seconds of it, and the
+trigger is looked for there, so "hey assistant, is minecraft running" is answered with the tone while
+the speaker is still on "minecraft".
+
+⚠ **A partial reading may only make a sound — never a decision.** It is the opening of an instruction
+nobody has finished giving: nothing is dispatched, counted, or opened from it, and the same audio
+arrives again complete a moment later. That is what makes it safe for whisper to be wrong about a
+fragment, which it sometimes is. It is also **skipped outright when the recogniser is busy** rather
+than queued, so a look ahead at an unfinished sentence can never delay somebody's finished one. It
+costs a whole recognition pass on most of what is said in the channel, addressed to the bot or not —
+whisper pads to a fixed window, so 1.5 seconds costs about what a sentence costs. `EarlyTriggerMs: 0`
+turns it off.
+
+Two new keys, both on by default: `Discord:Voice:Chimes` and `Discord:Voice:EarlyTriggerMs`.
+
 ## [3.25.0] - 2026-08-14
 
 ### Fixed — a dead encrypted session is detected and rebuilt

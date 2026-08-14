@@ -565,6 +565,28 @@ answers.
 - ⚠ **The trigger is matched anywhere in an utterance, not at the start.** Requiring it first was
   measured refusing real requests: people lead in ("okay let me try — hey assistant, …") and that is
   one breath, therefore one utterance. Accepted cost: quoting the phrase fires it.
+- **The listening state is two tones, and it is a state rather than a message.** Waiting for you to
+  speak and having taken your request are the surface's only two contentless moments, so they are
+  marked by `VoiceChimes` — rising to open, falling to close, the same two notes reversed, which is
+  the convention every device already teaches. A tone costs no synthesis, so it arrives immediately,
+  and it does not wear out the way a fixed phrase does. **Anything with something to *tell* you stays
+  spoken**: a tone cannot say why, and a rising tone after a confirmation that could not be made out
+  reads as "go ahead" when the opposite happened.
+- ⚠ **A sentence's opening is read before it is finished, and that reading may only make a sound.**
+  Recognition runs on a *closed* utterance, so being addressed could otherwise only be known after the
+  speaker stopped — putting the "go ahead" tone after the words it was meant to encourage.
+  `UtteranceAssembler.Peek` hands out a copy at `EarlyTriggerMs`, and `RecognisingUtteranceSink`
+  matches the trigger in it. **Nothing is dispatched, counted, or opened from a partial**: it is half
+  an instruction, and the complete copy arrives moments later. That is exactly what makes it safe for
+  whisper to be wrong about a fragment. It is **skipped, never queued**, when the recogniser is busy
+  (`TranscribeIfIdleAsync`) — a look ahead at an unfinished sentence must never delay a finished one —
+  and it costs a full recognition pass on most of what a room says, since whisper pads to a fixed
+  window. `0` turns it off.
+- **The tone player is its own seam.** The recogniser plays tones and is a dependency of the session
+  that owns the connection, so `IVoiceChimes` resolves the session on first use rather than taking it
+  in a constructor — the same circle `VoiceCommandQueue` exists to break. The same tone twice within
+  two seconds is played once, because the trigger spotted early and the same trigger read again on
+  close are both correct and the room only needs to hear it once.
 - **The recogniser is primed with this host's names** (`SpokenVocabulary`), because whisper knows
   English and not that a server is called `Ketchup`. Nothing downstream rewrites what was said — see
   the CHANGELOG for why correcting a misheard name afterwards is not merely risky but unachievable at
