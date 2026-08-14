@@ -560,7 +560,9 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         byte[]? audio = await _speech.SynthesizeAsync(spoken, ct);
         if (audio is null) return;
 
-        Result said = await _sessions.SpeakAsync(command.GuildId, audio, ct);
+        // No wait limit: an answer is worth having whenever it lands, unlike a tone whose meaning is
+        // the moment it plays.
+        Result said = await _sessions.SpeakAsync(command.GuildId, audio, ct: ct);
         if (said.IsFailure)
             _logger.LogDebug("Voice: could not say the answer to {Speaker}: {Reason}",
                 command.SpeakerName, said.Error);

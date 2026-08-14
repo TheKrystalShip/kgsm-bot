@@ -38,6 +38,17 @@ internal sealed class SessionVoiceChimes : IVoiceChimes
     /// </remarks>
     private static readonly TimeSpan Recently = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// How long a tone will wait for the connection to stop talking before it is abandoned.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ <b>A tone is only true at the moment it plays.</b> "Your turn" arriving after the bot has
+    /// been speaking for three seconds describes a moment that has already gone, and the person hears
+    /// it against whatever is happening instead — which is worse than hearing nothing, because it
+    /// invites them to talk into something that is not listening for them.
+    /// </remarks>
+    private static readonly TimeSpan WillWait = TimeSpan.FromMilliseconds(400);
+
     private readonly Func<IVoiceSessions> _sessions;
     private readonly VoiceOptions _options;
     private readonly ILogger<SessionVoiceChimes> _logger;
@@ -66,7 +77,8 @@ internal sealed class SessionVoiceChimes : IVoiceChimes
 
         try
         {
-            Result played = await _sessions().SpeakAsync(guildId, VoiceChimes.Pcm(chime), ct);
+            Result played = await _sessions()
+                .SpeakAsync(guildId, VoiceChimes.Pcm(chime), WillWait, ct);
 
             if (played.IsFailure)
                 _logger.LogTrace("Voice: could not play the {Chime} tone: {Reason}", chime, played.Error);

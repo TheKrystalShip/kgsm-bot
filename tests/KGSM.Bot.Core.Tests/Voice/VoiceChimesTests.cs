@@ -61,11 +61,56 @@ public class VoiceChimesTests
     [Theory]
     [InlineData(VoiceChime.Listening)]
     [InlineData(VoiceChime.Working)]
-    public void IsShortEnoughToBeAMarkerRatherThanASound(VoiceChime chime)
+    public void RingsForExactlyWhatTheStreamWillSend(VoiceChime chime)
     {
-        double seconds = (double)Samples(chime).Length / VoiceChimes.SampleRate;
+        // Anything shorter is padded out to this length before it goes anywhere, so a shorter tone
+        // would occupy the connection for the same time and spend the difference on silence.
+        VoiceChimes.Pcm(chime).Length.Should().Be(SendableAudio.PreloadBytes);
+    }
 
-        seconds.Should().BeInRange(0.15, 0.5);
+    [Theory]
+    [InlineData(VoiceChime.Listening)]
+    [InlineData(VoiceChime.Working)]
+    public void TheNoteMellowsAsItRings(VoiceChime chime)
+    {
+        // The one property that separates a struck note from a beep: the upper partials die away
+        // faster than the fundamental, so the sound is brighter at the start than in the tail. Equal
+        // envelopes give a shape that never changes, which is heard as electronic.
+        // Measured inside the FIRST note only, before the second is struck — across the whole tone
+        // the pitch changes on purpose, and that movement would swamp what this is looking at.
+        short[] samples = Samples(chime);
+
+        double early = Brightness(samples, At(0.03), At(0.08));
+        double late = Brightness(samples, At(0.13), At(0.18));
+
+        early.Should().BeGreaterThan(late, "the partials on top should fade first");
+    }
+
+    private static int At(double seconds) => (int)(seconds * VoiceChimes.SampleRate);
+
+    /// <summary>
+    /// How much of a stretch's energy is in its upper partials.
+    /// </summary>
+    /// <remarks>
+    /// The energy of the sample-to-sample difference against the energy of the signal — a crude
+    /// high-pass, which is all that is needed to tell a bright stretch from a mellow one. Counting
+    /// zero crossings does not work here: the fundamental dominates them, so a note whose overtones
+    /// have completely died away still crosses zero exactly as often.
+    /// </remarks>
+    private static double Brightness(short[] samples, int from, int to)
+    {
+        double energy = 0;
+        double difference = 0;
+
+        for (int i = from + 1; i < to; i++)
+        {
+            double x = samples[i];
+            double d = samples[i] - samples[i - 1];
+            energy += x * x;
+            difference += d * d;
+        }
+
+        return energy <= 0 ? 0 : difference / energy;
     }
 
     [Theory]
@@ -99,38 +144,47 @@ public class VoiceChimesTests
     }
 
     [Fact]
-    public void TheListeningToneRises()
+    public void TheTonesMoveInOppositeDirections()
     {
-        short[] samples = Samples(VoiceChime.Listening);
-        int third = samples.Length / 3;
-
-        Crossings(samples, 0, third)
-            .Should().BeLessThan(Crossings(samples, samples.Length - third, samples.Length));
-    }
-
-    [Fact]
-    public void TheWorkingToneFalls()
-    {
-        short[] samples = Samples(VoiceChime.Working);
-        int third = samples.Length / 3;
-
-        Crossings(samples, 0, third)
-            .Should().BeGreaterThan(Crossings(samples, samples.Length - third, samples.Length));
-    }
-
-    [Fact]
-    public void TheTwoTonesAreTheSameNotesInOppositeOrder()
-    {
-        // What makes the pair learnable without being explained. Two unrelated sounds would each have
-        // to be learnt on its own.
+        // ⚠ The pair is compared against ITSELF at the same instant rather than each tone against its
+        // own tail. Crossings answer to brightness as well as pitch, and both tones start bright and
+        // mellow as they ring — so an early-against-late reading inside one tone measures the decay
+        // as much as the melody. At the same moment the two share a timbre, and only the note
+        // differs, which is exactly the thing being asserted.
         short[] rising = Samples(VoiceChime.Listening);
         short[] falling = Samples(VoiceChime.Working);
-        int third = rising.Length / 3;
+
+        // The first note, ringing alone before the second is struck.
+        Crossings(rising, At(0.10), At(0.18))
+            .Should().BeLessThan(Crossings(falling, At(0.10), At(0.18)),
+                "the rising tone opens on the lower note");
+
+        // The second note, after the first has stopped.
+        Crossings(rising, At(0.82), At(0.95))
+            .Should().BeGreaterThan(Crossings(falling, At(0.82), At(0.95)),
+                "and closes on the higher one");
+    }
+
+    [Fact]
+    public void TheTwoTonesAreMadeOfTheSameMaterial()
+    {
+        // What makes the pair learnable without being explained: one sound played two ways, rather
+        // than two sounds each of which has to be learnt. The same notes with the same envelopes in
+        // the opposite order carry the same energy, so a drift here means one of them has quietly
+        // become a different sound.
+        short[] rising = Samples(VoiceChime.Listening);
+        short[] falling = Samples(VoiceChime.Working);
 
         rising.Length.Should().Be(falling.Length);
 
-        Crossings(rising, 0, third)
-            .Should().BeCloseTo(Crossings(falling, falling.Length - third, falling.Length), 12);
+        Rms(rising).Should().BeApproximately(Rms(falling), Rms(rising) * 0.15);
+    }
+
+    private static double Rms(short[] samples)
+    {
+        double sum = 0;
+        foreach (short sample in samples) sum += (double)sample * sample;
+        return Math.Sqrt(sum / samples.Length);
     }
 
     [Fact]

@@ -36,11 +36,21 @@ public interface IVoiceSessions
     /// Says <paramref name="pcm"/> — 48 kHz stereo signed 16-bit — in this guild's voice channel.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Goes through the session because the session owns the connection. Two answers arriving at once
     /// are played one after the other rather than mixed into each other, which is what talking over
     /// yourself would sound like.
+    /// </para>
+    /// <para>
+    /// <paramref name="waitAtMost"/> caps how long this will queue behind whatever is already
+    /// playing, and giving up is reported as a failure. It is for audio whose <em>meaning depends on
+    /// when it arrives</em>: a tone saying "your turn" that comes out three seconds late describes a
+    /// moment that has passed, and the person hears it against whatever is happening then instead.
+    /// Null waits, which is what an answer wants — an answer is worth having whenever it lands.
+    /// </para>
     /// </remarks>
-    Task<Result> SpeakAsync(ulong guildId, byte[] pcm, CancellationToken ct = default);
+    Task<Result> SpeakAsync(
+        ulong guildId, byte[] pcm, TimeSpan? waitAtMost = null, CancellationToken ct = default);
 }
 
 /// <summary>

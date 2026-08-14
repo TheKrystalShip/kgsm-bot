@@ -29,9 +29,44 @@ public class ChimeAudition
         Directory.CreateDirectory(into);
 
         foreach (VoiceChime chime in Enum.GetValues<VoiceChime>())
+        {
             File.WriteAllBytes(
                 Path.Combine(into, $"chime-{chime.ToString().ToLowerInvariant()}.wav"),
                 Wav(VoiceChimes.Pcm(chime)));
+
+            File.WriteAllLines(
+                Path.Combine(into, $"chime-{chime.ToString().ToLowerInvariant()}.txt"),
+                Describe(VoiceChimes.Pcm(chime)));
+        }
+    }
+
+    /// <summary>How the tone's brightness and level move across its length, in tenths of a second.</summary>
+    private static IEnumerable<string> Describe(byte[] pcm)
+    {
+        var samples = new short[pcm.Length / 4];
+        for (var i = 0; i < samples.Length; i++)
+            samples[i] = BitConverter.ToInt16(pcm, i * 4);
+
+        var step = (int)(0.1 * VoiceChimes.SampleRate);
+
+        for (int at = 0; at + step <= samples.Length; at += step)
+        {
+            double energy = 0;
+            double difference = 0;
+            short peak = 0;
+
+            for (int i = at + 1; i < at + step; i++)
+            {
+                double x = samples[i];
+                double d = samples[i] - samples[i - 1];
+                energy += x * x;
+                difference += d * d;
+                peak = Math.Max(peak, Math.Abs(samples[i]) > short.MaxValue ? short.MaxValue : (short)Math.Abs(samples[i]));
+            }
+
+            double brightness = energy <= 0 ? 0 : difference / energy;
+            yield return $"{(double)at / VoiceChimes.SampleRate:F2}s  peak={peak,6}  brightness={brightness:F4}";
+        }
     }
 
     /// <summary>Wraps raw PCM in the 44-byte header that makes it a file anything will play.</summary>

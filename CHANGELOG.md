@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.27.0] - 2026-08-14
+
+### Changed — the tones are struck notes rather than beeps
+
+The first pair read as electronic, and measuring them says why: a tone's brightness — the share of its
+energy above the fundamental — sat at 0.0117, where a **pure sine at the same pitch measures 0.0105**.
+The partials were there but so quiet that what came out was a bare sine with a decay on it, which is
+what a beep is.
+
+Three things now do the work, and dropping any one is audible. The upper partials **decay faster than
+the fundamental**, so the note starts bright and mellows as it rings — that is what a struck object
+does and what a synthesiser does not. The partials sit **slightly off the exact harmonic ratios**,
+because perfectly integer overtones are a property of arithmetic rather than of anything physical, and
+a near-unison a fifth of a hertz out beats slowly against the fundamental for warmth. And the attack
+is a **raised cosine over 20ms** instead of a 6ms ramp, since a straight line into full amplitude is
+heard as a click on the front of the note. A few quiet delayed copies put it in a room rather than
+injecting it dry into the stream.
+
+**The ring is now a full second, and that is free.** The output stream will not transmit less than a
+second whatever it is given, so a 290ms tone and a 1s tone occupy the connection for exactly as long —
+the only question was whether the remainder was silence or decay.
+
+Level is measured after rendering rather than budgeted from the constants: seven partials, two
+overlapping notes and four reflections sum to something nobody can predict by reading them, and
+guessing wrong means either clipping or a tone too quiet to do its job.
+
+### Changed — the opening tone arrives sooner, and never arrives late
+
+Three separate causes of a tone that lags the moment it describes:
+
+- **The look-ahead ran on the 200ms tick.** It now runs on the loop that receives frames, so a
+  sentence is read the instant it is long enough rather than up to a fifth of a second later.
+- ⚠ **A tone that would arrive late is now dropped.** It used to queue behind whatever was already
+  playing. "Your turn" heard three seconds after the fact describes a moment that has gone, and
+  invites somebody to talk into something not listening for them — worse than silence. It waits 400ms
+  for the connection to be free and gives up.
+- **Contention is now visible.** The early read is skipped whenever the recogniser is busy, which in a
+  room with several people talking is often — and the only symptom was a tone that seemed late. That
+  skip is logged, so it can be counted instead of guessed at.
+
 ## [3.26.1] - 2026-08-14
 
 ### Fixed — audio shorter than a second wedged the voice surface permanently

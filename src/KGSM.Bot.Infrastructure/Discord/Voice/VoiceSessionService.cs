@@ -149,12 +149,13 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         }
     }
 
-    public async Task<Result> SpeakAsync(ulong guildId, byte[] pcm, CancellationToken ct = default)
+    public async Task<Result> SpeakAsync(
+        ulong guildId, byte[] pcm, TimeSpan? waitAtMost = null, CancellationToken ct = default)
     {
         if (!_sessions.TryGetValue(guildId, out Session? session))
             return Result.Failure("I'm not in a voice channel here.");
 
-        return await session.SpeakAsync(pcm, ct);
+        return await session.SpeakAsync(pcm, waitAtMost, ct);
     }
 
     public async Task<Result> LeaveAsync(ulong guildId, CancellationToken ct = default)
@@ -307,13 +308,21 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         /// the chat.
         /// </para>
         /// </remarks>
-        public async Task<Result> SpeakAsync(byte[] pcm, CancellationToken ct)
+        public async Task<Result> SpeakAsync(byte[] pcm, TimeSpan? waitAtMost, CancellationToken ct)
         {
             if (pcm.Length == 0) return Result.Success();
 
             byte[] audible = SendableAudio.AtLeastPreload(pcm);
 
-            await _mouth.WaitAsync(ct);
+            if (waitAtMost is { } limit)
+            {
+                if (!await _mouth.WaitAsync(limit, ct))
+                    return Result.Failure("Something else was still playing.");
+            }
+            else
+            {
+                await _mouth.WaitAsync(ct);
+            }
 
             using var bounded = CancellationTokenSource.CreateLinkedTokenSource(ct);
             bounded.CancelAfter(PcmUpsampler.DurationOfStereo48k(audible.Length) + SpeakingGrace);
@@ -441,6 +450,12 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                     // by the ticker, because the end of a sentence is an absence of frames and this
                     // loop only runs when there are frames.
                     if (full is not null) await HandAsync(full);
+
+                    // Looked at here rather than on the tick, because the whole value of reading a
+                    // sentence early is in when it happens: the tick runs five times a second, so
+                    // deciding there spends up to another fifth of a second before anybody hears
+                    // that they were understood. Costs one lock and a comparison per frame.
+                    else PeekAt(speaker);
                 }
             }
             catch (OperationCanceledException) { }
@@ -460,10 +475,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 while (await timer.WaitForNextTickAsync(ct))
                 {
                     foreach (Speaker speaker in _speakers.Values)
-                    {
-                        PeekAt(speaker);
                         await EmitAsync(speaker, force: false);
-                    }
 
                     WarnIfDeaf();
 
@@ -504,10 +516,10 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         /// before the speaker has finished addressing anybody.
         /// </summary>
         /// <remarks>
-        /// <b>Started and not awaited.</b> Reading it takes a recognition pass, and this loop is the
-        /// one that closes every other speaker's sentences — waiting here would hold up the finished
-        /// audio somebody is actually waiting on, in order to look ahead at audio nobody is. The
-        /// copy is taken under the lock; everything after that is off this loop.
+        /// <b>Started and not awaited.</b> Reading it takes a recognition pass, and this is the loop
+        /// draining a live audio stream — waiting here would stop reading frames in order to look
+        /// ahead at frames already read. The copy is taken under the lock; everything after that is
+        /// off this loop.
         /// </remarks>
         private void PeekAt(Speaker speaker)
         {

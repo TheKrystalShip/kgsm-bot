@@ -142,7 +142,18 @@ public sealed class WhisperSpeechToText : ISpeechToText, IDisposable
         // Taken without waiting, or abandoned. A speculative pass that queued would be sitting in
         // front of the finished sentence somebody is actually waiting on, which is the opposite of
         // what it is for.
-        if (!_one.Wait(0, CancellationToken.None)) return null;
+        if (!_one.Wait(0, CancellationToken.None))
+        {
+            // Said out loud in the log because from inside a channel this is invisible: a busy room
+            // is exactly when the recogniser is occupied, so being addressed goes unnoticed until the
+            // sentence finishes and the only symptom is a tone that seems late. Counting these is how
+            // an operator tells contention apart from a trigger that is not matching.
+            _logger.LogDebug(
+                "Voice: skipped reading {Speaker} early — the recogniser was busy",
+                utterance.SpeakerName);
+
+            return null;
+        }
 
         return await RecogniseAsync(utterance, ct);
     }
