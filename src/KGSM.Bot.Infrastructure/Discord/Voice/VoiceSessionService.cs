@@ -324,8 +324,11 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 await _mouth.WaitAsync(ct);
             }
 
+            TimeSpan budget = PcmUpsampler.DurationOfStereo48k(audible.Length) + SpeakingGrace;
+            DateTimeOffset giveUpAt = DateTimeOffset.UtcNow + budget;
+
             using var bounded = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            bounded.CancelAfter(PcmUpsampler.DurationOfStereo48k(audible.Length) + SpeakingGrace);
+            bounded.CancelAfter(budget);
 
             try
             {
@@ -345,10 +348,11 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             {
                 return Result.Failure("I was interrupted before I could say that.");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (DateTimeOffset.UtcNow >= giveUpAt)
             {
-                // The stream took longer than the audio it was given could possibly take. It is not
-                // coming back, so it is dropped rather than left for the next answer to wait on too.
+                // The budget really did run out: the stream took longer than the audio it was given
+                // could possibly take. It is not coming back, so it is dropped rather than left for
+                // the next answer to wait on too.
                 logger.LogWarning(
                     "Voice: the audio stream in {Channel} stopped accepting {Seconds:F1}s of speech — "
                     + "rebuilding it for the next one",
@@ -356,6 +360,21 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
                 _out = null;
                 return Result.Failure("I couldn't say that out loud.");
+            }
+            catch (OperationCanceledException)
+            {
+                // ⚠ Cancelled well inside the budget, so the stream is not the thing that failed —
+                // the connection underneath it went away, and Discord.Net cancels an in-flight write
+                // from the audio client's own token when it does. Measured: a voice disconnect
+                // reported here as a wedged stream, which sends anybody reading the log after the
+                // fact to the wrong half of the system.
+                logger.LogInformation(
+                    "Voice: the connection to {Channel} went away part-way through {Seconds:F1}s of "
+                    + "speech — it was not said",
+                    channel.Name, PcmUpsampler.DurationOfStereo48k(audible.Length).TotalSeconds);
+
+                _out = null;
+                return Result.Failure("I lost the voice connection before I could say that.");
             }
             catch (Exception ex)
             {

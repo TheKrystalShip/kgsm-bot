@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.28.1] - 2026-08-14
+
+### Fixed — a dropped voice connection was reported as a wedged audio stream
+
+The bounded write added in 3.26.1 catches a cancelled write and calls the stream unusable. But
+Discord.Net also cancels an in-flight write from the **audio client's own** token when the voice
+connection goes away — measured here six seconds into an eleven-second answer, immediately followed
+by `Audio #1: Disconnecting`. Both arrive as the same exception, and the log named the wrong one:
+*"the audio stream stopped accepting speech"*, for a connection that had simply gone.
+
+The two are now told apart by whether the budget actually elapsed, which is the thing that
+distinguishes them. A real timeout still rebuilds the stream and warns; a connection that went away
+says so, at information level, because it is not a fault in anything the bot owns. Reporting a cause
+that was not measured is the same error as reporting a status that was not measured.
+
 ## [3.28.0] - 2026-08-14
 
 ### Changed — one note that bends, instead of two notes
