@@ -174,7 +174,7 @@
       "LogTranscripts": false,
 
       // The recogniser knows English, not this host: a server called "Ketchup" comes back as
-      // "catch-up" until something tells whisper the name exists. Naming the servers as prior context
+      // "catch-up" until something tells the recogniser the name exists. Naming the servers as context
       // shifts it toward this host's spellings, refreshed as they are installed and removed. Nothing
       // downstream rewrites what anybody said — correcting a misheard name after the fact means
       // guessing which server was meant and then acting on the guess.
@@ -215,14 +215,13 @@
       // of a sentence nobody has finished, and the same audio arrives again complete a moment later;
       // that copy is the one that is read and acted on.
       //
-      // It costs a whole recognition pass (whisper pads to a fixed window, so 1.5s costs about what
-      // the sentence costs) on most of what is said in the channel, addressed to the bot or not. It is
+      // It costs a whole recognition pass (the recogniser pads to a fixed window, so 1.5s costs about
+      // what the sentence costs) on most of what is said in the channel, addressed or not. It is
       // skipped outright whenever the recogniser is busy, so it can never delay a real answer. 0 off.
       "EarlyTriggerMs": 1500,
 
-      // Answering out loud. Synthesis on the card is around eight times faster than on the processor
-      // and costs roughly 700MB of video memory; a host without a usable card (the CUDA path needs
-      // cuDNN, which recognition does not) falls back on its own and says so in the log.
+      // Answering out loud. Whether this host CAN — the models, the card, the voice — is the speech
+      // leaf's business, not this file's; this only says whether the bot asks it to.
       //
       // The WHOLE reply is spoken, with only the markup stripped — never a summary and never cut
       // short. A surface that rewords a reply on its way to being read out says things the assistant

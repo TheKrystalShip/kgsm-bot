@@ -578,18 +578,18 @@ answers.
   `UtteranceAssembler.Peek` hands out a copy at `EarlyTriggerMs`, and `RecognisingUtteranceSink`
   matches the trigger in it. **Nothing is dispatched, counted, or opened from a partial**: it is half
   an instruction, and the complete copy arrives moments later. That is exactly what makes it safe for
-  whisper to be wrong about a fragment. The one thing it may do besides sounding a tone is **stop an
+  the recogniser to be wrong about a fragment. The one thing it may do besides sounding a tone is **stop an
   answer being spoken** — that undoes nothing, since the reply is in the chat and the turn behind it
   has finished, and being slow about it is the whole failure. It is **skipped, never queued**, when the recogniser is busy
   (`TranscribeIfIdleAsync`) — a look ahead at an unfinished sentence must never delay a finished one —
-  and it costs a full recognition pass on most of what a room says, since whisper pads to a fixed
+  and it costs a full recognition pass on most of what a room says, since recognition pads to a fixed
   window. `0` turns it off.
 - **The tone player is its own seam.** The recogniser plays tones and is a dependency of the session
   that owns the connection, so `IVoiceChimes` resolves the session on first use rather than taking it
   in a constructor — the same circle `VoiceCommandQueue` exists to break. The same tone twice within
   two seconds is played once, because the trigger spotted early and the same trigger read again on
   close are both correct and the room only needs to hear it once.
-- **The recogniser is primed with this host's names** (`SpokenVocabulary`), because whisper knows
+- **The recogniser is primed with this host's names** (`SpokenVocabulary`), because a recogniser knows
   English and not that a server is called `Ketchup`. Nothing downstream rewrites what was said — see
   the CHANGELOG for why correcting a misheard name afterwards is not merely risky but unachievable at
   any threshold.
