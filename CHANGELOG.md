@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.15.1] - 2026-08-14
+
+### Added — a package for libdave, built from Discord's source
+
+`packaging/libdave/PKGBUILD` builds Discord's DAVE implementation and installs it as
+`/usr/lib/libdave.so`, on the default `dlopen` search path — so Discord.Net resolves it by name
+with nothing copied beside the binary. mlspp and OpenSSL link statically through the pinned vcpkg
+submodule, leaving the shared object depending on the toolchain runtime alone.
+
+It compiles upstream rather than repackaging a prebuilt binary. This library sits in the decryption
+path of every voice packet, which is not a place to run bytes nobody read. `check()` greps the C ABI
+out of the built object, so a build that produced a C++-only library fails at packaging time instead
+of inside a voice connection.
+
+The bot lists it under `optdepends`, beside `opus` and `libsodium`: the voice surface cannot open a
+connection without all three, and every other surface runs without any of them.
+
 ## [3.15.0] - 2026-08-14
 
 ### Changed — Discord.Net 3.20.1, which is what a voice connection now requires

@@ -24,6 +24,9 @@ depends=('kgsm' 'systemd' 'glibc' 'aspnet-runtime')
 optdepends=(
     'kgsm-watchdog: lifecycle slash commands act through it'
     'kgsm-llm: backs the conversational half; slash commands and announcements need none of it'
+    'libdave: Discord refuses a voice connection from a client that cannot negotiate DAVE, so the voice surface needs it; every other surface runs without it'
+    'opus: decodes received voice to PCM'
+    'libsodium: transport encryption for the voice UDP socket'
 )
 backup=('etc/kgsm-bot/kgsm-bot.env')
 

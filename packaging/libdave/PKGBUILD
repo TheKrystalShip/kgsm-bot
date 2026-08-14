@@ -1,0 +1,62 @@
+# Maintainer: Cristian Moraru <info@thekrystalship.com>
+#
+# Build from this directory:  cd packaging/libdave && makepkg -si
+#
+# libdave is Discord's own implementation of the DAVE protocol — the MLS-based end-to-end
+# encryption every non-stage voice call requires. A client that cannot negotiate it is refused
+# with voice close code 4017, so this is what lets the bot hold a voice connection at all.
+#
+# Discord.Net resolves the library by name at runtime and P/Invokes the flat C ABI that upstream
+# exports from bindings_capi.cpp — all 45 entry points, no shim of ours in between. Installing it
+# as /usr/lib/libdave.so puts it on the default dlopen search path, which is why nothing has to be
+# copied beside the binary.
+#
+# It builds from Discord's source rather than repackaging somebody's binary: this ends up inside
+# the decryption path for every voice packet, and a prebuilt .so is a thing you trust without
+# reading. The build pulls mlspp and a static OpenSSL through the pinned vcpkg submodule, which
+# needs network access at build time and takes a while — hence a real package instead of a step
+# somebody repeats by hand.
+
+pkgname=libdave
+pkgver=1.1.1
+pkgrel=1
+pkgdesc="Discord's Audio & Video End-to-End Encryption (DAVE) protocol library"
+arch=('x86_64')
+url="https://github.com/discord/libdave"
+license=('MIT')
+# OpenSSL and mlspp are linked statically out of vcpkg, so the shared object needs only the
+# toolchain runtime — confirm with `ldd /usr/lib/libdave.so` after an upgrade.
+depends=('gcc-libs' 'glibc')
+makedepends=('git' 'cmake' 'ninja' 'zip' 'unzip' 'curl' 'tar' 'pkgconf')
+options=('!debug' '!strip')
+_commit='52cd56dc550f447fb354b3a06c9e2d2e2a4309c6'  # v1.1.1/cpp
+source=("git+https://github.com/discord/libdave.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+prepare() {
+    cd "${srcdir}/libdave"
+    # vcpkg is a submodule and carries the pinned versions of mlspp and OpenSSL; the build cannot
+    # resolve either without it.
+    git submodule update --init --recursive
+}
+
+build() {
+    cd "${srcdir}/libdave/cpp"
+    ./vcpkg/bootstrap-vcpkg.sh -disableMetrics
+    make shared
+}
+
+check() {
+    cd "${srcdir}/libdave/cpp"
+    # The C ABI is the whole reason this package exists, and a build that quietly produced a C++-only
+    # object would fail far away from here — inside a voice connection, as a decrypt error.
+    nm -D --defined-only build/libdave.so | grep -q 'daveSessionCreate'
+    nm -D --defined-only build/libdave.so | grep -q 'daveDecryptorDecrypt'
+}
+
+package() {
+    cd "${srcdir}/libdave/cpp"
+    install -Dm755 build/libdave.so "${pkgdir}/usr/lib/libdave.so"
+    install -Dm644 includes/dave/dave.h "${pkgdir}/usr/include/dave/dave.h"
+    install -Dm644 "${srcdir}/libdave/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

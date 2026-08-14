@@ -1,0 +1,8 @@
+# makepkg's working tree and output. Every pattern is anchored to this directory: a slashless
+# rule matches at every depth, which is how a source directory gets untracked without anybody
+# noticing.
+/src/
+/pkg/
+/libdave/
+/*.pkg.tar.*
+/*.log
