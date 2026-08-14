@@ -137,13 +137,17 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         Result<AssistantTurn> result;
         using (channel.EnterTypingState())
         {
+            // Spoken only from here. The @-mention surface asks the same assistant as the same
+            // account and wants the written answer — the style describes where this reply lands, not
+            // who asked for it, which is why it rides the turn instead of being configured once.
             result = await _assistant.AskAsync(new AssistantAsk(
                 command.SpeakerId.ToString(),
                 command.SpeakerName,
                 tier,
                 command.ChannelId.ToString(),
                 command.Text,
-                RoomFor(command)), ct);
+                RoomFor(command),
+                Spoken: true), ct);
         }
 
         if (result.IsFailure)
@@ -179,19 +183,32 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// What to say out loud: the reply, and where an offer to act has gone.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A staged action is named rather than read out in full, and the sentence points at the buttons.
     /// Somebody listening needs to know the bot did not just do it — and the one thing they must not
     /// be invited to do is approve it by speaking.
+    /// </para>
+    /// <para>
+    /// <b>The two halves say different things and neither repeats the other.</b> That an action is
+    /// staged and waiting is the assistant's to say, and it does. That the thing to press is in the
+    /// channel's chat is only this surface's to say — it knows about the buttons and the assistant does
+    /// not. So the addition is about <em>where</em>, and grows into the full sentence only when the
+    /// assistant said nothing at all, which is the one case where nobody has been told there is
+    /// anything waiting.
+    /// </para>
     /// </remarks>
     private static string SpokenAnswer(AssistantTurn turn)
     {
         if (turn.StagedActions.Count == 0) return turn.Text ?? string.Empty;
 
-        string offer = turn.StagedActions.Count == 1
-            ? $"I've put a confirmation in the chat for you to approve."
-            : $"I've put {turn.StagedActions.Count} confirmations in the chat for you to approve.";
+        bool many = turn.StagedActions.Count > 1;
 
-        return string.IsNullOrWhiteSpace(turn.Text) ? offer : $"{turn.Text} {offer}";
+        if (string.IsNullOrWhiteSpace(turn.Text))
+            return many
+                ? $"I've put {turn.StagedActions.Count} confirmations in the chat for you to approve."
+                : "I've put a confirmation in the chat for you to approve.";
+
+        return many ? $"{turn.Text} Approve them in the chat." : $"{turn.Text} Approve it in the chat.";
     }
 
     /// <summary>Says an answer in the channel it was asked in, if this host can speak at all.</summary>

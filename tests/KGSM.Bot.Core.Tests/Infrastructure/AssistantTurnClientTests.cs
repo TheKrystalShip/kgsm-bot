@@ -383,4 +383,39 @@ public class AssistantTurnClientTests
 
         (await client.ConfirmAsync(Approval)).IsFailure.Should().BeTrue();
     }
+
+    /// <summary>
+    /// The shape the answer is wanted in, which is a fact about the surface rather than the person.
+    /// </summary>
+    /// <remarks>
+    /// The literal <c>"voice"</c> is asserted rather than a constant, for the same reason the headers
+    /// are: the assistant parses that word, and a rename agreed on both sides of this repo would still
+    /// be a word the deployed service does not recognise. Its parser fails open, so getting this wrong
+    /// costs the brevity silently and never an error.
+    /// </remarks>
+    [Fact]
+    public async Task AsksForASpokenAnswerOnlyWhenTheReplyIsGoingToBeSpoken()
+    {
+        var transport = Answering("""{"text":"No, it is stopped.","confirmations":[]}""");
+        using var client = Client(transport);
+
+        await client.AskAsync(Ask with { Spoken = true });
+
+        using JsonDocument spoken = JsonDocument.Parse(transport.SeenBody!);
+        spoken.RootElement.GetProperty("style").GetString().Should().Be("voice");
+    }
+
+    [Fact]
+    public async Task ATypedQuestionCarriesNoStyleAtAll()
+    {
+        // Absent rather than "default": an assistant too old to know the field receives exactly the
+        // body it always did, so nothing has to be deployed in a particular order.
+        var transport = Answering("""{"text":"It is running.","confirmations":[]}""");
+        using var client = Client(transport);
+
+        await client.AskAsync(Ask);
+
+        using JsonDocument typed = JsonDocument.Parse(transport.SeenBody!);
+        typed.RootElement.TryGetProperty("style", out _).Should().BeFalse();
+    }
 }

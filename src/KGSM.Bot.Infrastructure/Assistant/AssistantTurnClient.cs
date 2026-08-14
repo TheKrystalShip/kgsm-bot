@@ -119,7 +119,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "/turn")
             {
-                Content = JsonContent.Create(new TurnBody(ask.Prompt), options: Json),
+                Content = JsonContent.Create(TurnBody.For(ask), options: Json),
             };
 
             // AutoAct is false and not configurable: this surface stages every action behind a button
@@ -192,7 +192,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "/turn")
             {
-                Content = JsonContent.Create(new TurnBody(ask.Prompt), options: Json),
+                Content = JsonContent.Create(TurnBody.For(ask), options: Json),
             };
             request.Headers.Accept.ParseAdd("text/event-stream");
 
@@ -498,7 +498,33 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
     // relay headers, which are the part two surfaces must not disagree about. A response body a client
     // reads a few fields out of is not, and taking a package dependency for it would couple this bot's
     // build to every unrelated change in that surface.
-    private sealed record TurnBody([property: JsonPropertyName("prompt")] string Prompt);
+    /// <summary>
+    /// The question, and the shape the answer is wanted in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>style</c> is omitted for an answer that will be read on a screen rather than sent as
+    /// "default". An assistant too old to know the field then receives exactly the body it always did,
+    /// which is what makes this a change no deployment has to be sequenced around: the field only ever
+    /// appears on the surface that needs it.
+    /// </para>
+    /// <para>
+    /// The wire word is written here and nowhere else. It belongs to the assistant's vocabulary, and
+    /// Core says only that an answer is going to be spoken — which is the fact this surface actually
+    /// has.
+    /// </para>
+    /// </remarks>
+    private sealed record TurnBody(
+        [property: JsonPropertyName("prompt")] string Prompt,
+        [property: JsonPropertyName("style")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? Style = null)
+    {
+        private const string SpokenWire = "voice";
+
+        public static TurnBody For(AssistantAsk ask) =>
+            new(ask.Prompt, ask.Spoken ? SpokenWire : null);
+    }
 
     private sealed record TurnResponseBody(string? Text, IReadOnlyList<ConfirmationBody>? Confirmations);
 

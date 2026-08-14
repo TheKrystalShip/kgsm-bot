@@ -30,13 +30,29 @@ namespace KGSM.Bot.Core.Models;
 /// — a worse conversation, never a broken one.
 /// </para>
 /// </param>
+/// <param name="Spoken">
+/// Whether this answer is going to be read aloud by a synthesiser rather than read on a screen.
+/// <para>
+/// It describes the <em>surface</em>, not the person and not the question, which is why it travels per
+/// turn: this one leaf carries both, and the same account asking the same thing wants a paragraph
+/// typed in a text channel and a sentence spoken in a voice one. Speech cannot be skimmed, so on that
+/// surface length is duration — a measured 126-character reply was twelve seconds of talking.
+/// </para>
+/// <para>
+/// Presentation only. The assistant's tools, the asker's authority and the propose-then-confirm rule
+/// are identical either way: an answer can get shorter and can never get less complete about a staged
+/// action. An assistant too old to know the field ignores it and answers as it always did, which is
+/// legible when spoken — merely longer than it needs to be.
+/// </para>
+/// </param>
 public sealed record AssistantAsk(
     string UserId,
     string DisplayName,
     KgsmTier Tier,
     string ConversationId,
     string Prompt,
-    string? Room = null);
+    string? Room = null,
+    bool Spoken = false);
 
 /// <summary>
 /// What the assistant answered: the reply to show, and any action it staged for a human to approve.

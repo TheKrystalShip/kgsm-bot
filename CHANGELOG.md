@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.21.0] - 2026-08-14
+
+### Added — a spoken request asks for a spoken answer
+
+The assistant takes an optional per-turn `style`, and the voice surface sends `"voice"` with it. The
+@-mention surface sends nothing and keeps the full written answer: the style describes where a reply
+lands, not who asked for it, and the same account asking the same question from a text channel still
+wants the paragraph. `style` is omitted rather than sent as `"default"`, so an assistant too old to
+know the field receives exactly the body it always did and nothing has to be deployed in an order.
+
+Measured through the deployed service on the relay path. The gain is not where it looks like it
+should be — a question already answered in one line barely moves:
+
+| asked | written | spoken |
+|---|---|---|
+| is minecraft running? | 50 | 46 |
+| how much memory is Ketchup using? | 42 (`4 GB`) | 39 (`4 gigabytes`) |
+| what servers do I have? | 224, with `*` and `**` bullets | 94, one sentence |
+
+The verbose answers are the ones that move, and the markup mattering more than the length: a synthesiser
+reads `*   **Ketchup** (Palworld)` out as punctuation.
+
+### Changed — the two halves of a staged offer stop repeating each other
+
+The assistant now says an action is waiting for confirmation, and this surface said it again on the
+way to the speaker. That an action is staged is the assistant's to report; that the thing to press is
+in the channel's chat is only this surface's, because the assistant knows nothing about the buttons.
+So the spoken addition is now about *where* — "Approve it in the chat." — and grows back into the
+whole sentence only when the assistant said nothing at all, which is the one case where nobody has
+been told there is anything waiting.
+
 ## [3.20.0] - 2026-08-14
 
 ### Added — the recogniser is told what this host's servers are called
