@@ -117,6 +117,29 @@ public class UtteranceAssemblerTests
     }
 
     [Fact]
+    public void AnUtteranceCutAtTheCeilingSaysSo()
+    {
+        // The speaker had not finished, so what follows is the rest of the same sentence. A consumer
+        // that cannot tell puts half a request to the assistant — measured turning "stop minecraft"
+        // into "stop", which it could only answer by asking which server.
+        var limits = Limits with { MaxDuration = TimeSpan.FromSeconds(1) };
+        UtteranceAssembler assembler = Assembler(limits);
+
+        VoiceUtterance? cut = assembler.Append(Audio(1000), T0);
+
+        cut!.Truncated.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnUtteranceEndedBySilenceIsNotTruncated()
+    {
+        UtteranceAssembler assembler = Assembler();
+        assembler.Append(Audio(600), T0);
+
+        assembler.Close(T0.AddSeconds(2))!.Truncated.Should().BeFalse();
+    }
+
+    [Fact]
     public void AudioAfterACeilingCutStartsAFreshUtterance()
     {
         var limits = Limits with { MaxDuration = TimeSpan.FromSeconds(1) };

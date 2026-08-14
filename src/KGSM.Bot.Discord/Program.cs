@@ -1,3 +1,4 @@
+using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Infrastructure;
 using KGSM.Bot.Application;
 
@@ -105,6 +106,11 @@ public class Program
                 // Listens for @-mentions and puts them to the assistant leaf. The client itself is
                 // registered with the infrastructure, beside the rest of this host's outward wiring.
                 services.AddSingleton<MessageHandler>();
+
+                // What a spoken request turns into. Registered here rather than with the rest of the
+                // voice wiring because answering one is a Discord concern: it posts into the voice
+                // channel's chat and offers the same confirmation buttons the @-mention surface does.
+                services.AddSingleton<IVoiceCommandHandler, Voice.AssistantVoiceCommandHandler>();
 
                 // Register hosted service
                 services.AddHostedService<BotService>();

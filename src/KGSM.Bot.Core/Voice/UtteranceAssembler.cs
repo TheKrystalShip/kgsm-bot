@@ -46,8 +46,9 @@ public sealed class UtteranceAssembler(
         _audio.AddRange(mono16k);
 
         // Cut at the ceiling rather than after crossing it, so the cap is a bound on what is held
-        // rather than a bound on what is held plus one frame.
-        return Buffered >= limits.MaxDuration ? Take() : null;
+        // rather than a bound on what is held plus one frame. Marked as truncated, because the
+        // speaker has not finished and whatever they say next is the rest of this sentence.
+        return Buffered >= limits.MaxDuration ? Take(truncated: true) : null;
     }
 
     /// <summary>
@@ -64,16 +65,16 @@ public sealed class UtteranceAssembler(
         if (!IsCollecting) return null;
         if (!force && now - _lastAudioAt < limits.SilenceGap) return null;
 
-        VoiceUtterance utterance = Take();
+        VoiceUtterance utterance = Take(truncated: false);
         return utterance.Duration >= limits.MinDuration ? utterance : null;
     }
 
-    private VoiceUtterance Take()
+    private VoiceUtterance Take(bool truncated)
     {
         var audio = _audio.ToArray();
         _audio.Clear();
         return new VoiceUtterance(
             speakerId, speakerName, guildId, channelId, audio,
-            PcmDownsampler.DurationOfMono16k(audio.Length), _startedAt);
+            PcmDownsampler.DurationOfMono16k(audio.Length), _startedAt, truncated);
     }
 }

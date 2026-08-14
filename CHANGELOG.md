@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.18.0] - 2026-08-14
+
+### Added — a spoken request reaches the assistant
+
+What somebody says in a voice channel is put to the kgsm-assistant leaf and answered in that
+channel's own chat, which is where the people in it already are. The request is echoed first: a
+recogniser mishears, and without seeing what the bot thought it heard an answer about the wrong
+server is inexplicable.
+
+**A voice channel is a room**, so everybody in it shares one conversation — the same rule a thread
+follows, and for the same reason. Each utterance still carries who said it.
+
+**Speaking is not authority.** The voice connection says which Discord account said something; what
+that person may ask this host to do is the KGSM account theirs is connected to, read from the store
+every other surface reads. Being in the channel grants nothing, and neither does having invited the
+bot. A refusal is said in the channel rather than dropped — from inside a voice call, a bot that
+hears you and says nothing is indistinguishable from a broken one.
+
+**A destructive action is still confirmed with a button, deliberately.** There is no spoken "yes":
+that would be a second and weaker way to authorise something irreversible, on the one surface where
+mishearing is routine. The button re-derives authority at the click and belongs to the person who
+asked. `StagedActionPrompt` now holds the wording and the buttons for both surfaces, so a restart
+proposed out loud and one proposed in a channel read identically.
+
+### Added — setup.sh provisions the speech model
+
+A host that switched the voice surface on understood nothing until somebody put a 488MB file in
+place by hand. `setup.sh` now fetches it into the state directory, after the units are live, so it
+writes into the directory systemd already created and needs no privilege.
+
+Pinned by digest, because "the download finished" is not the same claim as "this is the model". A
+file that is present and wrong is deleted **before** the re-fetch rather than after it succeeds: if
+the download then fails, the bot reports having no model — true and actionable — instead of quietly
+recognising nonsense. A failed fetch warns and leaves provisioning to succeed. `KGSM_VOICE_MODEL=0`
+skips it on a host that will never listen.
+
+### Fixed — a request cut at the utterance ceiling is no longer half a request
+
+Measured: somebody talking past the twenty-second ceiling had their request cut after the word
+"stop", and "minecraft" landed in the following utterance, which carried no trigger and was
+discarded. The assistant was asked to stop nothing in particular and could only ask which server.
+
+An utterance cut at the ceiling now says it was cut, and a request read off one is held until that
+speaker finishes rather than dispatched. This is the same situation as saying the trigger and
+pausing — the speaker has not finished — so both now share one mechanism, per speaker and bounded by
+the same window.
+
 ## [3.17.0] - 2026-08-14
 
 ### Added — the bot understands what it hears

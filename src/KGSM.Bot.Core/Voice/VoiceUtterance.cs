@@ -24,6 +24,12 @@ namespace KGSM.Bot.Core.Voice;
 /// <param name="Audio">16 kHz mono signed 16-bit little-endian PCM.</param>
 /// <param name="Duration">How much audio <paramref name="Audio"/> holds.</param>
 /// <param name="StartedAt">When the first frame of it arrived.</param>
+/// <param name="Truncated">
+/// Whether this was cut at <see cref="UtteranceLimits.MaxDuration"/> while the speaker was still
+/// talking, rather than ended by them stopping. What follows is the rest of the same sentence, so a
+/// request read off a truncated utterance is a request missing its end — measured turning "stop
+/// minecraft" into "stop".
+/// </param>
 public sealed record VoiceUtterance(
     ulong SpeakerId,
     string SpeakerName,
@@ -31,7 +37,8 @@ public sealed record VoiceUtterance(
     ulong ChannelId,
     byte[] Audio,
     TimeSpan Duration,
-    DateTimeOffset StartedAt);
+    DateTimeOffset StartedAt,
+    bool Truncated = false);
 
 /// <summary>
 /// The three durations that decide where one utterance ends and the next begins.

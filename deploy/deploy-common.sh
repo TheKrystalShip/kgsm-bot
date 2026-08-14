@@ -62,18 +62,79 @@ render_unit() {   # $1 = unit filename
 health_probe() {
     systemctl is-active --quiet "$SERVICE"
 }
+# The speech model the voice surface recognises with. Not in the install prefix, because deploy.sh
+# syncs that with rsync --delete and would take a 488MB file on every deploy; the state directory is
+# the bot's own and survives. Pinned by digest — it is loaded into the bot's own process, and "the
+# download finished" is not the same claim as "this is the model".
+VOICE_MODEL_NAME="ggml-small.en.bin"
+VOICE_MODEL_DIR="/var/lib/${PROJECT}/models"
+VOICE_MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${VOICE_MODEL_NAME}"
+VOICE_MODEL_SHA256="c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d"
+
 # Anything else one-shot and privileged this project needs provisioned. setup.sh calls it once
 # the units are live; deploy.sh never does. Keep it idempotent — setup.sh is re-runnable. Use
 # "$SUDO" for privileged steps.
 #
-# The bot needs nothing here. Its one piece of state — the guild store at /var/lib/kgsm-bot/bot.db,
-# holding which Discord servers this host announces into and the channel each game server reports in
-# — is provisioned by the unit's StateDirectory=kgsm-bot: systemd creates the directory owned by
-# User= before ExecStart, which needs no privilege and no step in this script. The file itself is
-# never created here either: the bot creates it, /setup writes it, and losing it loses every channel
-# a server's history is in.
+# The guild store needs nothing here. /var/lib/kgsm-bot is the unit's StateDirectory=kgsm-bot, which
+# systemd creates owned by User= before ExecStart — so this function runs after the units are live
+# and writes into a directory it already owns, with no privilege. The store FILE is never created
+# here either: the bot creates it, /setup writes it, and losing it loses every channel a server's
+# history is in.
+#
+# What is provisioned is the speech model, because the alternative is a host that switches voice on
+# and silently understands nothing until somebody puts a file in place by hand. It is a large
+# download for a surface that ships off; KGSM_VOICE_MODEL=0 skips it, and re-running this script
+# after setting it to 1 fetches it later.
 setup_project_extras() {
-    :
+    [[ "${KGSM_VOICE_MODEL:-1}" == "0" ]] && {
+        log "skipping the speech model (KGSM_VOICE_MODEL=0) — voice will not understand anything"
+        return 0
+    }
+
+    local model="${VOICE_MODEL_DIR}/${VOICE_MODEL_NAME}"
+
+    if [[ -f "$model" ]] && sha256_matches "$model" "$VOICE_MODEL_SHA256"; then
+        return 0
+    fi
+
+    # A file that is present and wrong is worse than one that is absent: it loads, recognises badly,
+    # and reads as a tuning problem. So it goes before the fetch is attempted rather than after it
+    # succeeds — if the download then fails, the bot says it has no model, which is true and
+    # actionable, instead of quietly recognising nonsense.
+    if [[ -f "$model" ]]; then
+        warn "${model} does not match its expected digest — discarding it and re-fetching"
+        rm -f "$model"
+    fi
+
+    install -d -m 0755 "$VOICE_MODEL_DIR" 2>/dev/null ||
+        $SUDO install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$VOICE_MODEL_DIR"
+
+    log "fetching the speech model (~488MB, once) → ${model}"
+    log "  skip this with KGSM_VOICE_MODEL=0 if this host will never use the voice surface"
+
+    # Downloaded beside the target and moved into place only once verified, so an interrupted fetch
+    # leaves no half-file for the bot to load.
+    local tmp="${model}.partial"
+    if ! curl -fL --retry 3 --retry-delay 2 -o "$tmp" "$VOICE_MODEL_URL"; then
+        rm -f "$tmp"
+        warn "could not fetch the speech model — the voice surface will start and understand nothing."
+        warn "  fetch it later:  KGSM_VOICE_MODEL=1 ./deploy/setup.sh"
+        return 0
+    fi
+
+    if ! sha256_matches "$tmp" "$VOICE_MODEL_SHA256"; then
+        rm -f "$tmp"
+        warn "the downloaded speech model does not match its expected digest — discarded."
+        warn "  nothing was installed; the voice surface will understand nothing until this succeeds."
+        return 0
+    fi
+
+    mv -f "$tmp" "$model"
+    log "speech model installed ✓"
+}
+
+sha256_matches() {   # $1 = file, $2 = expected digest
+    [[ "$(sha256sum "$1" | cut -d' ' -f1)" == "$2" ]]
 }
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 

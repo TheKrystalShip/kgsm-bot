@@ -143,9 +143,9 @@ public static class DependencyInjection
         services.AddSingleton<ISpeechToText, global::KGSM.Bot.Infrastructure.Discord.Voice.WhisperSpeechToText>();
 
         // Hearing a request and acting on one are separate registrations on purpose: only the second
-        // needs to know the assistant exists, and swapping it is how the voice surface gains an
-        // answer without the capture half changing.
-        services.AddSingleton<IVoiceCommandHandler, global::KGSM.Bot.Infrastructure.Discord.Voice.LoggingVoiceCommandHandler>();
+        // needs to know the assistant exists. IVoiceCommandHandler is registered by the Discord layer
+        // (Program.cs) rather than here, because answering means posting to Discord and offering the
+        // same confirmation buttons the @-mention surface does.
         services.AddSingleton<IVoiceUtteranceSink, global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink>();
 
         // The bot's voice connections. A singleton because it owns them: Discord allows one per
