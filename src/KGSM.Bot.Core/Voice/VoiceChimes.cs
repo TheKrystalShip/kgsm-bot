@@ -62,20 +62,34 @@ public static class VoiceChimes
     private const int BytesPerSample = 2;
 
     /// <summary>
-    /// The interval, as two frequencies. A perfect fourth — wide enough to read as movement, narrow
-    /// enough not to sound like an alarm.
+    /// The two ends of one note's inflection.
     /// </summary>
-    private const double Low = 783.99;   // G5
-    private const double High = 1046.50; // C6
+    /// <remarks>
+    /// <para>
+    /// ⚠ <b>Two struck notes a fourth apart is a doorbell</b>, however the timbre is tuned — the
+    /// melody is the thing being recognised, and everybody already knows that one. So there is one
+    /// note, and the direction is carried by bending its pitch instead.
+    /// </para>
+    /// <para>
+    /// <b>Which is also the more natural way to say it.</b> A voice rises at the end of a question and
+    /// falls to finish a statement, and that is exactly what these two mean — "your turn?" and "got
+    /// it." A whole tone is enough to hear as inflection and small enough not to become a tune.
+    /// </para>
+    /// </remarks>
+    private const double Settled = 440.00; // A4
+    private const double Raised = 493.88;  // B4
 
-    /// <summary>How long a note is allowed to ring.</summary>
-    private const double NoteSeconds = 0.78;
+    /// <summary>How long the note is allowed to ring.</summary>
+    private const double NoteSeconds = 0.70;
 
     /// <summary>
-    /// When the second note is struck. Well inside the first note's ring, so the two are heard as one
-    /// gesture — struck in sequence, sounding together — rather than as two separate beeps.
+    /// How long the pitch takes to arrive where it is going.
     /// </summary>
-    private const double SecondNoteAt = 0.20;
+    /// <remarks>
+    /// Slow enough to be heard as a bend rather than as two pitches, and finished well before the
+    /// note has faded, so the direction is carried by the loud part of the sound.
+    /// </remarks>
+    private const double GlideSeconds = 0.28;
 
     /// <summary>
     /// How long the note takes to reach full amplitude, as a raised cosine rather than a ramp.
@@ -85,7 +99,7 @@ public static class VoiceChimes
     /// than a step. A linear attack of a few milliseconds is what makes a tone sound like a test
     /// signal.
     /// </remarks>
-    private const double AttackSeconds = 0.020;
+    private const double AttackSeconds = 0.028;
 
     /// <summary>
     /// The partials that make up one note: how far above the fundamental, how loud, and how fast each
@@ -107,13 +121,11 @@ public static class VoiceChimes
     /// </remarks>
     private static readonly (double Ratio, double Amplitude, double Decay)[] Partials =
     [
-        (1.000, 1.00, 2.2),
-        (1.002, 0.45, 2.4),
-        (2.004, 0.70, 4.2),
-        (3.011, 0.42, 6.8),
-        (4.021, 0.22, 10.0),
-        (5.038, 0.11, 14.0),
-        (6.730, 0.06, 22.0),
+        (0.500, 0.20, 3.2),   // the body under it, the way a struck box answers the bar
+        (1.000, 1.00, 4.5),
+        (2.001, 0.20, 9.0),
+        (3.902, 0.30, 16.0),  // what makes wood sound like wood rather than metal
+        (6.810, 0.07, 30.0),  // the mallet itself, gone almost before it is heard
     ];
 
     /// <summary>
@@ -125,10 +137,9 @@ public static class VoiceChimes
     /// </remarks>
     private static readonly (double Seconds, double Gain)[] Reflections =
     [
-        (0.031, 0.22),
-        (0.057, 0.15),
-        (0.089, 0.10),
-        (0.131, 0.06),
+        (0.019, 0.16),
+        (0.037, 0.11),
+        (0.061, 0.07),
     ];
 
     /// <summary>Peak amplitude, well under full scale so a tone never arrives louder than the answer.</summary>
@@ -143,8 +154,8 @@ public static class VoiceChimes
     /// </remarks>
     private const double ReleaseSeconds = 0.030;
 
-    private static readonly byte[] RisingPcm = Render(Low, High);
-    private static readonly byte[] FallingPcm = Render(High, Low);
+    private static readonly byte[] RisingPcm = Render(Settled, Raised);
+    private static readonly byte[] FallingPcm = Render(Raised, Settled);
 
     /// <summary>
     /// The tone, ready to write to a voice connection.
@@ -161,16 +172,15 @@ public static class VoiceChimes
         _ => FallingPcm,
     };
 
-    /// <summary>Two struck notes, reflected, levelled and written out as interleaved stereo.</summary>
-    private static byte[] Render(double first, double second)
+    /// <summary>One struck note bending from <paramref name="from"/> to <paramref name="to"/>.</summary>
+    private static byte[] Render(double from, double to)
     {
-        // Sized to what the output stream will send rather than to the notes, since anything shorter
+        // Sized to what the output stream will send rather than to the note, since anything shorter
         // is padded out to exactly this length anyway. The ring gets the room for free.
         int frames = SendableAudio.PreloadBytes / (Channels * BytesPerSample);
 
         var mix = new double[frames];
-        Strike(mix, first, 0);
-        Strike(mix, second, (int)(SecondNoteAt * SampleRate));
+        Strike(mix, from, to);
 
         Reflect(mix);
         Level(mix);
@@ -192,27 +202,42 @@ public static class VoiceChimes
         return pcm;
     }
 
-    /// <summary>Rings one note into the mix, starting at <paramref name="offset"/>.</summary>
-    private static void Strike(double[] mix, double frequency, int offset)
+    /// <summary>Rings the note, bending it as it goes.</summary>
+    /// <remarks>
+    /// ⚠ <b>Phase is accumulated, never computed from the elapsed time.</b> With a frequency that
+    /// changes, <c>sin(2πf(t)·t)</c> is not a note that bends — it is a note whose phase jumps on
+    /// every sample, which is heard as a rasp rather than as a pitch.
+    /// </remarks>
+    private static void Strike(double[] mix, double from, double to)
     {
         var length = (int)(NoteSeconds * SampleRate);
+        var phase = new double[Partials.Length];
 
-        for (var i = 0; i < length; i++)
+        for (var i = 0; i < length && i < mix.Length; i++)
         {
-            int at = offset + i;
-            if (at >= mix.Length) break;
-
             double t = (double)i / SampleRate;
-            double attack = Attack(t);
+            double frequency = Glide(from, to, t);
             double value = 0;
 
-            foreach ((double ratio, double amplitude, double decay) in Partials)
-                value += amplitude
-                         * Math.Exp(-decay * t)
-                         * Math.Sin(2.0 * Math.PI * frequency * ratio * t);
+            for (var p = 0; p < Partials.Length; p++)
+            {
+                (double ratio, double amplitude, double decay) = Partials[p];
 
-            mix[at] += attack * value;
+                value += amplitude * Math.Exp(-decay * t) * Math.Sin(phase[p]);
+                phase[p] += 2.0 * Math.PI * frequency * ratio / SampleRate;
+            }
+
+            mix[i] += Attack(t) * value;
         }
+    }
+
+    /// <summary>Where the pitch has reached — eased at both ends, so it bends and settles.</summary>
+    private static double Glide(double from, double to, double t)
+    {
+        if (t >= GlideSeconds) return to;
+
+        double along = 0.5 - (0.5 * Math.Cos(Math.PI * t / GlideSeconds));
+        return from + ((to - from) * along);
     }
 
     /// <summary>A raised cosine into full amplitude — a swell, not a step.</summary>

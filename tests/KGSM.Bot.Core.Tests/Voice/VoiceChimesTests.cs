@@ -149,20 +149,20 @@ public class VoiceChimesTests
         // ⚠ The pair is compared against ITSELF at the same instant rather than each tone against its
         // own tail. Crossings answer to brightness as well as pitch, and both tones start bright and
         // mellow as they ring — so an early-against-late reading inside one tone measures the decay
-        // as much as the melody. At the same moment the two share a timbre, and only the note
-        // differs, which is exactly the thing being asserted.
+        // as much as the bend. At the same moment the two share a timbre, and only the pitch differs,
+        // which is exactly the thing being asserted.
         short[] rising = Samples(VoiceChime.Listening);
         short[] falling = Samples(VoiceChime.Working);
 
-        // The first note, ringing alone before the second is struck.
-        Crossings(rising, At(0.10), At(0.18))
-            .Should().BeLessThan(Crossings(falling, At(0.10), At(0.18)),
-                "the rising tone opens on the lower note");
+        // Just after the strike, where the bend has barely started.
+        Crossings(rising, At(0.02), At(0.08))
+            .Should().BeLessThan(Crossings(falling, At(0.02), At(0.08)),
+                "the rising tone starts from the lower pitch");
 
-        // The second note, after the first has stopped.
-        Crossings(rising, At(0.82), At(0.95))
-            .Should().BeGreaterThan(Crossings(falling, At(0.82), At(0.95)),
-                "and closes on the higher one");
+        // After the bend has settled, and while there is still something to measure.
+        Crossings(rising, At(0.35), At(0.55))
+            .Should().BeGreaterThan(Crossings(falling, At(0.35), At(0.55)),
+                "and settles on the higher one");
     }
 
     [Fact]

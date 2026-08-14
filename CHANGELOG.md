@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.28.0] - 2026-08-14
+
+### Changed — one note that bends, instead of two notes
+
+⚠ **Two struck notes a fourth apart is a doorbell**, however the timbre is tuned. The melody is the
+thing being recognised, and everybody already knows that one — so no amount of adjusting the partials
+was going to fix it.
+
+There is one note now, and the direction is carried by **bending its pitch** — A4 up to B4 to open,
+B4 down to A4 to close. Which is the more natural way to say it anyway: a voice rises at the end of a
+question and falls to finish a statement, and that is exactly what these two mean. A whole tone is
+enough to hear as inflection and small enough not to become a tune.
+
+The timbre moves from bell to **soft mallet on wood**: a body resonance beneath the fundamental, the
+3.9× partial that makes wood sound like wood, a mallet click gone in thirty milliseconds, and the
+metallic inharmonic partial deleted. Measured, it is bright at the strike and settles to near-pure
+within a fifth of a second — a warm knock rather than a ring. The reflections are pulled in tight, so
+it sounds close rather than in a hall. Attack is 28ms.
+
+⚠ Phase is **accumulated per sample** rather than computed from elapsed time. With a frequency that
+changes, `sin(2πf(t)·t)` is not a note that bends — it is a note whose phase jumps every sample, which
+is heard as a rasp.
+
 ## [3.27.0] - 2026-08-14
 
 ### Changed — the tones are struck notes rather than beeps
