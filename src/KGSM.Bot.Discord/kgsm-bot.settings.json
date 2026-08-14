@@ -244,7 +244,15 @@
       // other language's, and loading the lot to speak in one costs 78MB for nothing. Trying another
       // with /voice speak-as reads that one too.
       "SpeechVoice": "af_heart",
-      "SpeakUseGpu": true
+      "SpeakUseGpu": true,
+
+      // The models run in a worker process the bot starts when it joins a voice channel, because
+      // ending a process is the only thing that gives their memory back — around 1.6GB of this host's
+      // and a gigabyte of the card's, none of which is released by unloading a model inside a running
+      // process. Zero keeps the worker up once it has started, so nobody waits the few seconds it
+      // takes to load; minutes here trade those seconds for the memory. A bot that never joins a
+      // voice channel never starts one either way.
+      "WorkerIdleMinutes": 0
     },
 
     // Whether "what's the status" answers go only to the person who asked. /status, /list, /is-active

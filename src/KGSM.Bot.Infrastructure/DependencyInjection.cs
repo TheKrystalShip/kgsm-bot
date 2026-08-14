@@ -153,16 +153,20 @@ public static class DependencyInjection
         // Discord.Net's log stream, and successes only in the loop reading frames.
         services.AddSingleton<VoiceDecryptHealth>();
 
-        // Speech recognition runs in this process: it sits between somebody finishing a sentence and
-        // the assistant starting work, so a hop added here is added to every wait. A singleton
-        // because the model is hundreds of megabytes and loading it per utterance would cost more
-        // than recognising one.
-        services.AddSingleton<ISpeechToText, global::KGSM.Bot.Infrastructure.Discord.Voice.WhisperSpeechToText>();
+        // The speech models, which run in a worker process this one starts on joining a channel. A
+        // singleton because it owns that process: a second instance would start a second worker, each
+        // holding a copy of models that cost more than the rest of the bot put together. It is
+        // registered as itself and as the hint the voice sessions give it, so nothing else has to know
+        // there is a process involved.
+        services.AddSingleton<global::KGSM.Bot.Infrastructure.Speech.SpeechWorker>();
+        services.AddSingleton<ISpeechEngine>(sp =>
+            sp.GetRequiredService<global::KGSM.Bot.Infrastructure.Speech.SpeechWorker>());
 
-        // Saying an answer out loud. A singleton for the same reason as recognition — the model is
-        // hundreds of megabytes — and best-effort throughout: without it the bot answers in the
-        // channel's chat and nothing else changes.
-        services.AddSingleton<ITextToSpeech, global::KGSM.Bot.Infrastructure.Discord.Voice.KokoroTextToSpeech>();
+        // Hearing and speaking, as everything above asks for them. Both are thin: the models are in
+        // the worker, and what lives on this side is what the bot knows and the model does not — this
+        // host's server names, and which voice to speak in.
+        services.AddSingleton<ISpeechToText, global::KGSM.Bot.Infrastructure.Speech.WorkerSpeechToText>();
+        services.AddSingleton<ITextToSpeech, global::KGSM.Bot.Infrastructure.Speech.WorkerTextToSpeech>();
 
         // Hearing a request and acting on one are separate registrations on purpose: only the second
         // needs to know the assistant exists. IVoiceCommandHandler is registered by the Discord layer

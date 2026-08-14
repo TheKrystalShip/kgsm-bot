@@ -599,12 +599,31 @@ answers.
   enough, and leaves the answer in the room disagreeing with the answer in the channel. **How long a
   reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
   (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
+- ⚠ **The speech models run in a separate process, because ending one is the only way to get their
+  memory back.** Measured on this host: the bot with voice switched off is **145MB**; whisper on the
+  card adds **360MB**, and kokoro adds **1285MB** — of which **919MB appears on the first sentence
+  synthesised**, when cuDNN pages in its kernels. Disposing the session returns the video memory and
+  about a quarter of the host memory; the rest belongs to the CUDA runtime until the process exits.
+  So `SpeechWorker` starts **this same binary with `--speech <socket>`** (`SpeechWorkerHost`) when the
+  bot joins a voice channel, and everything above it still asks through `ISpeechToText`/`ITextToSpeech`
+  as before. Same artifact, same settings file, no version skew. A bot that never joins a voice channel
+  never loads a model.
+  - **The bot listens and the worker connects back**, which removes the race — there is no window
+    where the socket does not exist yet, and nothing polls for a file.
+  - **The worker exits when the connection closes**, which is also what happens if the bot is killed.
+    There is no supervision loop: an orphan holding a gigabyte and a slice of the card is the thing
+    this design exists to prevent.
+  - **It stays up once started** (`Voice:WorkerIdleMinutes` = `0`), because loading is ~3s and the
+    first sentence after that is slower again. Minutes there trade those seconds back for the memory.
+  - **The worker holds no state**: the names to expect and the voice to speak in travel with every
+    request, so priming, echo detection, the phrase cache and the 24k→48k upsample all live bot-side.
 - ⚠ **Never call `KokoroVoiceManager` — it loads every voice on disk.** Its accessors bulk-load the
   whole `voices/` tree the first time they are asked for anything, and that tree is **157 `.npy`
   arrays** (every other language sits in a subdirectory it walks into): measured at **61MB of resident
-  float32 to speak in one voice**, on the LOH, never compacted. `KokoroTextToSpeech` reads one voice
-  with `KokoroVoice.FromPath` and caches what has actually been asked for, so a fresh process holds
-  exactly the configured voice. Listing what is available reads the *directory*, never the loaded set.
+  float32 to speak in one voice**, on the LOH, never compacted. `SpeechSynthesiser` reads one voice
+  with `KokoroVoice.FromPath` and caches what has actually been asked for. Listing what is available
+  is `InstalledVoices`, a *directory* read — which is why the picker and `/voice speak-as` work on a
+  bot with no worker running at all.
 - ⚠ **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
   stops that answer (`IVoiceSessions.StopSpeaking`, `Voice:Interruptible`), and the request that
   stopped it is answered next. Receiving never pauses for speaking — they are separate directions on

@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.35.0] - 2026-08-15
+
+### Changed — the speech models moved into a worker process
+
+The bot held 1.8GB resident while doing nothing. Measured on hotrod by starting the deployed binary
+with the voice knobs flipped:
+
+| configuration | host RSS | VRAM |
+|---|---|---|
+| `Voice__Enabled=false` | 145MB | — |
+| + whisper on the card | 505MB | 570MiB |
+| + kokoro on the card | 1790MB | 1148MiB |
+| both on the processor | 1154MB | — |
+
+The bot is 145MB. Everything above that was two models loaded at startup whether or not anybody had
+ever been in a voice channel.
+
+⚠ **Unloading them inside the process does not work**, which is why this is a second process rather
+than lazy loading. Probed directly — load, dispose, aggressive compacting GC, `malloc_trim`, measure:
+whisper returned **9MB of 383MB**, and kokoro **331MB of 1319MB**. The video memory does come back
+(682 → 122MiB). What does not is the CUDA runtime: 919MB of the kokoro figure appears on the *first
+sentence synthesised*, when cuDNN pages in its kernel libraries, and that belongs to the process until
+it exits. Reloading and disposing a second time plateaus at the same number.
+
+So `SpeechWorker` starts **this same binary with `--speech <socket>`** when the bot joins a voice
+channel. Not a second artifact and not a second version to keep in step: the worker reads the settings
+file the bot read, so a Control Panel override reaches the models with nothing forwarded. `ISpeechToText`
+and `ITextToSpeech` are unchanged, so nothing above the seam knows there is a process involved.
+
+- **The bot listens and the worker connects back.** No window where the socket does not exist yet, and
+  nothing polling for a file to appear.
+- **The worker exits when the connection closes** — asked to stop, or the bot dying. An orphan holding
+  a gigabyte and a slice of the card is what this design exists to prevent.
+- **It stays loaded once started.** Loading is ~3s and the first sentence after that is slower again;
+  `Voice:WorkerIdleMinutes` (default `0`) trades those seconds back for the memory on hosts that want
+  it. A bot that never joins a voice channel never starts one either way.
+- **The worker keeps no state.** The names to expect and the voice to speak in travel with every
+  request, so priming, echo detection, the phrase cache and the 24kHz→48kHz upsample stay bot-side —
+  and the picker, `/voice speak-as` and the leaf setting all work with no worker running, because the
+  voices are files this process can read.
+- **A worker that will not start is not an outage**: the bot listens and answers in the channel's
+  chat, the same shape as a host with no model files.
+
+### Added — `Voice:WorkerIdleMinutes`
+
+How long the models may sit loaded after the last voice channel empties. Zero keeps them.
+
 ## [3.34.0] - 2026-08-14
 
 ### Fixed — 61MB held to speak in one voice

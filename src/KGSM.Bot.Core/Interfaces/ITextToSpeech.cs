@@ -29,9 +29,10 @@ public interface ITextToSpeech
     /// is no synthesiser.
     /// </summary>
     /// <remarks>
-    /// What is <em>installed</em>, read from the loaded set rather than from a list written down
-    /// somewhere — a name offered here and then refused would be the surface lying about its own
-    /// capabilities.
+    /// What is <em>installed</em>, read off the disk rather than from a list written down somewhere —
+    /// a name offered here and then refused would be the surface lying about its own capabilities.
+    /// Answering costs a directory listing and loads nothing, so it is the same answer on a host whose
+    /// synthesiser has never been started.
     /// </remarks>
     IReadOnlyList<string> Voices { get; }
 
@@ -41,9 +42,10 @@ public interface ITextToSpeech
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It costs nothing.</b> Every voice is already in memory — they are loaded together on first
-    /// use and a voice is a small array of features handed to the synthesiser per sentence, so
-    /// changing one swaps a reference. No model is reloaded and nothing is re-warmed.
+    /// <b>It costs a name.</b> A voice is a small array of features handed to the synthesiser per
+    /// sentence, so this changes which name goes with the next request — no model is reloaded and
+    /// nothing is re-warmed. The half-megabyte the new voice takes is read the first time it is
+    /// actually spoken in.
     /// </para>
     /// <para>
     /// ⚠ <b>It lasts until the process does.</b> The durable setting is the leaf's own, and this does

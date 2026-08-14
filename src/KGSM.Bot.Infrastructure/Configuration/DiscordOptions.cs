@@ -670,4 +670,35 @@ public class VoiceOptions
     /// its own.</panel>
     [LeafField("voiceSpeakUseGpu", "Synthesise on the GPU", Group = "voice", DependsOn = "voiceSpeak")]
     public bool SpeakUseGpu { get; set; } = true;
+
+    /// <summary>
+    /// How long the speech models may sit loaded with nobody in a voice channel. Zero keeps them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The models run in a separate process, and only ending it gives the memory back.</b> Whisper
+    /// and Kokoro on the card cost this host about 1.6GB and a gigabyte of video memory, and neither
+    /// releases it when the model is disposed — the CUDA runtime behind them is resident for the life
+    /// of whatever process loaded it. So the bot starts a worker when it joins a channel, and stopping
+    /// that worker is the only lever there is.
+    /// </para>
+    /// <para>
+    /// <b>Zero, the default, keeps the worker up once it has started.</b> Loading costs about three
+    /// seconds and the first sentence after that is slower again, so a host with the memory to spare
+    /// should not pay that on every join. A number here trades those seconds for the memory: the worker
+    /// stops that long after the last channel empties, and the next join loads it again.
+    /// </para>
+    /// <para>
+    /// Either way a bot that never joins a voice channel never starts one, which is the case this is
+    /// really about — the models are the whole footprint, and most of the time nobody is listening.
+    /// </para>
+    /// </remarks>
+    /// <panel>How many minutes to keep the speech models loaded after the last voice channel empties.
+    /// They cost around 1.6GB of memory and a gigabyte of video memory, all of which comes back when
+    /// they are unloaded — but loading them again takes a few seconds, which the next person to speak
+    /// waits for. Zero keeps them loaded until the bot restarts. A bot that never joins a voice channel
+    /// never loads them at all.</panel>
+    [LeafField("voiceWorkerIdleMinutes", "Unload speech after", Group = "voice", Unit = "minutes",
+        Min = 0, Max = 1440, DependsOn = "voiceEnabled")]
+    public int WorkerIdleMinutes { get; set; } = 0;
 }

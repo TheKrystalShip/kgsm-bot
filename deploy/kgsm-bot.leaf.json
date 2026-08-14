@@ -911,6 +911,20 @@
       "default": "true",
       "risk": "safe",
       "dependsOn": "voiceSpeak"
+    },
+    {
+      "key": "voiceWorkerIdleMinutes",
+      "env": "Discord__Voice__WorkerIdleMinutes",
+      "label": "Unload speech after",
+      "description": "How many minutes to keep the speech models loaded after the last voice channel empties. They cost around 1.6GB of memory and a gigabyte of video memory, all of which comes back when they are unloaded — but loading them again takes a few seconds, which the next person to speak waits for. Zero keeps them loaded until the bot restarts. A bot that never joins a voice channel never loads them at all.",
+      "group": "voice",
+      "type": "int",
+      "default": "0",
+      "min": 0,
+      "max": 1440,
+      "unit": "minutes",
+      "risk": "safe",
+      "dependsOn": "voiceEnabled"
     }
   ]
 }
