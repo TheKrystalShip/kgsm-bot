@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.25.0] - 2026-08-14
+
+### Fixed — a dead encrypted session is detected and rebuilt
+
+Measured on this host: one speaker's stream failed to decrypt at **fifty packets a second for over
+two minutes** — 2,142 failures on one stream, 291 on another — while the connection stayed Connected
+and nothing was logged as an error. Every frame was dropped before reaching the recogniser, so the
+bot heard one request and then nothing at all. From inside the channel it looked like the bot had
+died. The documented baseline for this is a few percent of frames; this is the same failure at a
+hundred.
+
+`VoiceDecryptHealth` watches both halves, because either alone means nothing: failures happen
+normally while the group re-keys, and no frames at all is just a quiet room. Failures arriving **and**
+nothing getting through, over a ten-second window, is the keys being wrong. The failures are read out
+of Discord.Net's log stream, which is the only place that fact exists — there is no event and no
+counter for it.
+
+The only lever is a reconnect, because the keys are negotiated during the handshake. So the bot
+rebuilds the connection, up to three times, and then **leaves the channel** rather than sitting in it
+deaf — a bot present and hearing nothing is what made this hard to notice. A session that then works
+gets its full allowance back.
+
+### Changed — one spoken yes approves everything the turn staged
+
+"Uninstall both starbound instances" stages two actions, and the previous rule offered voice
+confirmation only for exactly one — so the spoken yes went nowhere and the instruction to use the
+buttons was buried twelve seconds into a reply. A person who asked for both and then agreed has
+answered about both.
+
+The offer now names them first: *"That's 2 things: uninstall starbound and uninstall starbound-78.
+Say yes to do all of them, or no to cancel."* — so a yes is never about a set nobody heard described.
+Each grant is still redeemed on its own, because the assistant judges authority and validity per
+action and one refusal says nothing about the next. The outcomes are posted individually and spoken
+as one line with a count, since somebody who approved out loud is not reading the screen.
+
 ## [3.24.1] - 2026-08-14
 
 ### Fixed — "connected but receiving nothing" is now visible

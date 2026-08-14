@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Core.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
 
 namespace KGSM.Bot.Discord;
@@ -28,6 +29,7 @@ public class BotService : BackgroundService
     private readonly DiscordOptions _discordOptions;
     private readonly IKgsmAccounts _accounts;
     private readonly IGuildStore _guilds;
+    private readonly VoiceDecryptHealth _decryptHealth;
     private readonly ILogger<BotService> _logger;
 
     public BotService(
@@ -42,6 +44,7 @@ public class BotService : BackgroundService
         IOptions<DiscordOptions> discordOptions,
         IKgsmAccounts accounts,
         IGuildStore guilds,
+        VoiceDecryptHealth decryptHealth,
         ILogger<BotService> logger)
     {
         _discordClient = discordClient;
@@ -55,6 +58,7 @@ public class BotService : BackgroundService
         _discordOptions = discordOptions.Value;
         _accounts = accounts;
         _guilds = guilds;
+        _decryptHealth = decryptHealth;
         _logger = logger;
     }
 
@@ -149,6 +153,15 @@ public class BotService : BackgroundService
             LogSeverity.Debug => LogLevel.Debug,
             _ => LogLevel.Information
         };
+
+        // Discord.Net reports a failed decrypt as a log line and nothing else — there is no event and
+        // no counter — so the log is the only place this fact exists. Read here rather than parsed
+        // anywhere else, because this is already the one handler every library message passes through.
+        if (log.Message is { Length: > 0 } message
+            && message.Contains("Failed to decrypt", StringComparison.Ordinal))
+        {
+            _decryptHealth.Failed();
+        }
 
         _logger.Log(logLevel, log.Exception, "{Source}: {Message}", log.Source, log.Message);
 

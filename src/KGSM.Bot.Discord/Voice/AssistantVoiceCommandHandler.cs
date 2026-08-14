@@ -251,21 +251,31 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// <para>
     /// <b>The buttons are posted either way and remain the answer of record.</b> Nothing here removes
     /// a way to approve; it adds one for a person whose hands are in a game. Both redeem the same
-    /// grant, so whichever happens first wins and the assistant refuses the other.
+    /// grants, so whichever happens first wins and the assistant refuses the other.
+    /// </para>
+    /// <para>
+    /// <b>One yes covers everything the turn staged.</b> A request can stage several — "uninstall both
+    /// starbound instances" stages two — and the person who asked for both and then agreed has
+    /// answered about both. What is spoken back names them before the answer is given, so the yes is
+    /// never about a set nobody described; the ambiguity worth refusing would be a yes arriving for
+    /// actions the speaker did not ask for, and there is no path here that produces one.
     /// </para>
     /// </remarks>
     private void AwaitConfirmation(VoiceCommand command, AssistantTurn turn)
     {
         if (_options.ConfirmByVoice is false || _options.ReplyWindowSeconds <= 0) return;
-        if (turn.StagedActions.Count != 1) return;
+        if (turn.StagedActions.Count == 0) return;
 
-        StagedAction staged = turn.StagedActions[0];
+        IReadOnlyList<string> tokens = [.. turn.StagedActions.Select(a => a.Token)];
+
         Expect(command, new VoiceWaiting(
-            VoiceWaitingFor.Confirmation, Until(), staged.Token, Describe(staged), staged.Kind));
+            VoiceWaitingFor.Confirmation, Until(), tokens, DescribeAll(turn.StagedActions),
+            turn.StagedActions.Select(a => a.Kind).FirstOrDefault(SpokenAcknowledgement.IsSlow)
+                ?? turn.StagedActions[0].Kind));
 
         _logger.LogInformation(
-            "Voice: waiting for {Speaker} to confirm {Kind} of {Target} out loud",
-            command.SpeakerName, staged.Kind, staged.Target);
+            "Voice: waiting for {Speaker} to confirm {Count} action(s) out loud — {What}",
+            command.SpeakerName, tokens.Count, DescribeAll(turn.StagedActions));
     }
 
     /// <summary>
@@ -330,25 +340,57 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         Task acknowledged = AcknowledgeAsync(
             command, SpokenAcknowledgement.WhileWorking(waiting.Kind), ct);
 
-        Result<AssistantOutcome> done = await _assistant.ConfirmAsync(
-            new AssistantApproval(
-                command.SpeakerId.ToString(), command.SpeakerName, tier, waiting.Token!), ct);
+        // Each grant is redeemed on its own, because that is what a grant is — the assistant judges
+        // authority and validity per action, and one being refused says nothing about the next.
+        var spoken = new List<string>();
+        var failed = 0;
+
+        foreach (string token in waiting.Tokens ?? [])
+        {
+            Result<AssistantOutcome> done = await _assistant.ConfirmAsync(
+                new AssistantApproval(command.SpeakerId.ToString(), command.SpeakerName, tier, token), ct);
+
+            if (done.IsFailure)
+            {
+                // The assistant is the gate and it refused — an expired grant, one already redeemed,
+                // or an authority this person no longer holds. Reported as it came, not softened.
+                failed++;
+                await channel.SendMessageAsync($"⚠️ {done.Error}");
+                spoken.Add(done.Error!);
+                continue;
+            }
+
+            AssistantOutcome outcome = done.Value!;
+            if (!outcome.Success) failed++;
+            await channel.SendMessageAsync($"{(outcome.Success ? "✅" : "⚠️")} {outcome.Text}");
+            spoken.Add(outcome.Text);
+        }
 
         await acknowledged;
 
-        if (done.IsFailure)
-        {
-            // The assistant is the gate and it refused — an expired grant, one already redeemed, or
-            // an authority this person no longer holds. Reported as it came rather than softened.
-            await channel.SendMessageAsync($"⚠️ {done.Error}");
-            await SayAsync(command, done.Error!, ct);
-            return;
-        }
-
-        AssistantOutcome outcome = done.Value!;
-        await channel.SendMessageAsync($"{(outcome.Success ? "✅" : "⚠️")} {outcome.Text}");
-        await SayAsync(command, outcome.Text, ct);
+        // Said as one sentence rather than one per action: each was already posted, and a speaker
+        // reading out four outcomes in turn is a minute of talking nobody can interrupt. The count
+        // is the part that cannot be got from listening to the first one.
+        await SayAsync(command, Summarise(spoken, failed), ct);
     }
+
+    /// <summary>
+    /// What to say once, about however many actions were just carried out.
+    /// </summary>
+    /// <remarks>
+    /// One outcome is read as it came. Several are counted, because the whole reason a person
+    /// approved them out loud is that they are not reading the screen — and a count that names the
+    /// failures is the one fact they cannot recover by listening to any single outcome. Never claims
+    /// success it did not see: the failures are counted from what each redemption actually returned.
+    /// </remarks>
+    private static string Summarise(List<string> outcomes, int failed) => outcomes switch
+    {
+        [] => "Nothing was waiting to be confirmed.",
+        [string only] => only,
+        _ when failed == 0 => $"Done — all {outcomes.Count} of them.",
+        _ when failed == outcomes.Count => $"None of the {outcomes.Count} went through. It's in the chat.",
+        _ => $"{outcomes.Count - failed} of {outcomes.Count} went through; {failed} didn't. It's in the chat.",
+    };
 
     /// <summary>Says it could not tell, and listens once more — up to a point.</summary>
     private async Task AskAgainAsync(
@@ -409,6 +451,15 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
             ? $"{staged.Kind.Replace('_', ' ')} {instance}"
             : staged.Kind.Replace('_', ' ');
 
+    /// <summary>Everything a turn staged, as one phrase to ask about.</summary>
+    private static string DescribeAll(IReadOnlyList<StagedAction> staged) => staged.Count switch
+    {
+        0 => string.Empty,
+        1 => Describe(staged[0]),
+        _ => $"{string.Join(", ", staged.Take(staged.Count - 1).Select(Describe))} "
+             + $"and {Describe(staged[^1])}",
+    };
+
     /// <summary>
     /// What to say out loud: the reply, and where an offer to act has gone.
     /// </summary>
@@ -433,13 +484,16 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         bool many = turn.StagedActions.Count > 1;
 
-        // With one action and voice confirmation on, the thing to say is what to say back. With
-        // several, a spoken yes cannot name one of them, so the buttons are the only offer and the
-        // sentence must not imply otherwise.
-        bool byVoice = _options.ConfirmByVoice && !many && _options.ReplyWindowSeconds > 0;
+        bool byVoice = _options.ConfirmByVoice && _options.ReplyWindowSeconds > 0;
 
+        // Named before the answer is asked for, so a yes is never about a set nobody heard described.
+        // With several, the count is what the listener needs — it is the one thing they cannot tell
+        // from the offer itself, and it is what their yes is about to cover.
         string offer = byVoice
-            ? "Say yes to go ahead, or no to cancel."
+            ? many
+                ? $"That's {turn.StagedActions.Count} things: {DescribeAll(turn.StagedActions)}. "
+                  + "Say yes to do all of them, or no to cancel."
+                : "Say yes to go ahead, or no to cancel."
             : many
                 ? $"I've put {turn.StagedActions.Count} confirmations in the chat for you to approve."
                 : "I've put a confirmation in the chat for you to approve.";

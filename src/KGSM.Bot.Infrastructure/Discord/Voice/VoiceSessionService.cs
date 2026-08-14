@@ -48,22 +48,31 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
     private readonly DiscordSocketClient _client;
     private readonly IVoiceUtteranceSink _sink;
+    private readonly VoiceDecryptHealth _health;
     private readonly ILogger<VoiceSessionService> _logger;
     private readonly VoiceOptions _options;
     private readonly UtteranceLimits _limits;
 
     private readonly ConcurrentDictionary<ulong, Session> _sessions = new();
+
+    /// <summary>
+    /// Reconnects spent on a broken session, per guild. Cleared by a join that then works long enough
+    /// to be measured healthy, so an unrelated failure hours later gets its own full allowance.
+    /// </summary>
+    private readonly ConcurrentDictionary<ulong, int> _rejoins = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
 
     public VoiceSessionService(
         DiscordSocketClient client,
         IVoiceUtteranceSink sink,
+        VoiceDecryptHealth health,
         IOptions<DiscordOptions> options,
         ILogger<VoiceSessionService> logger)
     {
         _client = client;
         _sink = sink;
+        _health = health;
         _logger = logger;
         _options = options.Value.Voice;
         _limits = new UtteranceLimits(
@@ -107,7 +116,12 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             // that joins muted is one whose replies go nowhere, with no error to say so.
             IAudioClient audio = await channel.ConnectAsync(selfDeaf: false, selfMute: false);
 
-            var session = new Session(channel, audio, _limits, _sink, _options, _logger, LeaveAsync);
+            // A fresh connection means fresh keys, so nothing measured about the last one applies.
+            _health.Reset();
+
+            var session = new Session(
+                channel, audio, _limits, _sink, _options, _health, _logger, LeaveAsync, RejoinAsync,
+                () => _rejoins.TryRemove(channel.Guild.Id, out _));
             _sessions[guildId] = session;
             session.Start();
 
@@ -155,6 +169,50 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         }
     }
 
+    /// <summary>
+    /// Rebuilds a connection whose encryption has stopped working.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Rejoining is the only lever available: the keys are negotiated during the handshake and there
+    /// is no way to ask for new ones without one. It is the same call the person would make by hand
+    /// with <c>/voice leave</c> and <c>/voice join</c>, so it fixes exactly what that fixes.
+    /// </para>
+    /// <para>
+    /// <b>Bounded, and it says so when it gives up.</b> A session that cannot be repaired by
+    /// reconnecting will not be repaired by reconnecting ten more times, and a bot that silently
+    /// cycles a voice connection forever is worse than one that stops and reports. After the last
+    /// attempt it leaves the channel rather than sitting in it deaf, because a bot present and
+    /// hearing nothing is the thing that made this hard to notice in the first place.
+    /// </para>
+    /// </remarks>
+    private async Task RejoinAsync(ulong guildId, ulong channelId)
+    {
+        const int MostAttempts = 3;
+
+        int attempt = _rejoins.AddOrUpdate(guildId, 1, (_, n) => n + 1);
+
+        if (attempt > MostAttempts)
+        {
+            _logger.LogError(
+                "Voice: the connection in guild {Guild} keeps failing to decrypt after {Attempts} "
+                + "reconnects — leaving the channel rather than sitting in it deaf", guildId, MostAttempts);
+
+            _rejoins.TryRemove(guildId, out _);
+            await LeaveAsync(guildId, CancellationToken.None);
+            return;
+        }
+
+        _logger.LogWarning(
+            "Voice: the encrypted session has stopped decrypting — rejoining (attempt {Attempt} of {Most})",
+            attempt, MostAttempts);
+
+        Result<VoiceSession> rejoined = await JoinAsync(guildId, channelId, CancellationToken.None);
+
+        if (rejoined.IsFailure)
+            _logger.LogError("Voice: could not rejoin after a failed session: {Reason}", rejoined.Error);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -174,8 +232,11 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         UtteranceLimits limits,
         IVoiceUtteranceSink sink,
         VoiceOptions options,
+        VoiceDecryptHealth health,
         ILogger logger,
-        Func<ulong, CancellationToken, Task<Result>> leave)
+        Func<ulong, CancellationToken, Task<Result>> leave,
+        Func<ulong, ulong, Task> rejoin,
+        Action working)
     {
         private readonly ConcurrentDictionary<ulong, Speaker> _speakers = new();
         private readonly CancellationTokenSource _cts = new();
@@ -317,6 +378,12 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 {
                     RTPFrame frame = await stream.ReadFrameAsync(ct);
                     Interlocked.Increment(ref _frames);
+
+                    // A frame that got here decrypted, which is the half of the health signal that
+                    // says the keys are still right — and the proof that whatever reconnecting was
+                    // spent on worked, so the next unrelated failure gets a full allowance again.
+                    health.Received();
+                    if (Interlocked.Read(ref _frames) == 1) working();
                     byte[] mono = PcmDownsampler.ToMono16k(frame.Payload);
                     if (mono.Length == 0) continue;
 
@@ -350,6 +417,18 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                         await EmitAsync(speaker, force: false);
 
                     WarnIfDeaf();
+
+                    if (health.IsBroken(DateTimeOffset.UtcNow))
+                    {
+                        logger.LogWarning(
+                            "Voice: frames are arriving in {Channel} and none of them decrypt — the "
+                            + "encrypted session is dead, rebuilding it", channel.Name);
+
+                        // Fire and forget for the same reason leaving is: rejoining disposes this
+                        // session, and this loop is inside it.
+                        _ = rejoin(channel.Guild.Id, channel.Id);
+                        return;
+                    }
 
                     if (options.LeaveWhenAlone && !ct.IsCancellationRequested && IsAlone())
                     {

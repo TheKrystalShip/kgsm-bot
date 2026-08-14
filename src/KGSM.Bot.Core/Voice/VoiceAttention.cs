@@ -95,10 +95,17 @@ public enum VoiceWaitingFor
 /// </summary>
 /// <param name="For">Which kind of reply is expected, which decides how it is read.</param>
 /// <param name="Until">When to stop waiting.</param>
-/// <param name="Token">
-/// The grant a confirmation would redeem. The bot holds this only for as long as the window is open
-/// and never acts on it without a clear yes; it is the same grant the button carries, so a voice
-/// approval and a click are the same redemption and the second of them is refused.
+/// <param name="Tokens">
+/// The grants a confirmation would redeem, in the order they were offered. The bot holds them only
+/// while the window is open and never acts on them without a clear yes; they are the same grants the
+/// buttons carry, so a voice approval and a click are the same redemption and the second is refused.
+/// <para>
+/// More than one because a single request can stage several — "uninstall both starbound instances"
+/// stages two — and a person who asked for both and then said yes has answered about both. The
+/// ambiguity that would make this unsafe is a yes arriving for a set the speaker never described;
+/// these are the actions from that speaker's own request, in one turn, named back to them before
+/// they answer.
+/// </para>
 /// </param>
 /// <param name="Describes">The action in words, for asking about it again.</param>
 /// <param name="Kind">
@@ -114,7 +121,7 @@ public enum VoiceWaitingFor
 public sealed record VoiceWaiting(
     VoiceWaitingFor For,
     DateTimeOffset Until,
-    string? Token = null,
+    IReadOnlyList<string>? Tokens = null,
     string? Describes = null,
     string? Kind = null,
     int Asked = 1);

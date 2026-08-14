@@ -147,6 +147,11 @@ public static class DependencyInjection
         // to each other directly is the circle the container refuses.
         services.AddSingleton<VoiceAttention>();
 
+        // Whether the encrypted session is still carrying anything. A singleton because the two
+        // halves of the signal come from opposite ends of the process: failures are only visible in
+        // Discord.Net's log stream, and successes only in the loop reading frames.
+        services.AddSingleton<VoiceDecryptHealth>();
+
         // Speech recognition runs in this process: it sits between somebody finishing a sentence and
         // the assistant starting work, so a hop added here is added to every wait. A singleton
         // because the model is hundreds of megabytes and loading it per utterance would cost more

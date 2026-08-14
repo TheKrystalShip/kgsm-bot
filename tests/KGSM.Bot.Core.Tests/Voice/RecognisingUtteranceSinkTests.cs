@@ -289,14 +289,14 @@ public class RecognisingUtteranceSinkTests
         // the action they were approving unconfirmed.
         RecognisingUtteranceSink sink = Sink();
         _attention.Expect(speakerId: 1, channelId: 9,
-            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), "abc123"));
+            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), ["abc123"]));
 
         await SayAsync(sink, "hey assistant, yes");
 
         _dispatched.Should().ContainSingle();
         _dispatched[0].Text.Should().Be("yes");
         _dispatched[0].Answering!.For.Should().Be(VoiceWaitingFor.Confirmation);
-        _dispatched[0].Answering!.Token.Should().Be("abc123");
+        _dispatched[0].Answering!.Tokens.Should().ContainSingle().Which.Should().Be("abc123");
     }
 
     [Fact]
@@ -306,7 +306,7 @@ public class RecognisingUtteranceSinkTests
         // with it. Held as what was said, to be read as an unclear answer and asked about again.
         RecognisingUtteranceSink sink = Sink();
         _attention.Expect(speakerId: 1, channelId: 9,
-            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), "abc123"));
+            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), ["abc123"]));
 
         await SayAsync(sink, "hey assistant");
 
@@ -320,7 +320,7 @@ public class RecognisingUtteranceSinkTests
     {
         RecognisingUtteranceSink sink = Sink();
         _attention.Expect(speakerId: 1, channelId: 9,
-            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), "abc123"));
+            new VoiceWaiting(VoiceWaitingFor.Confirmation, DateTimeOffset.UtcNow.AddSeconds(20), ["abc123"]));
 
         await SayAsync(sink, "go ahead");
 
