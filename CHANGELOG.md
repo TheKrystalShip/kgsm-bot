@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.24.1] - 2026-08-14
+
+### Fixed — "connected but receiving nothing" is now visible
+
+A voice session was measured holding a channel for three minutes while somebody repeated the trigger
+phrase, and **not one audio packet ever arrived**. Everything on this side reported itself healthy:
+the connection said Connected, no warning was logged, and the surface looked identical to a bot that
+hears you and does not understand you. The two are opposite problems and the fix for one does nothing
+for the other.
+
+Frames are now counted. `/voice status` leads with the fault when there are people in the channel,
+time has passed, and nothing has been received, and names the causes — all of which are outside this
+process: the bot **server-deafened** in the guild, microphones muted or on push-to-talk, or a voice
+server that handed out a session and routed no media. The log says it once per session, as a warning.
+
+Nothing is done about it automatically. Reconnecting on its own would fix the third cause and hide
+the first two, and a bot that silently rejoins is a bot whose real problem is never found.
+
 ## [3.24.0] - 2026-08-14
 
 ### Added — it says something while it works

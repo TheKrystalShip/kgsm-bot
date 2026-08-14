@@ -187,6 +187,19 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         private readonly DateTimeOffset _joinedAt = DateTimeOffset.UtcNow;
         private long _utterances;
 
+        /// <summary>
+        /// How many audio frames have arrived, ever.
+        /// </summary>
+        /// <remarks>
+        /// Counted because zero of them is a real and invisible failure. A bot that is connected and
+        /// receiving nothing looks exactly like one that hears you and does not understand you —
+        /// measured here as three minutes of somebody repeating a trigger phrase into a session that
+        /// had never been sent a single packet. The connection reports itself healthy throughout,
+        /// because on this side nothing has gone wrong.
+        /// </remarks>
+        private long _frames;
+        private bool _warnedDeaf;
+
         public string ChannelName => channel.Name;
 
         public void Start()
@@ -245,7 +258,33 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
         public VoiceSession Describe() => new(
             channel.Guild.Id, channel.Id, channel.Name, _joinedAt,
-            _speakers.Count, Interlocked.Read(ref _utterances));
+            _speakers.Count, Interlocked.Read(ref _utterances),
+            Interlocked.Read(ref _frames), Others(), DateTimeOffset.UtcNow - _joinedAt);
+
+        /// <summary>How many people other than the bot are in the channel.</summary>
+        private int Others() => channel.ConnectedUsers.Count(u => u.Id != channel.Guild.CurrentUser.Id);
+
+        /// <summary>
+        /// Says once, in the log, that the connection is up and carrying nothing.
+        /// </summary>
+        /// <remarks>
+        /// Once per session and never again: it is a state rather than an event, and a warning per
+        /// tick would be five a second. Nothing is done about it beyond saying so, because every
+        /// cause is on the other side of the connection — a bot deafened in the guild, a muted
+        /// microphone, or a voice server that handed out a session and routed no media. Reconnecting
+        /// automatically would fix the third and mask the first two.
+        /// </remarks>
+        private void WarnIfDeaf()
+        {
+            if (_warnedDeaf || !Describe().HearsNothing) return;
+            _warnedDeaf = true;
+
+            logger.LogWarning(
+                "Voice: connected to {Channel} with {Others} other people for {Seconds:F0}s and no audio "
+                + "has arrived at all — check the bot is not server-deafened in {Guild}, that microphones "
+                + "are not muted, and try leaving and rejoining",
+                channel.Name, Others(), (DateTimeOffset.UtcNow - _joinedAt).TotalSeconds, channel.Guild.Name);
+        }
 
         private Task OnStreamCreated(ulong userId, AudioInStream stream)
         {
@@ -277,6 +316,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 while (!ct.IsCancellationRequested)
                 {
                     RTPFrame frame = await stream.ReadFrameAsync(ct);
+                    Interlocked.Increment(ref _frames);
                     byte[] mono = PcmDownsampler.ToMono16k(frame.Payload);
                     if (mono.Length == 0) continue;
 
@@ -308,6 +348,8 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 {
                     foreach (Speaker speaker in _speakers.Values)
                         await EmitAsync(speaker, force: false);
+
+                    WarnIfDeaf();
 
                     if (options.LeaveWhenAlone && !ct.IsCancellationRequested && IsAlone())
                     {

@@ -52,13 +52,36 @@ public interface IVoiceSessions
 /// <param name="JoinedAt">When the bot joined.</param>
 /// <param name="Speakers">How many people it currently has audio streams for.</param>
 /// <param name="Utterances">How many utterances it has assembled since joining.</param>
+/// <param name="Frames">
+/// How many audio frames have arrived. Zero, with people in the channel and time gone by, is the one
+/// failure this surface cannot otherwise show: connected and receiving nothing looks identical to
+/// hearing somebody and not understanding them.
+/// </param>
+/// <param name="Others">How many people other than the bot are in the channel.</param>
+/// <param name="For">How long it has been in there.</param>
 public sealed record VoiceSession(
     ulong GuildId,
     ulong ChannelId,
     string ChannelName,
     DateTimeOffset JoinedAt,
     int Speakers,
-    long Utterances);
+    long Utterances,
+    long Frames = 0,
+    int Others = 0,
+    TimeSpan For = default)
+{
+    /// <summary>
+    /// Whether the bot is connected and has been sent nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// Only claimed once there has been long enough for silence to be surprising and somebody there
+    /// to break it — a channel nobody is in, or one joined a second ago, is quiet for reasons that
+    /// are not a fault. The causes are all outside this process: the bot server-deafened in the
+    /// guild, a person's microphone muted or on push-to-talk, or a voice server that gave out a
+    /// session and then routed no media.
+    /// </remarks>
+    public bool HearsNothing => Frames == 0 && Others > 0 && For > TimeSpan.FromSeconds(15);
+}
 
 /// <summary>
 /// Where a finished utterance goes.

@@ -107,6 +107,30 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
 
         VoiceCounts counts = _tally.Read();
 
+        // Said first and on its own, because it is a different fault from anything the counts below
+        // describe: those are about understanding speech, and this is about never having been sent
+        // any. Every cause is outside this process, so the message names them rather than guessing.
+        if (session.HearsNothing)
+        {
+            var deaf = new EmbedBuilder()
+                .WithTitle("🎙️ Voice — I can't hear anything")
+                .WithColor(Color.Red)
+                .WithDescription(
+                    $"I'm connected to **{session.ChannelName}** with {session.Others} other "
+                    + $"{(session.Others == 1 ? "person" : "people")} in it, and in "
+                    + $"{session.For.TotalSeconds:F0} seconds I have not been sent a single audio packet. "
+                    + "That isn't the trigger phrase and it isn't recognition — nothing is arriving at all.\n\n"
+                    + "The usual causes, all outside the bot:\n"
+                    + "• I'm **server-deafened** in this Discord server — check for a 🔇 on me in the channel\n"
+                    + "• Everyone's microphone is muted, or on push-to-talk that isn't being held\n"
+                    + "• Discord gave me a voice session and routed no media — `/voice leave` then `/voice join` fixes that one")
+                .WithFooter($"Joined {session.JoinedAt:HH:mm:ss} UTC")
+                .Build();
+
+            await RespondAsync(embed: deaf, ephemeral: true);
+            return;
+        }
+
         // The four numbers in the order speech passes through them, so the one that drops to zero is
         // the stage that is failing. A single "heard" count cannot distinguish a bot that understands
         // nobody from one that understands everybody and is never addressed.
@@ -116,6 +140,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
             .AddField("Channel", session.ChannelName, inline: true)
             .AddField("Speakers", session.Speakers.ToString(), inline: true)
             .AddField("Heard here", $"{session.Utterances} utterance(s)", inline: true)
+            .AddField("Audio received", $"{session.Frames:N0} frame(s)", inline: true)
             .AddField(
                 "Since the bot started",
                 $"**{counts.Heard}** heard → **{counts.Recognised}** recognised → "
