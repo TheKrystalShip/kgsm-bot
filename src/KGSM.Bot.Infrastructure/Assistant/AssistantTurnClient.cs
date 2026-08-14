@@ -26,8 +26,10 @@ namespace KGSM.Bot.Infrastructure.Assistant;
 /// which is the one disagreement an authority header cannot survive.
 /// </para>
 /// <para>
-/// The buffered reply is taken rather than the token stream: Discord has no surface that streams
-/// text, and one message posted when the answer is ready is what it can actually render.
+/// Which transport a question takes is decided by what the caller can use, not by configuration. A
+/// surface that only posts a finished message takes the buffered reply, because that is what a
+/// Discord message is; one that renders the work as it happens, or speaks the answer sentence by
+/// sentence, reads the frames.
 /// </para>
 /// </remarks>
 public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
@@ -92,25 +94,31 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             : Task.FromResult(false);
 
     public Task<Result<AssistantTurn>> AskAsync(AssistantAsk ask, CancellationToken ct = default) =>
-        AskAsync(ask, activity: null, ct);
+        AskAsync(ask, AssistantStream.None, ct);
+
+    public Task<Result<AssistantTurn>> AskAsync(
+        AssistantAsk ask, IProgress<AssistantActivity>? activity, CancellationToken ct = default) =>
+        AskAsync(ask, new AssistantStream(activity), ct);
 
     /// <summary>
-    /// Puts the question, streaming the turn when somebody is watching the work and taking the
-    /// buffered answer when nobody is.
+    /// Puts the question, streaming the turn when somebody is watching it and taking the buffered
+    /// answer when nobody is.
     /// </summary>
     /// <remarks>
     /// Two transports for one question, chosen by whether the caller can use what the streamed one
     /// carries. The buffered contract returns the finished reply and the actions it staged, which is
     /// everything a surface that only posts an answer needs; the frames additionally say what is being
-    /// consulted while it happens, which is only worth its complexity to a surface that renders it.
+    /// consulted while it happens and hand over the reply as it is written, which is only worth its
+    /// complexity to a surface that renders one or delivers the other.
     /// </remarks>
     public async Task<Result<AssistantTurn>> AskAsync(
-        AssistantAsk ask, IProgress<AssistantActivity>? activity, CancellationToken ct = default)
+        AssistantAsk ask, AssistantStream stream, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(ask);
+        ArgumentNullException.ThrowIfNull(stream);
 
-        if (activity is not null)
-            return await AskStreamingAsync(ask, activity, ct).ConfigureAwait(false);
+        if (stream.Watched)
+            return await AskStreamingAsync(ask, stream, ct).ConfigureAwait(false);
 
         if (!IsConfigured)
             return Result.Failure<AssistantTurn>("No assistant is configured on this host.");
@@ -240,7 +248,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
     /// </para>
     /// </remarks>
     private async Task<Result<AssistantTurn>> AskStreamingAsync(
-        AssistantAsk ask, IProgress<AssistantActivity> activity, CancellationToken ct)
+        AssistantAsk ask, AssistantStream stream, CancellationToken ct)
     {
         if (!IsConfigured)
             return Result.Failure<AssistantTurn>("No assistant is configured on this host.");
@@ -270,8 +278,8 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             if (!response.IsSuccessStatusCode)
                 return Result.Failure<AssistantTurn>(await DescribeFailureAsync(response, ct).ConfigureAwait(false));
 
-            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            return await ReadTurnAsync(stream, activity, ct).ConfigureAwait(false);
+            await using var frames = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            return await ReadTurnAsync(frames, stream, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -303,9 +311,9 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
     /// rather than on the SSE event name means one parse for both spellings the writer emits.
     /// </remarks>
     private async Task<Result<AssistantTurn>> ReadTurnAsync(
-        Stream stream, IProgress<AssistantActivity> activity, CancellationToken ct)
+        Stream frames, AssistantStream stream, CancellationToken ct)
     {
-        using var reader = new StreamReader(stream);
+        using var reader = new StreamReader(frames);
 
         // The arguments each in-flight call was made with, so a result can name its subject: the
         // finish frame carries the tool and its output, never what it was asked about.
@@ -332,13 +340,25 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
 
             switch (type)
             {
+                case "text.delta":
+                {
+                    // A slice of the reply, in the order it was written — token fragments, and never
+                    // whole sentences. Finding the boundaries belongs to whoever is delivering it,
+                    // because what counts as one differs between a message and a spoken answer.
+                    if (String(root, "text") is { Length: > 0 } slice)
+                        stream.Reply?.Report(slice);
+                    break;
+                }
+
                 case "tool.start":
                 {
+                    if (stream.Steps is null) break;
+
                     var id = String(root, "id") ?? string.Empty;
                     var tool = String(root, "tool") ?? string.Empty;
                     var subject = AssistantToolVocabulary.SubjectOf(Arguments(root));
                     started[id] = (tool, subject);
-                    activity.Report(new AssistantActivity(
+                    stream.Steps.Report(new AssistantActivity(
                         id, tool, AssistantToolVocabulary.Label(tool), subject, null,
                         AssistantActivityState.Running));
                     break;
@@ -346,6 +366,8 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
 
                 case "tool.result":
                 {
+                    if (stream.Steps is null) break;
+
                     var id = String(root, "id") ?? string.Empty;
                     var tool = String(root, "tool") ?? string.Empty;
                     started.TryGetValue(id, out var start);
@@ -353,7 +375,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
                     // model's grounding text and is deliberately never touched here.
                     var detail = AssistantToolVocabulary.DescribeCard(
                         root.TryGetProperty("result", out var card) ? card : null, start.Subject);
-                    activity.Report(new AssistantActivity(
+                    stream.Steps.Report(new AssistantActivity(
                         id,
                         tool.Length > 0 ? tool : start.Tool ?? string.Empty,
                         AssistantToolVocabulary.Label(tool.Length > 0 ? tool : start.Tool ?? string.Empty),

@@ -166,8 +166,11 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         if (!_sessions.TryGetValue(guildId, out Session? session))
             return Result.Failure("I'm not in a voice channel here.");
 
-        return await session.SpeakAsync(pcm, waitAtMost, ct);
+        return await session.SpeakAsync(pcm, waitAtMost, partOf: null, ct);
     }
+
+    public IVoiceRecital? BeginRecital(ulong guildId) =>
+        _sessions.TryGetValue(guildId, out Session? session) ? session.BeginRecital() : null;
 
     public bool StopSpeaking(ulong guildId) =>
         _sessions.TryGetValue(guildId, out Session? session) && session.StopSpeaking();
@@ -270,6 +273,18 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
 
         /// <summary>What is being said right now, or null when the bot is quiet.</summary>
         private Speech? _saying;
+
+        /// <summary>
+        /// The recital being spoken, or zero when no answer is part-way through being said.
+        /// </summary>
+        /// <remarks>
+        /// An answer written as it is spoken is a sequence of pieces with gaps between them, so
+        /// "is the bot talking" cannot be read off the piece in the air: between two sentences there
+        /// is none, and a stop landing there would find nothing and let the rest play. This is what
+        /// spans the gaps.
+        /// </remarks>
+        private long _reciting;
+        private long _recitals;
         private readonly DateTimeOffset _joinedAt = DateTimeOffset.UtcNow;
         private long _utterances;
 
@@ -326,9 +341,13 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         /// the chat.
         /// </para>
         /// </remarks>
-        public async Task<Result> SpeakAsync(byte[] pcm, TimeSpan? waitAtMost, CancellationToken ct)
+        public async Task<Result> SpeakAsync(
+            byte[] pcm, TimeSpan? waitAtMost, long? partOf, CancellationToken ct)
         {
             if (pcm.Length == 0) return Result.Success();
+
+            if (partOf is { } before && Interlocked.Read(ref _reciting) != before)
+                return Cut();
 
             byte[] audible = SendableAudio.AtLeastPreload(pcm);
 
@@ -340,6 +359,16 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             else
             {
                 await _mouth.WaitAsync(ct);
+            }
+
+            // ⚠ Asked again, and this is the check that matters. A piece queued behind the sentence
+            // before it spends that sentence's whole duration waiting here, and an interruption
+            // arriving in that window is exactly the one a person makes — they cut in while the bot
+            // is talking. Refusing only on the way in would let every piece already waiting play.
+            if (partOf is { } still && Interlocked.Read(ref _reciting) != still)
+            {
+                _mouth.Release();
+                return Cut();
             }
 
             TimeSpan budget = PcmUpsampler.DurationOfStereo48k(audible.Length) + SpeakingGrace;
@@ -432,21 +461,47 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             }
         }
 
+        /// <summary>Opens a recital, which abandons whichever one was current.</summary>
+        public IVoiceRecital BeginRecital()
+        {
+            long id = Interlocked.Increment(ref _recitals);
+            Interlocked.Exchange(ref _reciting, id);
+            return new Recital(this, id);
+        }
+
+        private bool IsCurrent(long id) => Interlocked.Read(ref _reciting) == id;
+
+        /// <summary>Closes a recital, unless it has already been cut off or replaced.</summary>
+        private void EndRecital(long id) => Interlocked.CompareExchange(ref _reciting, 0, id);
+
+        private static Result Cut() =>
+            Result.Failure("Somebody cut in, so the rest of that answer was not said.");
+
         /// <summary>
-        /// Ends what is being said now. False when the bot was not talking.
+        /// Ends what is being said now, and the whole answer it was part of. False when the bot was
+        /// neither talking nor part-way through one.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Taken rather than read, so two things noticing the same interruption — the trigger spotted
         /// mid-sentence, and the same trigger read again from the finished one — stop one answer
         /// between them rather than reporting two.
+        /// </para>
+        /// <para>
+        /// ⚠ <b>The recital goes first and it goes whether or not anything is playing.</b> An answer
+        /// spoken as it is written is queued a sentence at a time, so the moment somebody cuts in is
+        /// as likely to fall in the gap between two of them as inside one — and dropping only the
+        /// sentence in the air would have the bot pause and then resume over the top of them.
+        /// </para>
         /// </remarks>
         public bool StopSpeaking()
         {
-            Speech? saying = Interlocked.Exchange(ref _saying, null);
-            if (saying is null) return false;
+            bool reciting = Interlocked.Exchange(ref _reciting, 0) != 0;
 
-            saying.Stop();
-            return true;
+            Speech? saying = Interlocked.Exchange(ref _saying, null);
+            saying?.Stop();
+
+            return saying is not null || reciting;
         }
 
         /// <summary>
@@ -726,6 +781,23 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 try { source.Cancel(); }
                 catch (ObjectDisposedException) { }
             }
+        }
+
+        /// <summary>
+        /// A handle on one answer being spoken in pieces.
+        /// </summary>
+        /// <remarks>
+        /// It holds nothing but an id: the session owns which recital is current, so an interruption
+        /// arriving anywhere invalidates this without having to find it.
+        /// </remarks>
+        private sealed class Recital(Session session, long id) : IVoiceRecital
+        {
+            public bool Current => session.IsCurrent(id);
+
+            public Task<Result> SayAsync(byte[] pcm, CancellationToken ct = default) =>
+                session.SpeakAsync(pcm, waitAtMost: null, partOf: id, ct);
+
+            public void Dispose() => session.EndRecital(id);
         }
 
         /// <summary>

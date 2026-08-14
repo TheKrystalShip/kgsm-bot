@@ -36,10 +36,18 @@ namespace KGSM.Bot.Discord.Voice;
 /// </para>
 /// <para>
 /// <b>Said out loud and posted, not one or the other.</b> The chat message is the record and carries
-/// the whole answer; the spoken form is a prefix of it, cut at a sentence. A staged action is offered
-/// with the same buttons the @-mention surface posts, and the spoken reply says so rather than
+/// the whole answer; the spoken form is the same answer with its markup stripped. A staged action is
+/// offered with the same buttons the @-mention surface posts, and the spoken reply says so rather than
 /// asking for a spoken yes: approving out loud would be a second way to authorise a destructive
 /// action, and the button re-derives authority at the click where a recogniser could not.
+/// </para>
+/// <para>
+/// <b>The answer is read out as it is written.</b> Each sentence is synthesised and played the moment
+/// the assistant finishes writing it, so the room hears the opening of a long answer while the model
+/// is still producing the rest of it — see <see cref="SpokenRecital"/>. Nothing about the answer
+/// changes: the whole reply is spoken, in order, and only when each part of it goes out is different.
+/// The question is put over the frame stream for that reason alone, so a host that cannot speak takes
+/// the buffered reply and pays nothing for the machinery.
 /// </para>
 /// <para>
 /// <b>A question the bot asks is answered without re-addressing it.</b> Having just spoken to
@@ -169,6 +177,12 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         // would add a second to every request in order to appear faster.
         Task acknowledged = AcknowledgeHeardAsync(command, ct);
 
+        // The answer is read out as it is written: each sentence is synthesised and played the moment
+        // the assistant finishes it, rather than after the whole turn. Null where this host cannot
+        // speak at all or the bot is in no channel to speak in, and the turn then takes the buffered
+        // reply exactly as a question typed in a text channel does.
+        await using SpokenRecital? recital = BeginRecital(command, acknowledged, ct);
+
         Result<AssistantTurn> result;
         using (channel.EnterTypingState())
         {
@@ -182,16 +196,21 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
                 command.ChannelId.ToString(),
                 command.Text,
                 RoomFor(command),
-                Spoken: true), ct);
+                Spoken: true), new AssistantStream(Reply: recital), ct);
         }
 
         // Waited for only now, so the answer is never written into the middle of the acknowledgement.
         await acknowledged;
 
+        // Whatever the reply ended on, said too — a last sentence with no full stop after it is still
+        // part of the answer. True when any of the reply went out as it arrived, which is what decides
+        // whether there is anything left to say below.
+        bool reading = recital?.Flush() ?? false;
+
         if (result.IsFailure)
         {
             await channel.SendMessageAsync($"⚠️ {result.Error}");
-            await SayAsync(command, result.Error!, ct);
+            await SayThroughAsync(command, recital, result.Error!, ct);
             return;
         }
 
@@ -218,7 +237,11 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         // already being listened to.
         bool confirming = AwaitConfirmation(command, turn);
 
-        await SayAsync(command, SpokenAnswer(turn), ct);
+        // Only what has not already been read out: the reply went out sentence by sentence, so all
+        // that is owed is the part this surface writes itself — where the buttons are. An assistant
+        // whose frames carried no reply text leaves nothing spoken, and the finished answer is said
+        // whole.
+        await SayThroughAsync(command, recital, reading ? Offer(turn) : SpokenAnswer(turn), ct);
 
         bool answering = Await(command, turn);
 
@@ -536,7 +559,26 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// </remarks>
     private string SpokenAnswer(AssistantTurn turn)
     {
-        if (turn.StagedActions.Count == 0) return turn.Text ?? string.Empty;
+        string text = turn.Text ?? string.Empty;
+        string offer = Offer(turn);
+
+        return text.Length == 0 ? offer
+            : offer.Length == 0 ? text
+            : $"{text} {offer}";
+    }
+
+    /// <summary>
+    /// The half of a spoken answer that is this surface's own: where an offer to act has gone. Empty
+    /// when the turn staged nothing.
+    /// </summary>
+    /// <remarks>
+    /// Separated from the reply because the two are delivered at different moments. The reply is read
+    /// out as the assistant writes it; this can only be said once the turn has finished, since until
+    /// then there is nothing to say about what it staged.
+    /// </remarks>
+    private string Offer(AssistantTurn turn)
+    {
+        if (turn.StagedActions.Count == 0) return string.Empty;
 
         bool many = turn.StagedActions.Count > 1;
 
@@ -556,7 +598,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         if (string.IsNullOrWhiteSpace(turn.Text)) return offer;
 
-        return byVoice || many ? $"{turn.Text} {offer}" : $"{turn.Text} Approve it in the chat.";
+        return byVoice || many ? offer : "Approve it in the chat.";
     }
 
     /// <summary>
@@ -598,6 +640,46 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         await channel.SendMessageAsync(ran.IsSuccess ? said : $"⚠️ {said}");
         await SayAsync(command, said, ct);
+    }
+
+    /// <summary>
+    /// Opens the recital an answer is read out through, or null when nothing here can be spoken.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>Voice:Speak</c> is still the only gate on speaking at all.</b> Off, or with no
+    /// synthesiser on the host, there is no recital — and with no recital the turn asks for the
+    /// buffered reply, so a host that cannot speak pays nothing at all for the machinery that
+    /// speaks as it goes.
+    /// </remarks>
+    private SpokenRecital? BeginRecital(VoiceCommand command, Task acknowledged, CancellationToken ct)
+    {
+        if (!_options.Speak || !_speech.IsAvailable) return null;
+
+        IVoiceRecital? held = _sessions.BeginRecital(command.GuildId);
+        if (held is null) return null;
+
+        return new SpokenRecital(held, _speech, acknowledged, command.SpeakerName, _logger, ct);
+    }
+
+    /// <summary>
+    /// Says a last thing as part of the answer it belongs to, and waits for the whole of it.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ <b>Through the recital, not beside it.</b> Somebody who cuts in has cut off the answer, and
+    /// a sentence spoken outside the recital would survive that and talk over them. Without one —
+    /// a host that cannot speak, or a turn read out in one go — this is the plain say it always was.
+    /// </remarks>
+    private async Task SayThroughAsync(
+        VoiceCommand command, SpokenRecital? recital, string answer, CancellationToken ct)
+    {
+        if (recital is null)
+        {
+            await SayAsync(command, answer, ct);
+            return;
+        }
+
+        recital.Say(answer);
+        await recital.FinishAsync();
     }
 
     /// <summary>Says an answer in the channel it was asked in, if this host can speak at all.</summary>

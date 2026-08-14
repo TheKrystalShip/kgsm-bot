@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37.0] - 2026-08-15
+
+### Added — a spoken answer starts before the assistant has finished writing it
+
+A voice turn now puts its question over the assistant's frame stream and reads the reply out sentence
+by sentence as it arrives, instead of waiting for the whole turn and then synthesising the whole
+thing. On a long answer that is most of the wait removed: the room hears the opening while the model
+is still producing the end. Nothing about the answer changes — the whole reply is spoken, in order,
+markup stripped — only when each part of it goes out.
+
+- **`SpokenSegmenter`** (Core) holds token fragments until there is a whole sentence and hands it
+  over. A boundary is a full stop, question mark or exclamation mark *followed by whitespace*, or a
+  line ending, and it must be worth at least `LeastChars` of speech — so "Yes." rides out with the
+  sentence after it and "2.0.58" stays in one piece. Whatever the reply ends on is spoken by the
+  flush, terminated or not.
+- ⚠ **No boundary is offered inside a fenced block.** Segmenting first and stripping markup per piece
+  would read a stack trace out a line at a time, which is precisely what `SpokenText` exists to
+  prevent. The fence is tracked across the slices as they accumulate; the piece finally cut carries
+  the whole block and `SpokenText` drops it, including a fence the reply never closes.
+- **`SpokenRecital`** (Discord) synthesises and plays the pieces through a single reader, so they are
+  heard in the order they were written whatever order two waiters would have been released in. It
+  waits for the acknowledgement to finish before the first sentence, so the two are never said over
+  each other.
+- **Everything spoken for a turn rides one recital**, including the sentence pointing at a staged
+  action's buttons and the sentence said when a turn fails — anything said beside it would survive an
+  interruption and talk over whoever cut in.
+- **No new setting.** `Voice:Speak` is still the only gate on speaking at all, and with it off there
+  is no recital and the turn takes the buffered reply exactly as a typed question does.
+
+### Changed — cutting the bot off drops the whole answer, not the sentence in the air
+
+An answer read out as it is written is a queue of sentences, so the moment somebody says the trigger
+is as likely to fall in the gap between two of them as inside one. Stopping only what is playing had
+the bot pause and then carry on talking over the person who cut in, which is worse than not letting
+them cut in at all.
+
+- `IVoiceSessions.BeginRecital` opens one answer's worth of speaking and `IVoiceRecital` is the handle
+  its pieces are spoken through. `StopSpeaking` abandons the current recital **whether or not anything
+  is playing**, and every piece still owed to it is refused.
+- ⚠ A piece is checked twice and **the check that matters is the one after the wait for the mouth** —
+  a sentence queued behind another spends that sentence's whole duration waiting there, which is
+  exactly the window an interruption lands in. Refusing only on the way in would let everything
+  already waiting play.
+- `StopSpeaking` reports true for a recital abandoned with nothing in the air, because there really
+  was something to drop.
+
+### Changed — the turn client's streaming seam carries the reply, not only the steps
+
+`AssistantStream` names the two things a surface can watch: `Steps` (each tool call as it starts and
+finishes) and `Reply` (slices of the answer as they are written). Watching neither takes the buffered
+body, which is what a Discord message is. The `text.delta` frame is read for the first time here; the
+existing activity overload is the same call with `Steps` filled in, so the @-mention surface and
+incident triage are untouched.
+
 ## [3.36.0] - 2026-08-15
 
 ### Changed — speech is a leaf now, not a worker this bot starts

@@ -418,4 +418,67 @@ public class AssistantTurnClientTests
         using JsonDocument typed = JsonDocument.Parse(transport.SeenBody!);
         typed.RootElement.TryGetProperty("style", out _).Should().BeFalse();
     }
+
+    /// <summary>Collects the slices of a reply in the order the frames carried them.</summary>
+    private sealed class Slices : IProgress<string>
+    {
+        public List<string> Written { get; } = [];
+        public void Report(string value) => Written.Add(value);
+    }
+
+    private static Transport Streaming(string frames) => new(_ => new HttpResponseMessage(HttpStatusCode.OK)
+    {
+        Content = new StringContent(frames, Encoding.UTF8, "text/event-stream"),
+    });
+
+    [Fact]
+    public async Task HandsOverTheReplyAsItIsWritten()
+    {
+        // What lets a voice channel hear the first sentence while the model is still writing the
+        // rest. The slices are token fragments — finding sentences in them is the caller's job.
+        var transport = Streaming(
+            "event: text.delta\ndata: {\"type\":\"text.delta\",\"text\":\"Factorio is \"}\n\n"
+            + "event: text.delta\ndata: {\"type\":\"text.delta\",\"text\":\"running.\"}\n\n"
+            + "event: done\ndata: {\"type\":\"done\",\"text\":\"Factorio is running.\"}\n\n");
+
+        using var client = Client(transport);
+        var slices = new Slices();
+
+        var result = await client.AskAsync(Ask, new AssistantStream(Reply: slices));
+
+        slices.Written.Should().Equal("Factorio is ", "running.");
+        result.Value!.Text.Should().Be("Factorio is running.");
+    }
+
+    [Fact]
+    public async Task AsksForTheFramesOnlyWhenSomebodyIsWatching()
+    {
+        // Watching nothing takes the buffered body, which is what a surface that only posts a
+        // finished message needs — and is the whole of what a host that cannot speak pays for this.
+        var transport = Answering("""{"text":"It is running.","confirmations":[]}""");
+        using var client = Client(transport);
+
+        await client.AskAsync(Ask, AssistantStream.None);
+
+        Header(transport.Seen!, "Accept").Should().NotContain("text/event-stream");
+    }
+
+    [Fact]
+    public async Task AFailureMidStreamIsAFailureEvenAfterSomeOfTheReplyArrived()
+    {
+        // The stream is HTTP 200 from its first byte, so the error arrives in band. What was already
+        // written is real and was handed over; the turn is still reported as having failed.
+        var transport = Streaming(
+            "event: text.delta\ndata: {\"type\":\"text.delta\",\"text\":\"Let me check.\"}\n\n"
+            + "event: error\ndata: {\"type\":\"error\",\"message\":\"The model went away.\"}\n\n");
+
+        using var client = Client(transport);
+        var slices = new Slices();
+
+        var result = await client.AskAsync(Ask, new AssistantStream(Reply: slices));
+
+        slices.Written.Should().Equal("Let me check.");
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be("The model went away.");
+    }
 }

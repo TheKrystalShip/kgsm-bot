@@ -88,6 +88,25 @@ public interface IAssistantTurnClient
         AssistantAsk ask, IProgress<AssistantActivity>? activity, CancellationToken ct = default);
 
     /// <summary>
+    /// Puts one question, telling <paramref name="stream"/>'s consumers what is happening while it is
+    /// happening.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The general form of the two overloads above: a surface says which of the work and the reply it
+    /// wants to hear about, and gets the same answer either way. Watching nothing takes the buffered
+    /// body, which is what a surface that only posts a finished answer needs.
+    /// </para>
+    /// <para>
+    /// <b>The reply arrives as it is written, in slices that are not sentences.</b> A surface that
+    /// delivers as it goes — speaking a voice channel's answer sentence by sentence — owns the job of
+    /// finding the boundaries in it. See <see cref="KGSM.Bot.Core.Voice.SpokenSegmenter"/>.
+    /// </para>
+    /// </remarks>
+    Task<Result<AssistantTurn>> AskAsync(
+        AssistantAsk ask, AssistantStream stream, CancellationToken ct = default);
+
+    /// <summary>
     /// Approves a staged action on behalf of the person who clicked, redeeming the grant the
     /// assistant issued when it proposed the action.
     /// </summary>

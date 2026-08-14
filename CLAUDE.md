@@ -599,6 +599,26 @@ answers.
   enough, and leaves the answer in the room disagreeing with the answer in the channel. **How long a
   reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
   (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
+- **The reply is read out sentence by sentence as the assistant writes it.** A voice turn puts its
+  question over the assistant's frame stream and hands each `text.delta` to `SpokenSegmenter`, which
+  holds token fragments until there is a whole sentence; `SpokenRecital` synthesises and plays each in
+  turn. So the room hears the opening of a long answer while the model is still producing the end of
+  it, and what is spoken is unchanged — the whole reply, in order.
+  - ⚠ **A fenced block spans sentences, so no boundary is offered inside one.** Segmenting first and
+    stripping per sentence would read a stack trace out a line at a time, which is the exact thing
+    `SpokenText` exists to prevent. The fence is tracked across the slices as they accumulate, the
+    piece finally cut carries the whole block, and `SpokenText` drops it — including a fence the reply
+    never closes.
+  - **A boundary needs a full stop *and* a length** (`SpokenSegmenter.LeastChars`), so "Yes." rides
+    out with the sentence after it instead of being its own recital. A terminator with nothing yet
+    after it is not a boundary — that is what keeps "2.0.58" in one piece — and whatever the reply
+    ends on is spoken by the flush, full stop or not.
+  - **Streaming is what the turn is watched for, not a setting.** `Voice:Speak` off, or no synthesiser
+    on the host, means no recital — and with no recital the turn takes the buffered reply exactly as a
+    typed question does.
+  - **Everything spoken for a turn rides one recital**, including the sentence pointing at a staged
+    action's buttons and the sentence said when a turn fails. Anything said beside it would survive an
+    interruption and talk over whoever cut in.
 - ⚠ **Hearing and speaking are not in this process — they are the `kgsm-speech` leaf.** One engine
   per host, reached over `/run/kgsm-speech/speech.sock`, serving every surface that listens or speaks.
   The reason is measured: the models cost about 1.6GB and 1.1GB of video memory, and **unloading them
@@ -622,7 +642,14 @@ answers.
     the echo check, the phrase cache, and the 24kHz→48kHz upsample Discord needs.
 - ⚠ **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
   stops that answer (`IVoiceSessions.StopSpeaking`, `Voice:Interruptible`), and the request that
-  stopped it is answered next. Receiving never pauses for speaking — they are separate directions on
+  stopped it is answered next. **The whole answer goes, not the sentence in the air**: an answer read
+  out as it is written is a queue of sentences, so the moment somebody cuts in is as likely to fall in
+  the gap between two of them as inside one — and dropping only what is playing has the bot pause and
+  then resume over the top of them, which is worse than not letting them cut in at all. The session
+  therefore abandons the current recital as well, whether or not anything was playing, and every piece
+  still owed to it is refused. A piece is checked twice, and **the check that matters is the one after
+  the wait** — a sentence queued behind another spends that sentence's whole duration waiting for the
+  mouth, which is exactly the window an interruption lands in. Receiving never pauses for speaking — they are separate directions on
   one connection — so the cheap signal, *somebody started talking*, is already in the pipe at ~20ms
   against the ~1.5s a trigger match costs. It is deliberately not used: a voice channel is a room
   where people talk over each other, and acting on it silences the bot every time two of them do.

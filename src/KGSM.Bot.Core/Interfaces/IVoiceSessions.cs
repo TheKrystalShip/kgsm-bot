@@ -53,6 +53,16 @@ public interface IVoiceSessions
         ulong guildId, byte[] pcm, TimeSpan? waitAtMost = null, CancellationToken ct = default);
 
     /// <summary>
+    /// Opens a recital in this guild: one answer spoken in pieces as it is written. Null when the bot
+    /// is in no voice channel here.
+    /// </summary>
+    /// <remarks>
+    /// <b>Opening one makes it the current recital</b>, which abandons any that was still running —
+    /// a guild has one voice connection and therefore one answer being spoken at a time.
+    /// </remarks>
+    IVoiceRecital? BeginRecital(ulong guildId);
+
+    /// <summary>
     /// Drops the rest of whatever is being said out loud in this guild. Returns whether there was
     /// anything to drop.
     /// </summary>
@@ -64,12 +74,49 @@ public interface IVoiceSessions
     /// reading the rest instead of hearing it.
     /// </para>
     /// <para>
+    /// ⚠ <b>The whole of an answer goes, not the sentence in the air.</b> An answer spoken as it is
+    /// written is a queue of pieces, and stopping only the one playing leaves the bot pausing and
+    /// then talking over the person who cut in — which is worse than not letting them cut in at all.
+    /// So the current recital is abandoned as well, and every piece still owed to it is refused.
+    /// </para>
+    /// <para>
     /// <b>Answered rather than requested, so the caller can tell.</b> A false return means the bot
-    /// was not talking, which is a different thing from having been stopped, and only the session
-    /// knows which.
+    /// was neither talking nor part-way through a recital, which is a different thing from having
+    /// been stopped, and only the session knows which.
     /// </para>
     /// </remarks>
     bool StopSpeaking(ulong guildId);
+}
+
+/// <summary>
+/// One answer being spoken in pieces, held for as long as there are pieces still to come.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It exists so that cutting the bot off drops the whole answer.</b> A piece is spoken through the
+/// recital it belongs to, so a stop that lands between two of them still refuses the rest — where a
+/// per-piece call would find nothing playing, report nothing stopped, and then carry on talking.
+/// </para>
+/// <para>
+/// <b>Disposing closes it and speaks nothing.</b> A recital that has said everything it had is over,
+/// and leaving it open would have the next interruption report that it stopped something.
+/// </para>
+/// </remarks>
+public interface IVoiceRecital : IDisposable
+{
+    /// <summary>Whether this is still the answer being spoken, or has been cut off.</summary>
+    bool Current { get; }
+
+    /// <summary>
+    /// Says the next piece — 48 kHz stereo signed 16-bit — after everything queued before it.
+    /// </summary>
+    /// <remarks>
+    /// Pieces play in the order they were handed over: each waits for the one before it to finish, so
+    /// a caller that hands them over in order hears them in order. A piece handed to a recital that
+    /// has been cut off is refused rather than played, and that is checked again after the wait — the
+    /// interruption that matters most is the one that lands while a piece is queued behind another.
+    /// </remarks>
+    Task<Result> SayAsync(byte[] pcm, CancellationToken ct = default);
 }
 
 /// <summary>
