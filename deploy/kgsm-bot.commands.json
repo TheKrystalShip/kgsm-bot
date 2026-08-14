@@ -272,6 +272,20 @@
         "options": []
       },
       {
+        "name": "voice speak-as",
+        "description": "Try a different speaking voice, until the bot next restarts",
+        "mutates": false,
+        "options": [
+          {
+            "name": "voice",
+            "description": "Which voice to speak in",
+            "type": "string",
+            "required": true,
+            "autocomplete": true
+          }
+        ]
+      },
+      {
         "name": "voice status",
         "description": "Where the bot is listening, and what it has heard",
         "mutates": false,

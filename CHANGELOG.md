@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.33.0] - 2026-08-14
+
+### Added — `/voice speak-as`, which swaps the voice without a restart
+
+The panel's picker restarts the bot, because leaf config is delivered as environment variables and a
+process cannot be handed new ones while it runs. That is the mechanism, not this field: nothing about
+a voice needs a restart. Every voice is already in memory — they load together on first use, and the
+synthesiser takes one *per sentence* — so changing it swaps a reference. Nothing reloads, nothing
+re-warms, and the bot stays in the channel mid-conversation.
+
+⚠ **It lasts until the process does, and the reply says so.** The durable setting stays the leaf's,
+and this deliberately does not write to it: a bot speaking in a voice its own configuration does not
+name is two sources of truth, and the invisible one would be winning. Hear a voice here, keep it in
+the panel.
+
+Autocomplete rather than fixed choices — Discord caps an option at 25 and there are more English
+voices than that. Suggestions come from the voices actually loaded, so the list cannot offer a name
+the host would then refuse.
+
+⚠ Changing the voice **clears the phrase cache**, which is keyed by text and therefore holds audio in
+the voice being replaced. Without that the bot answers in the new voice and goes on acknowledging in
+the old one.
+
 ## [3.32.0] - 2026-08-14
 
 ### Changed — the speaking voice is a dropdown

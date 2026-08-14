@@ -1,3 +1,5 @@
+using KGSM.Bot.Core.Common;
+
 namespace KGSM.Bot.Core.Interfaces;
 
 /// <summary>
@@ -18,4 +20,37 @@ public interface ITextToSpeech
     /// format a Discord voice connection is written in — or null when it could not be said.
     /// </summary>
     Task<byte[]?> SynthesizeAsync(string text, CancellationToken ct = default);
+
+    /// <summary>The voice being spoken in right now. Empty when there is no synthesiser.</summary>
+    string SpeakingAs { get; }
+
+    /// <summary>
+    /// The voices this host actually has, in the order they are worth choosing from. Empty when there
+    /// is no synthesiser.
+    /// </summary>
+    /// <remarks>
+    /// What is <em>installed</em>, read from the loaded set rather than from a list written down
+    /// somewhere — a name offered here and then refused would be the surface lying about its own
+    /// capabilities.
+    /// </remarks>
+    IReadOnlyList<string> Voices { get; }
+
+    /// <summary>
+    /// Speaks in <paramref name="voice"/> from the next sentence on. Fails, changing nothing, when
+    /// this host does not have that voice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It costs nothing.</b> Every voice is already in memory — they are loaded together on first
+    /// use and a voice is a small array of features handed to the synthesiser per sentence, so
+    /// changing one swaps a reference. No model is reloaded and nothing is re-warmed.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>It lasts until the process does.</b> The durable setting is the leaf's own, and this does
+    /// not write to it — deliberately, because a bot speaking in a voice its configuration does not
+    /// name is two sources of truth, and the one nobody can see wins. It is for hearing a voice before
+    /// choosing it; a caller that changes this has to say that it will not survive a restart.
+    /// </para>
+    /// </remarks>
+    Result SpeakAs(string voice);
 }

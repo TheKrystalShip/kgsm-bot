@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Voice;
+using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
@@ -35,12 +36,15 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IVoiceSessions _voice;
     private readonly IVoiceTally _tally;
+    private readonly ITextToSpeech _speech;
     private readonly ILogger<VoiceModule> _logger;
 
-    public VoiceModule(IVoiceSessions voice, IVoiceTally tally, ILogger<VoiceModule> logger)
+    public VoiceModule(
+        IVoiceSessions voice, IVoiceTally tally, ITextToSpeech speech, ILogger<VoiceModule> logger)
     {
         _voice = voice;
         _tally = tally;
+        _speech = speech;
         _logger = logger;
     }
 
@@ -88,6 +92,54 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
         Result result = await _voice.LeaveAsync(Context.Guild.Id);
         await FollowupAsync(
             result.IsSuccess ? "Left the voice channel." : result.Error, ephemeral: true);
+    }
+
+    /// <summary>
+    /// Changes the voice the bot speaks in, from the next sentence on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It costs nothing and interrupts nothing.</b> Every voice is already in memory, and the
+    /// synthesiser takes one per sentence — so this swaps a reference. Nothing is reloaded, the bot
+    /// stays in the channel, and a conversation carries on mid-flow.
+    /// </para>
+    /// <para>
+    /// ⚠ <b>It does not survive a restart, and the reply says so.</b> The durable setting is the
+    /// leaf's own, in the Control Panel; writing to it from here would be a second source of truth for
+    /// the same thing, and the one nobody can see would be winning. This is for hearing a voice before
+    /// choosing it.
+    /// </para>
+    /// </remarks>
+    [SlashCommand("speak-as", "Try a different speaking voice, until the bot next restarts")]
+    public async Task SpeakAsAsync(
+        [Summary("voice", "Which voice to speak in")]
+        [Autocomplete(typeof(SpeechVoiceAutocompleteHandler))]
+        string voice)
+    {
+        if (!_speech.IsAvailable)
+        {
+            await RespondAsync("There's no speech synthesis on this host — I answer in text.", ephemeral: true);
+            return;
+        }
+
+        string before = _speech.SpeakingAs;
+        Result changed = _speech.SpeakAs(voice);
+
+        if (changed.IsFailure)
+        {
+            await RespondAsync($"{changed.Error} Start typing and I'll suggest the ones I have.", ephemeral: true);
+            return;
+        }
+
+        _logger.LogInformation(
+            "Voice: {User} changed the speaking voice from {Before} to {After}",
+            Context.User.Username, before, _speech.SpeakingAs);
+
+        // In the open, because everybody in the channel is about to hear it change, and unhelpfully
+        // mysterious if only the person who did it knows why.
+        await RespondAsync(
+            $"Now speaking as **{_speech.SpeakingAs}**. This lasts until the bot restarts — "
+            + "set `Speaking voice` in the Control Panel to keep it.");
     }
 
     [SlashCommand("status", "Where the bot is listening, and what it has heard")]

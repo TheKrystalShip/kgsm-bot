@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
+using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Voice;
 using KGSM.Bot.Infrastructure.Configuration;
@@ -83,7 +84,14 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
     private readonly ILogger<KokoroTextToSpeech> _logger;
     private readonly SemaphoreSlim _one = new(1, 1);
     private readonly KokoroWavSynthesizer? _synth;
-    private readonly KokoroVoice? _voice;
+
+    /// <summary>
+    /// The voice in use. Mutable because it can be changed while the bot is running, and read on the
+    /// synthesis path without a lock — a swap that lands between two sentences is exactly the
+    /// behaviour wanted, and one that lands mid-sentence cannot happen: the voice is read once, when
+    /// the call is made.
+    /// </summary>
+    private volatile KokoroVoice? _voice;
     private bool _disposed;
 
     public KokoroTextToSpeech(IOptions<DiscordOptions> options, ILogger<KokoroTextToSpeech> logger)
@@ -187,9 +195,79 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
 
     public bool IsAvailable => _synth is not null && _voice is not null;
 
+    public string SpeakingAs => _voice?.Name ?? string.Empty;
+
+    /// <summary>
+    /// The English voices this host has, best-trained first within each accent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read from what is loaded</b>, so this is what the host actually has rather than what a list
+    /// says it should. Every voice is already in memory: they load together on first use, and each is
+    /// a small array of features.
+    /// </para>
+    /// <para>
+    /// <b>English only.</b> Kokoro's other languages sit in the same directory and are loaded with
+    /// these, but they expect text in those languages — offering them would be twenty-odd ways to read
+    /// an English answer badly. <see cref="SpeakAs"/> accepts any of them, because refusing a voice the
+    /// host has would be this surface deciding something it has no business deciding.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> Voices
+    {
+        get
+        {
+            if (_synth is null) return [];
+
+            var order = SpeechVoices.Preferred
+                .Select((name, at) => (name, at))
+                .ToDictionary(x => x.name, x => x.at, StringComparer.OrdinalIgnoreCase);
+
+            return KokoroVoiceManager.Voices
+                .Select(v => v.Name)
+                .Where(n => n.Length > 1 && n[0] is 'a' or 'b')
+                // A voice the preference list has never heard of sorts last rather than vanishing:
+                // this decides what is suggested first, never what may be used.
+                .OrderBy(n => order.TryGetValue(n, out int at) ? at : int.MaxValue)
+                .ThenBy(n => n, StringComparer.Ordinal)
+                .ToArray();
+        }
+    }
+
+    public Result SpeakAs(string voice)
+    {
+        if (_synth is null)
+            return Result.Failure("There's no speech synthesis on this host.");
+
+        if (string.IsNullOrWhiteSpace(voice))
+            return Result.Failure("Name a voice.");
+
+        KokoroVoice? found = KokoroVoiceManager.Voices
+            .FirstOrDefault(v => v.Name.Equals(voice.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        // Looked up rather than asked for: the library's own accessor throws on an unknown name, and a
+        // person mistyping one is not an exceptional condition.
+        if (found is null)
+            return Result.Failure($"I don't have a voice called \"{voice}\".");
+
+        if (ReferenceEquals(found, _voice)) return Result.Success();
+
+        _voice = found;
+
+        // ⚠ Cleared with it. The cache is keyed by TEXT, so every phrase in it is audio in the voice
+        // that has just been replaced — leaving it would have the bot answer in the new voice and go
+        // on acknowledging in the old one, which reads as a half-applied change rather than a cache.
+        _said.Clear();
+
+        _logger.LogInformation("Voice: now speaking as {Voice}", found.Name);
+        return Result.Success();
+    }
+
     public async Task<byte[]?> SynthesizeAsync(string text, CancellationToken ct = default)
     {
-        if (_synth is null || _voice is null || string.IsNullOrWhiteSpace(text)) return null;
+        // Read once, so a swap can land between sentences and never inside one.
+        KokoroVoice? voice = _voice;
+        if (_synth is null || voice is null || string.IsNullOrWhiteSpace(text)) return null;
 
         // Read before the lock: a phrase already synthesised does not queue behind whatever is being
         // synthesised now, which is the difference between an acknowledgement that is immediate and
@@ -203,7 +281,7 @@ public sealed class KokoroTextToSpeech : ITextToSpeech, IDisposable
 
             // Synthesis is a blocking ONNX call. Off the caller's thread, because the caller is a
             // Discord event handler and the gateway's heartbeat runs on that machinery.
-            byte[] mono24k = await Task.Run(() => _synth.Synthesize(text, _voice), ct);
+            byte[] mono24k = await Task.Run(() => _synth.Synthesize(text, voice), ct);
             byte[] stereo48k = PcmUpsampler.ToStereo48k(mono24k);
 
             timer.Stop();

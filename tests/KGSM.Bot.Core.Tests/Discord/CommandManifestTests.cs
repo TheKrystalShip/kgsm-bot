@@ -53,6 +53,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IPlayerRoster>());
         services.AddSingleton(Substitute.For<IServerInstanceService>());
         services.AddSingleton(Substitute.For<IBackupInsight>());
+        services.AddSingleton(Substitute.For<ITextToSpeech>());
         services.AddSingleton(Substitute.For<IStagedRestores>());
         services.AddSingleton(Substitute.For<IServerHistory>());
         services.AddSingleton(Substitute.For<IBotHealth>());
@@ -182,7 +183,7 @@ public sealed class CommandManifestTests
         // addressed it and cannot see that it is listening.
         manifest.Gates[KgsmTiers.Operator].Where(c => !c.Mutates).Select(c => c.Name)
             .Should().BeEquivalentTo(
-                ["health", "logs", "voice join", "voice leave", "voice status"]);
+                ["health", "logs", "voice join", "voice leave", "voice speak-as", "voice status"]);
 
         // Nothing is gated at "none": every slash module requires an account here, which is the
         // property the test below pins, and this is the manifest saying the same thing.
