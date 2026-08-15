@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37.2] - 2026-08-15
+
+### Changed — what the recogniser is primed with is the speech package's answer now
+
+`SpokenVocabulary` is gone from Core; it is `TheKrystalShip.KGSM.Speech.SpokenVocabulary` (1.3.0),
+which the assistant leaf reads the same rules out of so a voice note sent from a browser is primed
+with the servers a spoken request is primed with. What stays here is reading the inventory and
+deciding how often to re-read it — the part that is genuinely this surface's.
+
 ## [3.37.1] - 2026-08-15
 
 ### Changed — where a spoken reply is cut is the speech package's answer now

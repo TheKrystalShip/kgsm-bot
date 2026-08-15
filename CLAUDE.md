@@ -589,10 +589,14 @@ answers.
   in a constructor — the same circle `VoiceCommandQueue` exists to break. The same tone twice within
   two seconds is played once, because the trigger spotted early and the same trigger read again on
   close are both correct and the room only needs to hear it once.
-- **The recogniser is primed with this host's names** (`SpokenVocabulary`), because a recogniser knows
-  English and not that a server is called `Ketchup`. Nothing downstream rewrites what was said — see
-  the CHANGELOG for why correcting a misheard name afterwards is not merely risky but unachievable at
-  any threshold.
+- **The recogniser is primed with this host's names**, because a recogniser knows English and not that
+  a server is called `Ketchup`. Nothing downstream rewrites what was said — see the CHANGELOG for why
+  correcting a misheard name afterwards is not merely risky but unachievable at any threshold.
+  ⚠ **How the names are written down is the speech package's answer, not this repo's.**
+  `TheKrystalShip.KGSM.Speech.SpokenVocabulary` composes the context and owns `IsEchoOf`, the guard
+  against whisper handing that context back as though somebody had read it aloud. What stays here is
+  *reading the inventory* and how often — a browser voice note and a spoken request are the same host
+  being asked about the same servers, and a second composer here is a second set of names misheard.
 - **What is spoken is the whole reply, markup stripped — never a summary and never cut short.** A
   surface that rewords a reply on its way to being read out says things the assistant did not, and
   nothing in the channel would show it happened; one that stops part-way has decided somebody heard

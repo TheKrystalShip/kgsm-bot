@@ -33,7 +33,7 @@
          process per host serving every surface, because 1.6GB of models and the CUDA runtime behind
          them cannot be given back by anything short of a process ending. This is the client and the
          wire contract for its socket — a few kilobytes, no native dependency, and nothing to load. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.2.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.3.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.KGSM.Auth.Users at
          this same version, so naming it here costs nothing and stops the store depending on which

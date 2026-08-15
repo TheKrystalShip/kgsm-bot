@@ -23,11 +23,12 @@ namespace KGSM.Bot.Infrastructure.Speech;
 /// and hands back a string; it has no idea what a server is.
 /// </para>
 /// <para>
-/// <b>Priming lives on this side because the inventory does.</b> A recogniser that has never been told
-/// a server is called <c>Ketchup</c> spells it "catch-up", which is a correct reading of the sound and
-/// the wrong answer. <see cref="SpokenVocabulary"/> composes the names, this refreshes them from the
-/// inventory as servers come and go, and the worker rebuilds its processor when the string it is sent
-/// changes.
+/// <b>Reading the inventory lives on this side; writing the names down does not.</b> A recogniser that
+/// has never been told a server is called <c>Ketchup</c> spells it "catch-up", which is a correct
+/// reading of the sound and the wrong answer. <see cref="SpokenVocabulary"/> — the speech package's,
+/// shared with every other surface that listens — composes the names and catches the echo they can
+/// come back as; this refreshes them from the inventory as servers come and go, and the daemon
+/// rebuilds its processor when the string it is sent changes.
 /// </para>
 /// </remarks>
 internal sealed class LeafSpeechToText : ISpeechToText

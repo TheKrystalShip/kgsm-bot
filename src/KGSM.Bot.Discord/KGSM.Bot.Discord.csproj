@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>3.37.1</Version>
+    <Version>3.37.2</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -68,7 +68,7 @@
 
     <!-- Pinned here as well as in Infrastructure: this project reads SpokenSentences directly, and a
          type used through a transitive reference is one a consumer can lose without touching it. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.2.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>
