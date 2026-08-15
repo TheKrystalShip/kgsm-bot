@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37.1] - 2026-08-15
+
+### Changed — where a spoken reply is cut is the speech package's answer now
+
+`SpokenSegmenter` and `SpokenText` are gone; both jobs are
+`TheKrystalShip.KGSM.Speech.SpokenSentences` (1.2.0), which the assistant reads the same rules out of.
+Two surfaces deciding separately where a reply is cut decide it differently within a release, and this
+one and the assistant's had already drifted on four rules before either shipped.
+
+What changed for a listener here, all of it the package's rules winning:
+
+- **A short sentence is spoken sooner.** The floor for a piece is 24 characters rather than 40, so
+  "Factorio is running normally now." is heard immediately instead of waiting for the sentence after
+  it. A complete sentence of six words is the answer, and the floor exists only to stop "Yes." being
+  its own recital.
+- **A link is read as its text.** Its target is an address, not a sentence — "example.invalid/path"
+  read aloud is noise, and its dots would cut the sentence in the middle.
+- **A table's pipes and a link's brackets are silent**, as the other markup already was.
+- ⚠ **A fence marker counts only at the true start of a line.** A sentence ending part-way along a
+  line leaves the rest of it in a fresh buffer, and reading that as a line start took
+  "Done. \`\`\`yaml" for a fence — silencing every word after it for the rest of the answer. Both
+  implementations had this; neither had noticed.
+
+`SpokenText`'s eight assertions each hold against `SpokenSentences.Whole` unchanged, and moved into the
+package's suite with the rest — it had no rule the package lacks, and keeping it would have kept a
+second, weaker stripper on the same surface as the first.
+
 ## [3.37.0] - 2026-08-15
 
 ### Added — a spoken answer starts before the assistant has finished writing it

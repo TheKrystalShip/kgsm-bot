@@ -2,9 +2,10 @@ using System.Threading.Channels;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
-using KGSM.Bot.Core.Voice;
 
 using Microsoft.Extensions.Logging;
+
+using TheKrystalShip.KGSM.Speech;
 
 namespace KGSM.Bot.Discord.Voice;
 
@@ -44,7 +45,7 @@ internal sealed class SpokenRecital : IProgress<string>, IAsyncDisposable
     private readonly ILogger _logger;
     private readonly string _speaker;
 
-    private readonly SpokenSegmenter _segmenter = new();
+    private readonly SpokenSentences _sentences = new();
     private readonly Channel<string> _pieces = Channel.CreateUnbounded<string>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
 
@@ -74,7 +75,7 @@ internal sealed class SpokenRecital : IProgress<string>, IAsyncDisposable
     /// <summary>Takes the next slice of the reply and speaks whatever it completes.</summary>
     public void Report(string slice)
     {
-        foreach (string sentence in _segmenter.Wrote(slice))
+        foreach (string sentence in _sentences.Take(slice))
         {
             Interlocked.Increment(ref _wrote);
             _pieces.Writer.TryWrite(sentence);
@@ -91,7 +92,7 @@ internal sealed class SpokenRecital : IProgress<string>, IAsyncDisposable
     /// </remarks>
     public bool Flush()
     {
-        if (_segmenter.Rest() is { Length: > 0 } rest)
+        if (_sentences.Flush() is { } rest)
         {
             Interlocked.Increment(ref _wrote);
             _pieces.Writer.TryWrite(rest);
@@ -103,7 +104,7 @@ internal sealed class SpokenRecital : IProgress<string>, IAsyncDisposable
     /// <summary>Adds something to say that is this surface's own, not part of the assistant's reply.</summary>
     public void Say(string? sentence)
     {
-        if (SpokenText.From(sentence) is { Length: > 0 } spoken)
+        if (SpokenSentences.Whole(sentence) is { Length: > 0 } spoken)
             _pieces.Writer.TryWrite(spoken);
     }
 

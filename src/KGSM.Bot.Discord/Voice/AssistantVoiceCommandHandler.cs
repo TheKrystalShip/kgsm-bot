@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Speech;
 
 namespace KGSM.Bot.Discord.Voice;
 
@@ -687,7 +688,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     {
         if (!_options.Speak || !_speech.IsAvailable) return;
 
-        string spoken = SpokenText.From(answer);
+        string spoken = SpokenSentences.Whole(answer);
         if (spoken.Length == 0) return;
 
         byte[]? audio = await _speech.SynthesizeAsync(spoken, ct);

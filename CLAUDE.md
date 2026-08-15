@@ -600,19 +600,18 @@ answers.
   reply runs is the assistant's to control** — a spoken turn asks for one written to be heard
   (`ReplyStyle.Voice`), and that is the lever, not a cap on this side.
 - **The reply is read out sentence by sentence as the assistant writes it.** A voice turn puts its
-  question over the assistant's frame stream and hands each `text.delta` to `SpokenSegmenter`, which
+  question over the assistant's frame stream and hands each `text.delta` to `SpokenSentences`, which
   holds token fragments until there is a whole sentence; `SpokenRecital` synthesises and plays each in
   turn. So the room hears the opening of a long answer while the model is still producing the end of
   it, and what is spoken is unchanged — the whole reply, in order.
-  - ⚠ **A fenced block spans sentences, so no boundary is offered inside one.** Segmenting first and
-    stripping per sentence would read a stack trace out a line at a time, which is the exact thing
-    `SpokenText` exists to prevent. The fence is tracked across the slices as they accumulate, the
-    piece finally cut carries the whole block, and `SpokenText` drops it — including a fence the reply
-    never closes.
-  - **A boundary needs a full stop *and* a length** (`SpokenSegmenter.LeastChars`), so "Yes." rides
-    out with the sentence after it instead of being its own recital. A terminator with nothing yet
-    after it is not a boundary — that is what keeps "2.0.58" in one piece — and whatever the reply
-    ends on is spoken by the flush, full stop or not.
+  - ⚠ **Where a reply is cut is the speech package's answer, not this repo's.**
+    `TheKrystalShip.KGSM.Speech.SpokenSentences` holds the rules — a fenced block dropped rather than
+    read line by line, a sentence ending only at punctuation *followed by whitespace* so `kgsm.sh` and
+    `2.0.58` survive, a short sentence riding out with the next, and whatever is left said by the
+    flush. `SpokenSentences.Whole` applies the same rules to a string this surface writes itself.
+    Every surface on the host that speaks reads them from there, because two surfaces answering that
+    question separately answer it differently within a release. **Do not add a second stripper or a
+    second segmenter here.**
   - **Streaming is what the turn is watched for, not a setting.** `Voice:Speak` off, or no synthesiser
     on the host, means no recital — and with no recital the turn takes the buffered reply exactly as a
     typed question does.

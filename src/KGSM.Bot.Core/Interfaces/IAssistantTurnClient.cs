@@ -100,7 +100,8 @@ public interface IAssistantTurnClient
     /// <para>
     /// <b>The reply arrives as it is written, in slices that are not sentences.</b> A surface that
     /// delivers as it goes — speaking a voice channel's answer sentence by sentence — owns the job of
-    /// finding the boundaries in it. See <see cref="KGSM.Bot.Core.Voice.SpokenSegmenter"/>.
+    /// finding the boundaries in it — <c>TheKrystalShip.KGSM.Speech.SpokenSentences</c>, which every
+    /// surface on this host that speaks reads the same rules out of.
     /// </para>
     /// </remarks>
     Task<Result<AssistantTurn>> AskAsync(
