@@ -15,6 +15,8 @@ using Discord.WebSocket;
 using Discord.Interactions;
 
 using TheKrystalShip.KGSM.Extensions;
+using TheKrystalShip.KGSM.Lifecycle;
+using System.Reflection;
 
 namespace KGSM.Bot.Infrastructure;
 
@@ -249,6 +251,18 @@ public static class DependencyInjection
             cursorPath: null,
             startPosition: TheKrystalShip.KGSM.Core.Models.EventStartPosition.Tail,
             engineJournalDirectory: kgsmOptions.JournalDir);
+
+        // This leaf's OWN journal — the write half, which it has never had. It reads every other
+        // producer's above; this is the one it writes, and it records nothing but what this bot could
+        // and could not do. ⚠ The two are unrelated: reading the federation says nothing about being
+        // able to be read, and until now nothing on this host could see a bot that had gone silent.
+        // ⚠ The ENTRY assembly, not this one. The version lives on KGSM.Bot.Discord (the deployable);
+        // the class libraries carry none, so passing this assembly stamped every event 1.0.0 — a
+        // version no release was ever numbered, which is exactly what ProducerVersion exists to avoid.
+        services.AddKgsmJournal(
+            "kgsm-bot",
+            Assembly.GetEntryAssembly() ?? typeof(DependencyInjection).Assembly);
+        services.AddSingleton<LeafLifecycle>();
 
         // Typed client for the kgsm-watchdog control socket (read-only supervision
         // surface). Registration always succeeds — the socket path defaults to the

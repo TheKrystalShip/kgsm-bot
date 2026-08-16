@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TheKrystalShip.KGSM.Lifecycle;
 
 namespace KGSM.Bot.Discord;
 
@@ -42,6 +43,12 @@ public class Program
 
         // Create and configure the host
         using var host = CreateHostBuilder(args).Build();
+
+        // The last thing this bot says. A consumer reading it knows the surface went quiet because
+        // somebody stopped it, rather than because it is in one of the several states where it is
+        // running and unable to post anything.
+        host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping.Register(() =>
+            host.Services.GetRequiredService<LeafLifecycle>().MarkStopping(LeafStopReason.Signal));
 
         // Start the host
         await host.RunAsync();
@@ -123,5 +130,11 @@ public class Program
                 // beside the bot rather than inside it: it must be able to report a gateway that never
                 // connected, which a service hanging off the client's Ready event could not.
                 services.AddHostedService<StatusSocketServer>();
+
+                // The same facts, reported rather than only served. Nothing polls the status socket
+                // on a schedule, so a bot that went silent at three in the morning stayed silent
+                // until somebody opened a panel. Beside the bot for the same reason the socket is:
+                // it must be able to report a gateway that never connected.
+                services.AddHostedService<BotLifecycleReporter>();
             });
 }
