@@ -317,7 +317,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
 
         // The arguments each in-flight call was made with, so a result can name its subject: the
         // finish frame carries the tool and its output, never what it was asked about.
-        var started = new Dictionary<string, (string Tool, string? Subject)>(StringComparer.Ordinal);
+        var started = new Dictionary<string, (string Tool, string? Subject, string? Label)>(StringComparer.Ordinal);
 
         string? text = null;
         List<StagedAction> staged = [];
@@ -356,11 +356,14 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
 
                     var id = String(root, "id") ?? string.Empty;
                     var tool = String(root, "tool") ?? string.Empty;
+                    // The assistant sends the step's prose with the step. Its catalog is a file on
+                    // its own host, so anything written here would describe a build rather than the
+                    // tool that actually ran.
+                    var label = AssistantToolVocabulary.Label(tool, String(root, "label"));
                     var subject = AssistantToolVocabulary.SubjectOf(Arguments(root));
-                    started[id] = (tool, subject);
+                    started[id] = (tool, subject, label);
                     stream.Steps.Report(new AssistantActivity(
-                        id, tool, AssistantToolVocabulary.Label(tool), subject, null,
-                        AssistantActivityState.Running));
+                        id, tool, label, subject, null, AssistantActivityState.Running));
                     break;
                 }
 
@@ -375,10 +378,13 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
                     // model's grounding text and is deliberately never touched here.
                     var detail = AssistantToolVocabulary.DescribeCard(
                         root.TryGetProperty("result", out var card) ? card : null, start.Subject);
+                    var named = tool.Length > 0 ? tool : start.Tool ?? string.Empty;
                     stream.Steps.Report(new AssistantActivity(
                         id,
-                        tool.Length > 0 ? tool : start.Tool ?? string.Empty,
-                        AssistantToolVocabulary.Label(tool.Length > 0 ? tool : start.Tool ?? string.Empty),
+                        named,
+                        // The result frame carries no label of its own; the one the start frame
+                        // carried is the same step's, so it is kept rather than re-derived.
+                        AssistantToolVocabulary.Label(named, start.Label),
                         start.Subject,
                         detail,
                         AssistantActivityState.Done));

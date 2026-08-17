@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.39.0] - 2026-08-17
+
+### Changed — a step's label comes off the wire
+
+`AssistantToolVocabulary` held a table of tool names and their prose. The assistant's catalog is a
+file on the assistant's host, so this repo learned of a rename only by being rebuilt — and every
+name in that table was stale, showing nothing while the fallback quietly rendered each tool's raw
+name instead.
+
+The assistant sends each step's label with the step, and that is what a Discord thread now shows. A
+frame carrying no label still describes the step from its own name, because a step dropped for being
+unrecognised makes the account of a turn quietly incomplete.
+
 ## [3.37.3] - 2026-08-16
 
 ### Fixed — federation cannot be registered in the wrong order

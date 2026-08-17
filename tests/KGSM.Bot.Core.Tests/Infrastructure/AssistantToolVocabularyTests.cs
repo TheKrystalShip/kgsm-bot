@@ -14,27 +14,31 @@ namespace KGSM.Bot.Core.Tests.Infrastructure;
 /// </summary>
 public sealed class AssistantToolVocabularyTests
 {
-    [Theory]
-    [InlineData("read_console", "Read the console")]
-    [InlineData("run_health_check", "Ran a health check")]
-    [InlineData("search", "Searched the guides")]
-    public void AKnownTool_ReadsAsWords(string tool, string expected) =>
-        AssistantToolVocabulary.Label(tool).Should().Be(expected);
+    /// <summary>
+    /// The assistant sends each step's prose with the step, and that is what is shown. Its catalog
+    /// is a file on its own host, so anything this repo held would describe a build rather than the
+    /// tool that ran — which is what a table here did, silently, for every renamed tool.
+    /// </summary>
+    [Fact]
+    public void TheLabelTheAssistantSent_IsTheOneShown() =>
+        AssistantToolVocabulary.Label("read_instance_console", "Reading the console")
+            .Should().Be("Reading the console");
 
     /// <summary>
-    /// The assistant's catalog grows without this repo being rebuilt. A tool nobody has written prose
-    /// for is turned back into words rather than dropped — a step missing from the account of a turn
-    /// is the one thing a transcript must not have.
+    /// A frame with no label — an older assistant, or a catalog entry without one — is still
+    /// described. A step dropped because nothing here recognised it would make the account of a turn
+    /// quietly incomplete, which is the one thing a transcript must not be.
     /// </summary>
     [Theory]
     [InlineData("trace_memory_pressure", "Trace memory pressure")]
+    [InlineData("find_instance_file", "Find instance file")]
     [InlineData("some-new-tool", "Some new tool")]
-    public void AnUnknownTool_IsStillDescribed(string tool, string expected) =>
-        AssistantToolVocabulary.Label(tool).Should().Be(expected);
+    public void AToolWithNoLabel_IsStillDescribed(string tool, string expected) =>
+        AssistantToolVocabulary.Label(tool, null).Should().Be(expected);
 
     [Fact]
     public void ANamelessTool_StillReadsAsSomething() =>
-        AssistantToolVocabulary.Label(string.Empty).Should().Be("Worked on it");
+        AssistantToolVocabulary.Label(string.Empty, null).Should().Be("Worked on it");
 
     // --- subjects -------------------------------------------------------------------------------
 

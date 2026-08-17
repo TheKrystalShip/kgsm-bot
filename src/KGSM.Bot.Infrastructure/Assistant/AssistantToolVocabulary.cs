@@ -3,65 +3,37 @@ using System.Text.Json;
 namespace KGSM.Bot.Infrastructure.Assistant;
 
 /// <summary>
-/// The assistant's tools in words, and the one safe sentence each result is worth.
+/// The assistant's tool results in words — what a step's card is worth saying about, and who it was
+/// about.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A tool name is the catalog's vocabulary, not a reader's: <c>run_health_check</c> and
-/// <c>trace_root_cause</c> mean something to whoever wrote the catalog and nothing to somebody who
-/// opened a crash thread. The label is what a surface shows instead.
-/// </para>
-/// <para>
-/// <b>An unknown tool is described, never hidden.</b> The assistant's catalog grows without this
-/// repo being rebuilt, and a step dropped because its name is unrecognised would make the account of
-/// a turn quietly incomplete — the one thing a transcript must not be. A name nobody has written
-/// prose for is turned back into words (<c>find_files</c> → "Find files"), which reads correctly for
-/// every tool the catalog is likely to gain.
-/// </para>
+/// <b>The label is not here.</b> It comes off the wire: the assistant sends each step's prose with
+/// the step, because the tool catalog is a file on the assistant's host and this repo learns of a
+/// rename only by being rebuilt. A table here would go stale the moment a tool is renamed and keep
+/// showing a name nothing is called any more — which is exactly what it did.
 /// </remarks>
 public static class AssistantToolVocabulary
 {
-    private static readonly IReadOnlyDictionary<string, string> Labels =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["server_info"] = "Checked the server",
-            ["host_info"] = "Checked the host",
-            ["blueprint_info"] = "Looked up the game",
-            ["events"] = "Read recent events",
-            ["run_health_check"] = "Ran a health check",
-            ["trace_root_cause"] = "Traced the root cause",
-            ["read_console"] = "Read the console",
-            ["read_file"] = "Read a file",
-            ["list_files"] = "Listed files",
-            ["find_files"] = "Searched for a file",
-            ["search_files"] = "Searched inside the files",
-            ["get_performance"] = "Checked performance",
-            ["get_network"] = "Checked the network",
-            ["search"] = "Searched the guides",
-            ["fetch_url"] = "Read a page",
-            ["server_command"] = "Proposed a server action",
-            ["set_config_value"] = "Proposed a config change",
-            ["backup_command"] = "Proposed a backup action",
-            ["player_command"] = "Proposed a player action",
-            ["install_server"] = "Proposed an install",
-        };
-
     /// <summary>
-    /// <paramref name="tool"/> in words. A tool this build has no prose for is turned back into
-    /// words from its own name rather than shown raw or dropped.
+    /// A step in words, from the label the assistant sent with it.
+    /// <para>
+    /// A frame carrying no label — an older assistant, or a tool whose catalog entry has none — is
+    /// turned back into words from the tool's own name (<c>find_instance_file</c> → "Find instance
+    /// file"). <b>An unknown step is described, never hidden</b>: a step dropped because nothing
+    /// here recognised it would make the account of a turn quietly incomplete, which is the one
+    /// thing a transcript must not be.
+    /// </para>
     /// </summary>
-    public static string Label(string tool)
+    public static string Label(string? tool, string? label)
     {
+        if (!string.IsNullOrWhiteSpace(label))
+            return label;
+
         if (string.IsNullOrWhiteSpace(tool))
             return "Worked on it";
 
-        if (Labels.TryGetValue(tool, out var label))
-            return label;
-
         var words = tool.Replace('_', ' ').Replace('-', ' ').Trim();
-        return words.Length == 0
-            ? "Worked on it"
-            : char.ToUpperInvariant(words[0]) + words[1..];
+        return words.Length == 0 ? "Worked on it" : char.ToUpperInvariant(words[0]) + words[1..];
     }
 
     /// <summary>
