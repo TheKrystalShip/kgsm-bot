@@ -10,6 +10,7 @@ using NSubstitute;
 
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 
 using Xunit;
 
@@ -36,6 +37,13 @@ public sealed class PlayerRosterTests
         _cache.GetInstancesAsync(Arg.Any<CancellationToken>())
             .Returns(names.ToDictionary(n => n, n => new Instance { Name = n })
                 as IReadOnlyDictionary<string, Instance>);
+
+    private void InventoryWithLibrary(string name, InstanceLibraryState state, string library) =>
+        _cache.GetInstancesAsync(Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<string, Instance>
+            {
+                [name] = new() { Name = name, LibraryState = state, Library = library },
+            } as IReadOnlyDictionary<string, Instance>);
 
     private void Running(string name, bool running) =>
         _instances.IsActiveAsync(name).Returns(Result.Success(running));
@@ -324,6 +332,73 @@ public sealed class PlayerRosterTests
         roster.Running.Should().BeTrue();
     }
 
+    // ── an unreachable library ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The state the whole three-value run state exists for: an instance is registered, its disk is
+    /// not there, and nothing about it can be measured.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ The engine's <c>is-active</c> answers by exit code, so it returns the stopped one for an
+    /// instance it cannot open. Reporting that as a stopped server tells an operator their fleet went
+    /// down when what happened is that a drive came out — so the engine is not asked at all, which is
+    /// what the last assertion pins.
+    /// </remarks>
+    [Fact]
+    public async Task AServerWhoseLibraryIsAwayIsUnreadRatherThanStopped()
+    {
+        InventoryWithLibrary("factorio", InstanceLibraryState.Offline, "external");
+        Running("factorio", false);
+        Presence(("factorio", "log", []));
+
+        ServerRoster roster = (await Roster().GetAllAsync()).Single();
+
+        roster.Running.Should().BeNull();
+        roster.Knowledge.Should().Be(RosterKnowledge.Unavailable);
+        roster.Count.Should().BeNull();
+        roster.LibraryAway.Should().BeTrue();
+        roster.Library.Should().Be("external");
+
+        await _instances.DidNotReceive().IsActiveAsync("factorio");
+    }
+
+    /// <summary>
+    /// A stale presence entry under an absent library must not become a measured zero.
+    /// </summary>
+    [Fact]
+    public async Task AnAwayLibraryOutranksTheSupervisorsLeftoverEntry()
+    {
+        InventoryWithLibrary("terraria", InstanceLibraryState.Offline, "external");
+        Running("terraria", true);
+        Presence(("terraria", "log", ["alice"]));
+
+        ServerRoster roster = (await Roster().GetAllAsync()).Single();
+
+        roster.Knowledge.Should().Be(RosterKnowledge.Unavailable);
+        roster.Players.Should().BeEmpty();
+        roster.Count.Should().BeNull();
+    }
+
+    /// <summary>
+    /// A reachable library changes nothing: the run state and the roster are measured as before, and
+    /// the library fact rides along for a surface that wants to name it.
+    /// </summary>
+    [Fact]
+    public async Task AnOnlineLibraryIsMeasuredNormallyAndNamed()
+    {
+        InventoryWithLibrary("minecraft", InstanceLibraryState.Online, "default");
+        Running("minecraft", true);
+        Presence(("minecraft", "log", ["alice"]));
+
+        ServerRoster roster = (await Roster().GetAllAsync()).Single();
+
+        roster.Knowledge.Should().Be(RosterKnowledge.Known);
+        roster.Running.Should().BeTrue();
+        roster.Count.Should().Be(1);
+        roster.LibraryAway.Should().BeFalse();
+        roster.Library.Should().Be("default");
+    }
+
     // ── lookup ────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -332,5 +407,18 @@ public sealed class PlayerRosterTests
         _cache.GetInstanceAsync("nope", Arg.Any<CancellationToken>()).Returns((Instance?)null);
 
         (await Roster().GetAsync("nope")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AOneServerLookupHonoursAnAwayLibraryToo()
+    {
+        _cache.GetInstanceAsync("factorio", Arg.Any<CancellationToken>()).Returns(
+            new Instance { Name = "factorio", LibraryState = InstanceLibraryState.Offline, Library = "external" });
+        Running("factorio", false);
+
+        ServerRoster roster = (await Roster().GetAsync("factorio"))!;
+
+        roster.Running.Should().BeNull();
+        roster.LibraryAway.Should().BeTrue();
     }
 }

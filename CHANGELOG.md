@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a server whose library is away is unread, never stopped
+
+Every surface that reports run state has three answers rather than two: running, stopped, and
+unread. A server whose files sit behind an unreachable library is the third, and the reply names
+the library — `❔ Unread — library \`external\` is away` on `/list`, `📦 library away (\`external\`)`
+on the live status board, its own sentence on `/players` and `/is-active`, and a footer on
+`/connect` that declines to say whether anything is listening.
+
+The engine measures an absent disk as an absence and reports null, and kgsm-lib 6.0.0 (pinned here)
+carries that through: `InstanceRuntimeStatus.Status` and `Instance.Runtime` are nullable, and
+`Instance.LibraryState` says why the rest of an instance is empty.
+
+⚠ **The engine's `is-active` cannot express this, so it is not asked.** It answers by exit code, and
+`IsActive` reports any non-zero as stopped — so an instance it cannot even open reads as a stopped
+server, and an unplugged disk reads as a shelf of servers going down at once. `PlayerRoster`,
+`ServerConnectionService` and `/list` check the library state first and skip the call, which is also
+one fewer kgsm process per unreachable instance. The supervisor's presence map is refused on the same
+grounds: an entry left over from before the library went away would otherwise render as a measured
+zero players.
+
+`ServerRoster` carries the library state and name beside the run state it already carried, so the
+board and `/players` read one answer about one moment rather than each asking again.
+`ServerConnection.IsRunning` is nullable for the same reason.
+
+An install announcement names the library it landed on (`factorio → external`), from the new
+`InstanceInstalledData.Library`.
+
 ### Changed — `/install` picks a library, not a path
 
 The command's `path` option is now `library`, autocompleted from the host's registered libraries with

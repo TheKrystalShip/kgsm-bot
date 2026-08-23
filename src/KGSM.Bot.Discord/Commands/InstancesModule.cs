@@ -11,6 +11,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -22,6 +24,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerService _server;
     private readonly IGuildStore _guilds;
+    private readonly IKgsmStateCache _cache;
     private readonly IInvocationContext _invocation;
     private readonly DiscordOptions _options;
     private readonly ILogger<InstancesModule> _logger;
@@ -30,12 +33,14 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     public InstancesModule(
         IServerService server,
         IGuildStore guilds,
+        IKgsmStateCache cache,
         IInvocationContext invocation,
         IOptions<DiscordOptions> options,
         ILogger<InstancesModule> logger)
     {
         _server = server;
         _guilds = guilds;
+        _cache = cache;
         _invocation = invocation;
         _options = options.Value;
         _logger = logger;
@@ -240,6 +245,16 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogInformation("Handling is-active command for instance {InstanceName}", instance);
 
+            // Asked before the engine is, because the engine's answer to this question is an exit
+            // code and an instance behind an unmounted library produces the same one a stopped
+            // server does. Reporting that as "inactive" is the fabrication this command exists to
+            // avoid making.
+            if (await LibraryAwayAsync(instance) is string away)
+            {
+                await RespondAsync(away, ephemeral: Quietly);
+                return;
+            }
+
             var result = await _server.IsActiveAsync(instance);
 
             if (!result.IsSuccess)
@@ -295,8 +310,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             {
                 var (name, instance) = pair;
 
-                var isActive = await _server.IsActiveAsync(name);
-                string status = isActive.IsSuccess && isActive.IsActive ? "🟢 Online" : "🔴 Offline";
+                string status = await RunStateAsync(name, instance);
 
                 // The channel THIS Discord server reports it in. A server has one only where a board
                 // is on, and the answer is per-guild — the same instance reports in a different
@@ -325,5 +339,64 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             _logger.LogError(ex, "Error handling list command");
             await RespondAsync($"An error occurred: {ex.Message}", ephemeral: Quietly);
         }
+    }
+
+    /// <summary>
+    /// One server's run state as a marker and a word, with three outcomes rather than two.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ <b>An instance whose library is away is not asked about.</b> Its files, its version and its
+    /// process are all behind a disk that is not there, and the engine's <c>is-active</c> answers by
+    /// exit code — so it returns the stopped one for an instance it cannot open, and a list rendering
+    /// that reports a shelf of servers as down when what happened is that a drive came out. The
+    /// library is named because it is the thing somebody has to go and fix.
+    /// <b>A check that simply failed is unread too</b>, for the same reason: not looking is not the
+    /// same as looking and finding the server stopped.
+    /// </remarks>
+    /// <summary>
+    /// The sentence to say instead of a run state when the server's files are out of reach, or
+    /// <see langword="null"/> when they are not.
+    /// </summary>
+    /// <remarks>
+    /// An inventory that could not be read answers <see langword="null"/> — the library is then one
+    /// more thing this host cannot say, and the run-state read below reports its own failure in its
+    /// own words rather than having this one put in its mouth.
+    /// </remarks>
+    private async Task<string?> LibraryAwayAsync(string name)
+    {
+        Instance? instance;
+        try
+        {
+            instance = await _cache.GetInstanceAsync(name);
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "The library state of {InstanceName} could not be read.", name);
+            return null;
+        }
+
+        if (instance?.LibraryState != InstanceLibraryState.Offline)
+            return null;
+
+        return string.IsNullOrWhiteSpace(instance.Library)
+            ? $"❔ I can't tell you — **{name}**'s library is away, so nothing about it can be read."
+            : $"❔ I can't tell you — **{name}** lives in library `{instance.Library}`, which is away, " +
+              "so nothing about it can be read.";
+    }
+
+    private async Task<string> RunStateAsync(string name, Instance instance)
+    {
+        if (instance.LibraryState == InstanceLibraryState.Offline)
+        {
+            return string.IsNullOrWhiteSpace(instance.Library)
+                ? "❔ Unread — its library is away"
+                : $"❔ Unread — library `{instance.Library}` is away";
+        }
+
+        var isActive = await _server.IsActiveAsync(name);
+        if (!isActive.IsSuccess)
+            return "❔ Unread";
+
+        return isActive.IsActive ? "🟢 Online" : "🔴 Offline";
     }
 }

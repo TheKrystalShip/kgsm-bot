@@ -239,7 +239,11 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
                     // backups could not be read, which is not the same as one that has none.
                     Backup: backups.TryGetValue(pair.Key, out InstanceBackup? latest)
                         ? new BackupAge(latest?.CreatedAt, latest is not null)
-                        : null);
+                        : null,
+                    // Read off the same roster the run state came from, so the row cannot say the
+                    // library is reachable and the run state is unknown about two different moments.
+                    LibraryAway: roster?.LibraryAway ?? false,
+                    Library: roster?.Library ?? string.Empty);
             })];
 
         HostAddresses addresses = await _addresses.ResolveAsync(cancellationToken);
@@ -426,6 +430,14 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
             if (!string.IsNullOrWhiteSpace(server.Blueprint))
                 body.Append(" · ").Append(server.Blueprint);
 
+            // Said before the counts, because it is the reason they are missing.
+            if (server.LibraryAway)
+            {
+                body.Append(" · 📦 library away");
+                if (!string.IsNullOrWhiteSpace(server.Library))
+                    body.Append(" (`").Append(server.Library).Append("`)");
+            }
+
             // Only where the count is a measurement, and only when somebody is on — an empty server
             // does not need saying twice, and a server nobody can see into must not be given a zero.
             if (server.Players is > 0)
@@ -577,9 +589,17 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     /// reports no players, a supervisor that could not be asked, a server that is not running — and
     /// null prints as nothing, because printing it as 0 would claim an empty server.
     /// </summary>
+    /// <summary>
+    /// One line of the board.
+    /// </summary>
+    /// <remarks>
+    /// <c>LibraryAway</c> says the server's files are out of reach, which is why its row can be
+    /// marked unread rather than stopped. It earns a word of its own on the line: a bare "unknown"
+    /// sends somebody looking at the server, and "its library is away" sends them at the disk.
+    /// </remarks>
     private sealed record ServerRow(
         string Name, string Blueprint, IReadOnlyList<PortMapping> Ports, bool? Running, int? Players,
-        BackupAge? Backup);
+        BackupAge? Backup, bool LibraryAway = false, string Library = "");
 
     /// <summary>
     /// What is known about a server's newest backup. Null in <c>ServerRow</c> means the backups could

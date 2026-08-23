@@ -14,7 +14,7 @@
   <ItemGroup>
     <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
          /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="5.0.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="6.0.0" />
     <!-- The ecosystem's shared authority ladder. A question put to the assistant carries the asker's
          tier, so the type that spells it belongs with the interfaces rather than being re-stated. -->
     <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="3.0.0" />

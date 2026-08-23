@@ -86,7 +86,7 @@ public class PlayersModule : InteractionModuleBase<SocketInteractionContext>
 
         if (roster.Knowledge != RosterKnowledge.Known)
         {
-            embed.WithDescription(Explain(roster.Knowledge));
+            embed.WithDescription(Explain(roster));
             return embed.Build();
         }
 
@@ -160,7 +160,7 @@ public class PlayersModule : InteractionModuleBase<SocketInteractionContext>
     private static string Summarize(ServerRoster roster)
     {
         if (roster.Knowledge != RosterKnowledge.Known)
-            return Explain(roster.Knowledge);
+            return Explain(roster);
 
         if (roster.Players.Count == 0)
             return "nobody connected";
@@ -184,13 +184,25 @@ public class PlayersModule : InteractionModuleBase<SocketInteractionContext>
     /// the game, the second is a component being down and will fix itself. An operator reads them
     /// differently, and only one of them is worth reporting as a fault.
     /// </remarks>
-    private static string Explain(RosterKnowledge knowledge) => knowledge switch
+    private static string Explain(ServerRoster roster)
     {
-        RosterKnowledge.Stopped => "stopped, so nobody is on it",
-        RosterKnowledge.NotObservable => "this game doesn't report its players, so I can't tell you who's on it",
-        RosterKnowledge.Unavailable => "I couldn't ask the supervisor, so I don't know",
-        _ => "unknown",
-    };
+        // Ahead of the knowledge state, because it is the more specific answer and it names something
+        // a person can act on. "I couldn't ask the supervisor" would be true here and useless.
+        if (roster.LibraryAway)
+        {
+            return string.IsNullOrWhiteSpace(roster.Library)
+                ? "its library is away, so nothing about it can be read"
+                : $"library `{roster.Library}` is away, so nothing about it can be read";
+        }
+
+        return roster.Knowledge switch
+        {
+            RosterKnowledge.Stopped => "stopped, so nobody is on it",
+            RosterKnowledge.NotObservable => "this game doesn't report its players, so I can't tell you who's on it",
+            RosterKnowledge.Unavailable => "I couldn't ask the supervisor, so I don't know",
+            _ => "unknown",
+        };
+    }
 
     /// <summary>
     /// Discord caps an embed field at 1024 characters. A host with more servers than fit gets as many

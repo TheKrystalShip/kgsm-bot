@@ -68,7 +68,7 @@ public class ConnectModule : InteractionModuleBase<SocketInteractionContext>
     {
         var embed = new EmbedBuilder()
             .WithTitle($"How to join {connection.Instance}")
-            .WithColor(connection.IsRunning ? Color.Green : Color.LightGrey)
+            .WithColor(connection.IsRunning == true ? Color.Green : Color.LightGrey)
             .WithCurrentTimestamp();
 
         embed.AddField("Address", AddressField(connection));
@@ -84,10 +84,18 @@ public class ConnectModule : InteractionModuleBase<SocketInteractionContext>
                 string.Join("\n", connection.LocalAddresses.Select(ip => $"`{Join(ip, connection)}`")));
         }
 
-        if (!connection.IsRunning)
+        // Three states: the footer that explains a dead port only goes on a server measured to be
+        // down, and a run state that could not be read says so instead of borrowing that sentence.
+        if (connection.IsRunning == false)
         {
             embed.WithFooter(
                 "This server is not running, so nothing is listening on those ports right now.");
+        }
+        else if (connection.IsRunning is null)
+        {
+            embed.WithFooter(
+                "❔ I couldn't read whether this server is running, so I can't tell you whether " +
+                "anything is listening on those ports.");
         }
 
         return embed.Build();

@@ -168,7 +168,17 @@ public class KgsmServerEventHandler : IServerEventHandler
             }
         }
 
-        await AnnounceAsync(AnnouncementKind.Installed, data, Trimmed(data.Blueprint));
+        // The library is named beside the blueprint on a host with more than one disk, because which
+        // one an install landed on is the fact that becomes hard to recover later.
+        string? detail = (Trimmed(data.Blueprint), Trimmed(data.Library)) switch
+        {
+            (string blueprint, string library) => $"{blueprint} → {library}",
+            (string blueprint, null) => blueprint,
+            (null, string library) => library,
+            _ => null,
+        };
+
+        await AnnounceAsync(AnnouncementKind.Installed, data, detail);
     }
 
     private async Task OnInstanceUninstalledAsync(InstanceUninstalledData data)

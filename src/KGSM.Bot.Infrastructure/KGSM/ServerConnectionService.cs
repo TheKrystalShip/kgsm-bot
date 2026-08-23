@@ -5,6 +5,7 @@ using KGSM.Bot.Core.Models;
 using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM.Core.Models;
+using TheKrystalShip.KGSM.Core.Models.Enums;
 
 namespace KGSM.Bot.Infrastructure.KGSM;
 
@@ -63,7 +64,7 @@ public sealed class ServerConnectionService : IServerConnectionService
         // the address.
         HostAddresses addresses = await _addresses.ResolveAsync(cancellationToken);
         FirewallExposure firewall = await _firewall.DescribeAsync(instanceName, ports, cancellationToken);
-        bool running = await IsRunningAsync(instanceName);
+        bool? running = await IsRunningAsync(instanceName, instance);
 
         return Result.Success(new ServerConnection(
             Instance: instance.Name,
@@ -75,9 +76,21 @@ public sealed class ServerConnectionService : IServerConnectionService
             IsRunning: running));
     }
 
-    private async Task<bool> IsRunningAsync(string instanceName)
+    /// <summary>
+    /// Whether the server is up, or null when this host cannot say.
+    /// </summary>
+    /// <remarks>
+    /// ⚠ <b>An instance whose library is away is not asked about.</b> The engine answers this by exit
+    /// code, so it has no way to say "I could not look" and returns the stopped one for an instance
+    /// it cannot open — which would put "nothing is listening on those ports" under a connect string
+    /// on the strength of an unplugged disk.
+    /// </remarks>
+    private async Task<bool?> IsRunningAsync(string instanceName, Instance instance)
     {
+        if (instance.LibraryState == InstanceLibraryState.Offline)
+            return null;
+
         Result<bool> active = await _instances.IsActiveAsync(instanceName);
-        return active.IsSuccess && active.Value;
+        return active.IsSuccess ? active.Value : null;
     }
 }

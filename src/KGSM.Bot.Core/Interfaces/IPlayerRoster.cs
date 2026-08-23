@@ -1,3 +1,5 @@
+using TheKrystalShip.KGSM.Core.Models.Enums;
+
 namespace KGSM.Bot.Core.Interfaces;
 
 /// <summary>
@@ -45,19 +47,43 @@ public interface IPlayerRoster
 /// <param name="Running">
 /// Whether the server is up, or <see langword="null"/> when that could not be read.
 /// </param>
+/// <param name="LibraryState">
+/// Where the server's files stand relative to the library holding them, or <see langword="null"/>
+/// when the engine did not say. This is the field that explains a null <paramref name="Running"/>:
+/// <see cref="InstanceLibraryState.Offline"/> means the disk is away, which is why nothing about the
+/// server could be measured.
+/// </param>
+/// <param name="Library">
+/// The library the server is placed in, so a surface reporting an unreachable one can name the disk
+/// somebody has to plug back in. Empty when the engine did not say.
+/// </param>
 /// <remarks>
+/// <para>
 /// <b>Run state is carried rather than re-read.</b> Deciding whether a roster means anything requires
 /// asking the engine whether the server is even running, and that answer costs a kgsm process per
 /// server. A surface that wants both — the live status board wants exactly both — would otherwise ask
 /// the same question a second time, paying twice for one fact and able to get two answers about the
 /// same moment.
+/// </para>
+/// <para>
+/// <b>The library state is carried for the same reason.</b> It is what turns a bare "unknown" into a
+/// sentence worth reading, and a surface deriving it from a second inventory read would be answering
+/// about a different moment than the run state beside it.
+/// </para>
 /// </remarks>
 public sealed record ServerRoster(
     string Server,
     RosterKnowledge Knowledge,
     IReadOnlyList<RosterPlayer> Players,
-    bool? Running)
+    bool? Running,
+    InstanceLibraryState? LibraryState = null,
+    string Library = "")
 {
+    /// <summary>
+    /// Whether the server's files are out of reach, which is why the rest of this answer is empty.
+    /// </summary>
+    public bool LibraryAway => LibraryState == InstanceLibraryState.Offline;
+
     /// <summary>
     /// How many are connected, or <see langword="null"/> when that is not known.
     /// </summary>

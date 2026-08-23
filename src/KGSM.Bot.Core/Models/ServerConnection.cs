@@ -107,8 +107,11 @@ public sealed record FirewallExposure(
 /// <param name="Ports">The server's ports, canonical and range-preserving, straight from the
 /// engine.</param>
 /// <param name="Firewall">What the firewall authority says about those ports.</param>
-/// <param name="IsRunning">Whether the server is up. A closed-looking port on a stopped server is
-/// simply a stopped server, and the reply says which it is.</param>
+/// <param name="IsRunning">Whether the server is up, or <see langword="null"/> when that could not
+/// be read. A closed-looking port on a stopped server is simply a stopped server, and the reply says
+/// which it is — but only when it knows. ⚠ Null is not <see langword="false"/>: a footer saying
+/// nothing is listening, printed because a read failed, is the fabrication this three-state
+/// prevents.</param>
 public sealed record ServerConnection(
     string Instance,
     string? Address,
@@ -116,4 +119,4 @@ public sealed record ServerConnection(
     IReadOnlyList<string> LocalAddresses,
     IReadOnlyList<PortMapping> Ports,
     FirewallExposure Firewall,
-    bool IsRunning);
+    bool? IsRunning);
