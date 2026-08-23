@@ -96,13 +96,13 @@ public sealed class ServerService : IServerService
         }
     }
 
-    public async Task<OperationResult> InstallAsync(string blueprintName, string? path, string? version, string? name, CancellationToken ct = default)
+    public async Task<OperationResult> InstallAsync(string blueprintName, string? library, string? version, string? name, CancellationToken ct = default)
     {
         try
         {
-            _logger.LogInformation("Installing server instance from blueprint {BlueprintName} at path {Path} with version {Version} and name {Name}",
-                blueprintName, path ?? "default", version ?? "default", name ?? "auto-generated");
-            var result = await _serverInstanceService.InstallAsync(blueprintName, path, version, name);
+            _logger.LogInformation("Installing server instance from blueprint {BlueprintName} into library {Library} with version {Version} and name {Name}",
+                blueprintName, library ?? "default", version ?? "default", name ?? "auto-generated");
+            var result = await _serverInstanceService.InstallAsync(blueprintName, library, version, name);
             if (result.IsFailure)
             {
                 _logger.LogWarning("Failed to install server instance from blueprint {BlueprintName}: {Error}",
@@ -238,6 +238,26 @@ public sealed class ServerService : IServerService
         {
             _logger.LogError(ex, "Error getting all blueprints");
             return BlueprintsResult.Failure($"An error occurred: {ex.Message}");
+        }
+    }
+
+    public async Task<LibrariesResult> GetLibrariesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _serverInstanceService.GetLibrariesAsync();
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Failed to get libraries: {Error}", result.Error);
+                return LibrariesResult.Failure(result.Error ?? "Unknown error");
+            }
+            _logger.LogInformation("Successfully retrieved {Count} libraries", result.Value!.Count);
+            return LibrariesResult.Success(result.Value!);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting libraries");
+            return LibrariesResult.Failure($"An error occurred: {ex.Message}");
         }
     }
 

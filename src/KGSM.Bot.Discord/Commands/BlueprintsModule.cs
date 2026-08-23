@@ -34,8 +34,9 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
         [Autocomplete(typeof(BlueprintAutocompleteHandler))]
         string blueprint,
 
-        [Summary(description: "Installation path (optional)")]
-        string? path = null,
+        [Summary(description: "Library to install into (optional)")]
+        [Autocomplete(typeof(LibraryAutocompleteHandler))]
+        string? library = null,
 
         [Summary(description: "Version to install (optional)")]
         string? version = null,
@@ -46,18 +47,18 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
         using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
         try
         {
-            _logger.LogInformation("Handling install command for blueprint {BlueprintName} at {Path} with version {Version} and name {Name}",
-                blueprint, path ?? "default", version ?? "default", name ?? "auto-generated");
+            _logger.LogInformation("Handling install command for blueprint {BlueprintName} into library {Library} with version {Version} and name {Name}",
+                blueprint, library ?? "default", version ?? "default", name ?? "auto-generated");
 
             var installMessage = $"Installing {blueprint}";
-            if (!string.IsNullOrEmpty(path)) installMessage += $" at {path}";
+            if (!string.IsNullOrEmpty(library)) installMessage += $" into {library}";
             if (!string.IsNullOrEmpty(version)) installMessage += $" version {version}";
             if (!string.IsNullOrEmpty(name)) installMessage += $" with name {name}";
             installMessage += "...";
 
             await RespondAsync(installMessage);
 
-            var result = await _server.InstallAsync(blueprint, path, version, name);
+            var result = await _server.InstallAsync(blueprint, library, version, name);
             if (!result.IsSuccess)
             {
                 _logger.LogWarning("Failed to install blueprint {BlueprintName}: {Error}",

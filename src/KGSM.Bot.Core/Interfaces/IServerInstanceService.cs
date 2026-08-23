@@ -19,11 +19,17 @@ public interface IServerInstanceService
     /// Installs a new server instance from a blueprint
     /// </summary>
     /// <param name="blueprintName">Name of the blueprint to use</param>
-    /// <param name="instancePath">Installation path for the instance (optional)</param>
+    /// <param name="library">Library to place the instance in (optional; absent lets the engine resolve it)</param>
     /// <param name="version">Version to install (optional)</param>
     /// <param name="name">Name for the instance (optional)</param>
     /// <returns>Result of the operation</returns>
-    Task<Result> InstallAsync(string blueprintName, string? instancePath = null, string? version = null, string? name = null);
+    Task<Result> InstallAsync(string blueprintName, string? library = null, string? version = null, string? name = null);
+
+    /// <summary>
+    /// Lists the libraries instances can be placed in.
+    /// </summary>
+    /// <returns>The registered libraries, or a failure when the engine could not be read</returns>
+    Task<Result<IReadOnlyList<Library>>> GetLibrariesAsync();
 
     /// <summary>
     /// Uninstalls a server instance

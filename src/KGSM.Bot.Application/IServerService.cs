@@ -14,7 +14,7 @@ public interface IServerService
     Task<OperationResult> StartAsync(string instanceName, CancellationToken ct = default);
     Task<OperationResult> StopAsync(string instanceName, CancellationToken ct = default);
     Task<OperationResult> RestartAsync(string instanceName, CancellationToken ct = default);
-    Task<OperationResult> InstallAsync(string blueprintName, string? path, string? version, string? name, CancellationToken ct = default);
+    Task<OperationResult> InstallAsync(string blueprintName, string? library, string? version, string? name, CancellationToken ct = default);
     Task<OperationResult> UninstallAsync(string instanceName, CancellationToken ct = default);
     Task<OperationResult> CreateBackupAsync(string instanceName, CancellationToken ct = default);
     Task<OperationResult> UpdateAsync(string instanceName, CancellationToken ct = default);
@@ -23,6 +23,7 @@ public interface IServerService
     // ── Queries ───────────────────────────────────────────────────────────
     Task<ServerInstancesResult> GetAllInstancesAsync(CancellationToken ct = default);
     Task<BlueprintsResult> GetAllBlueprintsAsync(CancellationToken ct = default);
+    Task<LibrariesResult> GetLibrariesAsync(CancellationToken ct = default);
     Task<ServerStatusResult> GetStatusAsync(string instanceName, CancellationToken ct = default);
     Task<ServerActiveResult> IsActiveAsync(string instanceName, CancellationToken ct = default);
     Task<WatchdogStatusResult> GetWatchdogStatusAsync(string instanceName, CancellationToken ct = default);
@@ -85,6 +86,27 @@ public record BlueprintsResult
         new(true, blueprints, null);
 
     public static BlueprintsResult Failure(string errorMessage) =>
+        new(false, null, errorMessage);
+}
+
+/// <summary>Result for GetLibrariesAsync.</summary>
+public record LibrariesResult
+{
+    public bool IsSuccess { get; }
+    public IReadOnlyList<Library>? Libraries { get; }
+    public string? ErrorMessage { get; }
+
+    private LibrariesResult(bool isSuccess, IReadOnlyList<Library>? libraries, string? errorMessage)
+    {
+        IsSuccess = isSuccess;
+        Libraries = libraries;
+        ErrorMessage = errorMessage;
+    }
+
+    public static LibrariesResult Success(IReadOnlyList<Library> libraries) =>
+        new(true, libraries, null);
+
+    public static LibrariesResult Failure(string errorMessage) =>
         new(false, null, errorMessage);
 }
 

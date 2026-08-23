@@ -139,11 +139,11 @@
             "autocomplete": true
           },
           {
-            "name": "path",
-            "description": "Installation path (optional)",
+            "name": "library",
+            "description": "Library to install into (optional)",
             "type": "string",
             "required": false,
-            "autocomplete": false
+            "autocomplete": true
           },
           {
             "name": "version",

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — `/install` picks a library, not a path
+
+The command's `path` option is now `library`, autocompleted from the host's registered libraries with
+each one's free space beside its name. Absent, the engine resolves placement itself — its configured
+default library, else the sole registered one.
+
+The engine has no `--install-dir` flag, so a raw path had nowhere to go: every install through this
+command was failing at the engine until this landed. Autocomplete lists only online libraries, because
+Discord has no disabled entry and offering an unreachable one would offer a placement the engine
+refuses. Free space is omitted rather than shown as zero when the engine measured none — an
+unmeasured library is not a full one.
+
+Pins kgsm-lib 5.0.0 for `IKgsmClient.Libraries` and the reshaped `Install`.
+
+
 ## [3.40.0] - 2026-08-18
 
 ### Added — every journal line now carries its own id

@@ -63,16 +63,16 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
-    public async Task<Result> InstallAsync(string blueprintName, string? instancePath = null, string? version = null, string? name = null)
+    public async Task<Result> InstallAsync(string blueprintName, string? library = null, string? version = null, string? name = null)
     {
         try
         {
-            _logger.LogInformation("Installing server instance from blueprint {BlueprintName} at path {Path} with version {Version} and name {Name}",
-                blueprintName, instancePath, version, name);
+            _logger.LogInformation("Installing server instance from blueprint {BlueprintName} into library {Library} with version {Version} and name {Name}",
+                blueprintName, library, version, name);
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
             var (actor, origin) = Provenance();
-            await Task.Run(() => _kgsmClient.Instances.Install(blueprintName, instancePath, version, name, actor, origin));
+            await Task.Run(() => _kgsmClient.Instances.Install(blueprintName, library, version, name, actor, origin));
 
             _logger.LogInformation("Successfully installed server instance from blueprint {BlueprintName}",
                 blueprintName);
@@ -83,6 +83,33 @@ public class KgsmServerInstanceService : IServerInstanceService
             _logger.LogError(ex, "Error installing server instance from blueprint {BlueprintName}",
                 blueprintName);
             return Result.Failure(ex.Message);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<IReadOnlyList<Library>>> GetLibrariesAsync()
+    {
+        try
+        {
+            // Never cached: free space is a measurement, and a library goes offline the moment its
+            // disk is unmounted. A stale answer here would offer somewhere to install that is gone.
+            var libraries = await Task.Run(() => _kgsmClient.Libraries.List());
+
+            // Null is a failed read, not a host with nothing registered — the engine emits an empty
+            // array for that. Reporting it as success would offer "no libraries" as a fact.
+            if (libraries is null)
+            {
+                _logger.LogWarning("Could not read the library list from KGSM");
+                return Result.Failure<IReadOnlyList<Library>>("Could not read the library list from KGSM");
+            }
+
+            _logger.LogInformation("Retrieved {Count} libraries", libraries.Count);
+            return Result.Success<IReadOnlyList<Library>>(libraries);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting libraries");
+            return Result.Failure<IReadOnlyList<Library>>(ex.Message);
         }
     }
 
