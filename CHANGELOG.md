@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — an install the engine refused is reported as refused
+
+`/install` and `/uninstall` report the engine's verdict. kgsm answers a mutating call with an exit
+code, and it refuses the ones it cannot make — a library it does not know or cannot reach, a name
+already taken, a disk with no room on it, a server still running — writing the reason to stderr.
+That reason is what the reply carries; a refusal with nothing on stderr says the reason is unknown
+rather than passing an empty sentence off as the engine's answer.
+
+This is the same shape every other mutating verb in `KgsmServerInstanceService` already has, so a
+result is now read on all of them.
+
 ### Changed — a server whose library is away is unread, never stopped
 
 Every surface that reports run state has three answers rather than two: running, stopped, and

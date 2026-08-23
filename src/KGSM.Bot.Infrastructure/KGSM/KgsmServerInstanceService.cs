@@ -72,7 +72,16 @@ public class KgsmServerInstanceService : IServerInstanceService
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
             var (actor, origin) = Provenance();
-            await Task.Run(() => _kgsmClient.Instances.Install(blueprintName, library, version, name, actor, origin));
+            var result = await Task.Run(() => _kgsmClient.Instances.Install(blueprintName, library, version, name, actor, origin));
+            if (result.IsFailure)
+            {
+                // kgsm refuses an install it cannot make — an unknown or offline library, a name
+                // already taken, a full disk — and says which on stderr. Announcing one of those as
+                // an installed server is a fabricated status.
+                _logger.LogWarning("Failed to install server instance from blueprint {BlueprintName}: {Error}",
+                    blueprintName, result.Stderr);
+                return Result.Failure(string.IsNullOrWhiteSpace(result.Stderr) ? "Unknown error" : result.Stderr);
+            }
 
             _logger.LogInformation("Successfully installed server instance from blueprint {BlueprintName}",
                 blueprintName);
@@ -122,7 +131,15 @@ public class KgsmServerInstanceService : IServerInstanceService
 
             // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
             var (actor, origin) = Provenance();
-            await Task.Run(() => _kgsmClient.Instances.Uninstall(instanceName, actor, origin));
+            var result = await Task.Run(() => _kgsmClient.Instances.Uninstall(instanceName, actor, origin));
+            if (result.IsFailure)
+            {
+                // A running instance and an unreachable library are both refusals with a reason on
+                // stderr; reporting one as a removal retires the channel of a server still installed.
+                _logger.LogWarning("Failed to uninstall server instance {InstanceName}: {Error}",
+                    instanceName, result.Stderr);
+                return Result.Failure(string.IsNullOrWhiteSpace(result.Stderr) ? "Unknown error" : result.Stderr);
+            }
 
             _logger.LogInformation("Successfully uninstalled server instance {InstanceName}",
                 instanceName);
