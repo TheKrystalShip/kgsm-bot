@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — a packaged install enables the bot and names the one key blocking it (`3.44.0`)
+
+`packaging/kgsm-bot.install` applies kgsm-base's `50-kgsm.preset` to this project's units in
+`post_install`, so a node comes up with them enabled instead of needing a person to enable each one.
+The node's post-transaction hook starts what is enabled, stopped and configured. `post_upgrade` does
+not preset: an administrator's `disable` survives every later version.
+
+⚠ The hook refuses to START it until `Discord__Token` is set in `/etc/kgsm-bot/kgsm-bot.env` — a bot
+with no token connects to nothing. `kgsm-node-status` names that key, and only that key.
+
+`depends=('kgsm-base')`, which carries the `kgsm` account this unit runs as and the `/var/lib/kgsm`
+tree it reads the account store and the journals from — so this package no longer ships
+`/usr/lib/sysusers.d/kgsm-bot.conf`, and `deploy/sysusers.d/` is gone.
+
 ### Fixed — a packaged node lists this leaf's commands
 
 `packaging/PKGBUILD` installs `deploy/kgsm-bot.commands.json` as
