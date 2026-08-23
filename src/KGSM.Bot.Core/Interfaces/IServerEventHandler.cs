@@ -39,4 +39,12 @@ public interface IServerEventHandler
     /// </summary>
     /// <param name="handler">The handler function</param>
     void RegisterInstanceUninstalledHandler(Func<string, Task> handler);
+
+    /// <summary>
+    /// Registers a handler called when a server's display name changes, with its id and its new
+    /// label. Bookkeeping only, and there is deliberately no announcement kind behind it: renaming
+    /// changes what every surface calls the server and nothing about the server itself.
+    /// </summary>
+    /// <param name="handler">The handler function</param>
+    void RegisterInstanceRenamedHandler(Func<string, string, Task> handler);
 }

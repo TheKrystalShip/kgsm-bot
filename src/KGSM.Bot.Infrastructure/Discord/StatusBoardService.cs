@@ -221,12 +221,15 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         }
 
         ServerRow[] rows = [.. instances
-            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            // Ordered by what the row is read as, so the list is in the order somebody scans it.
+            .OrderBy(pair => pair.Value.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair =>
             {
                 rosters.TryGetValue(pair.Key, out ServerRoster? roster);
                 return new ServerRow(
                     Name: pair.Key,
+                    DisplayName: pair.Value.DisplayName,
                     Blueprint: pair.Value.Blueprint,
                     Ports: pair.Value.Ports ?? [],
                     // Three states, not two: a run state that could not be read is reported as
@@ -425,7 +428,13 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
         var body = new StringBuilder();
         foreach (ServerRow server in snapshot.Servers)
         {
-            body.Append(Marker(server.Running)).Append(" **").Append(server.Name).Append("**");
+            body.Append(Marker(server.Running)).Append(" **").Append(server.DisplayName).Append("**");
+
+            // The id, and only when it is not already the line's first word: it is what a command
+            // takes, so somebody reading the board has the string they need to type. A server that
+            // was never labelled would otherwise be printed twice.
+            if (!string.Equals(server.DisplayName, server.Name, StringComparison.Ordinal))
+                body.Append(" `").Append(server.Name).Append('`');
 
             if (!string.IsNullOrWhiteSpace(server.Blueprint))
                 body.Append(" · ").Append(server.Blueprint);
@@ -597,9 +606,14 @@ public sealed class StatusBoardService : IStatusBoard, IDisposable
     /// marked unread rather than stopped. It earns a word of its own on the line: a bare "unknown"
     /// sends somebody looking at the server, and "its library is away" sends them at the disk.
     /// </remarks>
+    /// <remarks>
+    /// <c>Name</c> is the id — what the filter, the bindings and every command key on — and
+    /// <c>DisplayName</c> is what a person calls it. Both are printed: the label is what somebody
+    /// reads the board for, and the id is what they type afterwards.
+    /// </remarks>
     private sealed record ServerRow(
-        string Name, string Blueprint, IReadOnlyList<PortMapping> Ports, bool? Running, int? Players,
-        BackupAge? Backup, bool LibraryAway = false, string Library = "");
+        string Name, string DisplayName, string Blueprint, IReadOnlyList<PortMapping> Ports,
+        bool? Running, int? Players, BackupAge? Backup, bool LibraryAway = false, string Library = "");
 
     /// <summary>
     /// What is known about a server's newest backup. Null in <c>ServerRow</c> means the backups could

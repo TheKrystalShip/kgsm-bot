@@ -31,7 +31,7 @@ namespace KGSM.Bot.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// The bot subscribes one typed handler per <see cref="KGSM.Bot.Core.Models.AnnouncementKind"/>,
-/// plus the two lifecycle types whose handling is not an announcement. Event types outside that set
+/// plus the lifecycle and rename types whose handling is not an announcement. Event types outside that set
 /// — blueprint events, ports, UPnP, config changes, the download/deploy brackets — are registered in
 /// kgsm-lib's <c>_eventTypeMapping</c>, so they deserialise to their typed classes, but no bot
 /// handler subscribes to them and they take the "No handler registered" path. That is the degrade
@@ -48,6 +48,10 @@ public class KgsmServerEventHandlerUnknownEventTests
         // Lifecycle: these carry a channel to create or retire, on top of announcing.
         typeof(InstanceInstalledData),
         typeof(InstanceUninstalledData),
+
+        // The one subscription with no announcement behind it: a label somebody changed is not news
+        // about the server, and every surface already showing the old one has to drop it.
+        typeof(InstanceDisplayNameChangedData),
 
         // Run state.
         typeof(InstanceStartedData),
@@ -83,7 +87,11 @@ public class KgsmServerEventHandlerUnknownEventTests
         var kgsmClient = Substitute.For<IKgsmClient>();
         kgsmClient.Events.Returns(events);
 
-        var handler = new KgsmServerEventHandler(kgsmClient, NullLogger<KgsmServerEventHandler>.Instance);
+        var labels = Substitute.For<IServerLabels>();
+        labels.LabelAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(call.Arg<string>()));
+
+        var handler = new KgsmServerEventHandler(kgsmClient, labels, NullLogger<KgsmServerEventHandler>.Instance);
         handler.Initialize();
 
         // RegisterHandler<T> is generic, so the type argument is where the subscription actually

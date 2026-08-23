@@ -41,7 +41,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
         [Summary(description: "Version to install (optional)")]
         string? version = null,
 
-        [Summary(description: "Custom name for the instance (optional)")]
+        [Summary(description: "Display name for the server (optional) — its id is generated")]
         string? name = null)
     {
         using var provenance = _invocation.Begin(Invocation.ForDiscordUser(Context.User.Username));
@@ -53,7 +53,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
             var installMessage = $"Installing {blueprint}";
             if (!string.IsNullOrEmpty(library)) installMessage += $" into {library}";
             if (!string.IsNullOrEmpty(version)) installMessage += $" version {version}";
-            if (!string.IsNullOrEmpty(name)) installMessage += $" with name {name}";
+            if (!string.IsNullOrEmpty(name)) installMessage += $" shown as {name}";
             installMessage += "...";
 
             await RespondAsync(installMessage);

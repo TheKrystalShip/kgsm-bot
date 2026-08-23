@@ -154,7 +154,7 @@
           },
           {
             "name": "name",
-            "description": "Custom name for the instance (optional)",
+            "description": "Display name for the server (optional) \u2014 its id is generated",
             "type": "string",
             "required": false,
             "autocomplete": false

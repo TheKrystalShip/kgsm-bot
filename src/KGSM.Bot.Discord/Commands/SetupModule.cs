@@ -47,17 +47,20 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IGuildStore _guilds;
     private readonly IKgsmAccounts _accounts;
     private readonly IStatusBoard _statusBoard;
+    private readonly IServerLabels _labels;
     private readonly ILogger<SetupModule> _logger;
 
     public SetupModule(
         IGuildStore guilds,
         IKgsmAccounts accounts,
         IStatusBoard statusBoard,
+        IServerLabels labels,
         ILogger<SetupModule> logger)
     {
         _guilds = guilds;
         _accounts = accounts;
         _statusBoard = statusBoard;
+        _labels = labels;
         _logger = logger;
     }
 
@@ -97,17 +100,21 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
             embed.AddField("Set up by",
                 $"{topology.ConfiguredBy}, {topology.ConfiguredUtc:yyyy-MM-dd}", inline: true);
 
+            // The store holds ids, which is the only thing that stays true across a rename — so the
+            // label is looked up for the reading and the id is printed beside it. A row naming a
+            // server this host no longer has reads as its id alone, which is the honest answer.
             IReadOnlyList<string> follows = _guilds.FollowedServers(guild.Id);
             embed.AddField("Hears about",
                 follows.Count == 0
                     ? "every server on this host — `/setup follow` narrows it"
-                    : string.Join(", ", follows.Select(s => $"`{s}`")));
+                    : string.Join(", ", await Task.WhenAll(follows.Select(async s => $"`{await _labels.DescribeAsync(s)}`"))));
 
             IReadOnlyList<GuildChannel> channels = _guilds.ChannelsIn(guild.Id);
             if (channels.Count > 0)
             {
                 embed.AddField($"Servers with a channel here ({channels.Count})",
-                    string.Join("\n", channels.Select(c => $"`{c.Instance}` → <#{c.ChannelId}>")));
+                    string.Join("\n", await Task.WhenAll(channels.Select(
+                        async c => $"`{await _labels.DescribeAsync(c.Instance)}` → <#{c.ChannelId}>"))));
             }
         }
 
@@ -316,6 +323,10 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
 
         IReadOnlyList<string> before = _guilds.FollowedServers(guild.Id);
 
+        // Named by both: the label is what the person recognises, and the id is what the filter
+        // records and what every later command about this server takes.
+        string named = await _labels.DescribeAsync(instance);
+
         Result result = _guilds.Follow(guild.Id, instance);
         if (result.IsFailure)
         {
@@ -328,9 +339,9 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
         // The first one is the one that changes the rule, and it narrows rather than widens. Somebody
         // adding a server they like should not discover by silence that they just muted fourteen more.
         await RespondAsync(before.Count == 0
-            ? $"✅ This server now hears about **{instance}** only. Add more with `/setup follow`, or " +
+            ? $"✅ This server now hears about **{named}** only. Add more with `/setup follow`, or " +
               "go back to hearing about everything with `/setup follow-all`."
-            : $"✅ This server now also hears about **{instance}**.");
+            : $"✅ This server now also hears about **{named}**.");
     }
 
     [SlashCommand("unfollow", "Stop hearing about one game server here")]
@@ -343,11 +354,12 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
             return;
 
         IReadOnlyList<string> following = _guilds.FollowedServers(guild.Id);
+        string named = await _labels.DescribeAsync(instance);
 
         if (following.Count == 0)
         {
             await RespondAsync(
-                $"This server follows everything, so there's no list to take **{instance}** out of. " +
+                $"This server follows everything, so there's no list to take **{named}** out of. " +
                 "Run `/setup follow` with the servers you *do* want and it'll hear about only those.",
                 ephemeral: true);
             return;
@@ -355,7 +367,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
 
         if (!following.Contains(instance, StringComparer.OrdinalIgnoreCase))
         {
-            await RespondAsync($"This server doesn't follow **{instance}** anyway.", ephemeral: true);
+            await RespondAsync($"This server doesn't follow **{named}** anyway.", ephemeral: true);
             return;
         }
 
@@ -365,7 +377,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
         if (following.Count == 1)
         {
             await RespondAsync(
-                $"🚫 **{instance}** is the only server this Discord server follows, and an empty list " +
+                $"🚫 **{named}** is the only server this Discord server follows, and an empty list " +
                 "means *everything* — so this would turn the announcements back on for every server " +
                 "on this host. If that's what you want, run `/setup follow-all`. If you want silence, " +
                 "run `/setup forget`.",
@@ -383,7 +395,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
         _logger.LogInformation("Guild {GuildId} no longer follows {Instance}", guild.Id, instance);
 
         await RespondAsync(
-            $"✅ This server will hear nothing more about **{instance}**. " +
+            $"✅ This server will hear nothing more about **{named}**. " +
             "**Its channel, if it has one, is left standing** — the history in it is yours.");
     }
 

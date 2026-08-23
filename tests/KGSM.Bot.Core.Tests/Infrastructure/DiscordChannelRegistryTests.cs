@@ -42,8 +42,20 @@ public sealed class DiscordChannelRegistryTests : IDisposable
     }
 
     private DiscordChannelRegistry Registry() => new(
-        _client, _guilds, _queue, Options.Create(_options),
+        _client, _guilds, _queue, Labels(), Options.Create(_options),
         NullLogger<DiscordChannelRegistry>.Instance);
+
+    /// <summary>
+    /// Labels that answer with the id, which is what an unlabelled server reads as anyway — these
+    /// tests are about bindings, and a label never decides one.
+    /// </summary>
+    private static IServerLabels Labels()
+    {
+        var labels = Substitute.For<IServerLabels>();
+        labels.LabelAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(call.Arg<string>()));
+        return labels;
+    }
 
     private static GuildTopology Guild(ulong id, ulong announce, ulong? board = null) =>
         new(id, announce, board, "heisen", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);

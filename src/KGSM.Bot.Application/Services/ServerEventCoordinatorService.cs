@@ -106,6 +106,27 @@ public class ServerEventCoordinatorService
             }
         });
 
+        _eventHandler.RegisterInstanceRenamedHandler(async (instanceName, displayName) =>
+        {
+            _logger.LogInformation("Server instance {InstanceName} is now shown as {DisplayName}",
+                instanceName, displayName);
+
+            // The label lives on the cached instance, so every surface reading that cache — the
+            // board, the announcements, the autocomplete — keeps showing the old one until it is
+            // dropped. Nothing else about the inventory moved.
+            _stateCache.InvalidateInstances();
+            _statusBoard.Invalidate();
+
+            // The channel keeps its id-based name (Discord rate-limits a rename hard enough that a
+            // bot cannot keep one in step with anything), so the topic is where the label goes.
+            var result = await _channelRegistry.RefreshChannelTopicAsync(instanceName);
+            if (result.IsFailure)
+            {
+                _logger.LogWarning("Could not refresh the channel topic for instance {InstanceName}: {Error}",
+                    instanceName, result.Error);
+            }
+        });
+
         // Initialize the event handler
         _eventHandler.Initialize();
 

@@ -1,5 +1,6 @@
 using FluentAssertions;
 
+using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
 using KGSM.Bot.Infrastructure.KGSM;
 
@@ -34,7 +35,7 @@ public class KgsmServerEventHandlerAnnouncementTests
         var kgsmClient = Substitute.For<IKgsmClient>();
         kgsmClient.Events.Returns(events);
 
-        var handler = new KgsmServerEventHandler(kgsmClient, NullLogger<KgsmServerEventHandler>.Instance);
+        var handler = new KgsmServerEventHandler(kgsmClient, Labels(), NullLogger<KgsmServerEventHandler>.Instance);
 
         var announced = new List<ServerAnnouncement>();
         handler.RegisterAnnouncementHandler(a => { announced.Add(a); return Task.CompletedTask; });
@@ -212,7 +213,7 @@ public class KgsmServerEventHandlerAnnouncementTests
         var kgsmClient = Substitute.For<IKgsmClient>();
         kgsmClient.Events.Returns(events);
 
-        var handler = new KgsmServerEventHandler(kgsmClient, NullLogger<KgsmServerEventHandler>.Instance);
+        var handler = new KgsmServerEventHandler(kgsmClient, Labels(), NullLogger<KgsmServerEventHandler>.Instance);
 
         var order = new List<string>();
         handler.RegisterAnnouncementHandler(a => { order.Add($"announce:{a.Kind}"); return Task.CompletedTask; });
@@ -254,5 +255,85 @@ public class KgsmServerEventHandlerAnnouncementTests
             InstanceName = "factorio-test",
             Detail = "factorio",
         });
+    }
+
+    /// <summary>
+    /// Labels that answer with whatever they are given, which is what a server carrying no label of
+    /// its own reads as. A test about a display name says so by supplying one.
+    /// </summary>
+    private static IServerLabels Labels(string? displayName = null)
+    {
+        var labels = Substitute.For<IServerLabels>();
+        labels.LabelAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(displayName ?? call.Arg<string>()));
+        return labels;
+    }
+
+    /// <summary>
+    /// <b>An announcement names the server the way a person does.</b> The event carries the id —
+    /// which is what everything downstream keys on and what nobody calls it — so the label is read
+    /// off the inventory as the announcement is built, and the id it belongs to travels with it.
+    /// </summary>
+    [Fact]
+    public async Task Announcement_CarriesTheDisplayNameBesideTheId()
+    {
+        var events = Substitute.For<IEventService>();
+        var kgsmClient = Substitute.For<IKgsmClient>();
+        kgsmClient.Events.Returns(events);
+
+        var handler = new KgsmServerEventHandler(
+            kgsmClient, Labels("My Factorio"), NullLogger<KgsmServerEventHandler>.Instance);
+
+        var announced = new List<ServerAnnouncement>();
+        handler.RegisterAnnouncementHandler(a => { announced.Add(a); return Task.CompletedTask; });
+        handler.Initialize();
+
+        ICall subscription = events.ReceivedCalls()
+            .Single(c => c.GetMethodInfo().Name == nameof(IEventService.RegisterHandler)
+                      && c.GetMethodInfo().GetGenericArguments().Single() == typeof(InstanceStartedData));
+
+        await ((Func<InstanceStartedData, Task>)subscription.GetArguments().Single()!)(
+            new InstanceStartedData { InstanceName = "factorio-42" });
+
+        ServerAnnouncement only = announced.Should().ContainSingle().Subject;
+        only.InstanceName.Should().Be("factorio-42");
+        only.Label.Should().Be("My Factorio");
+    }
+
+    /// <summary>
+    /// <b>A rename is not fleet news.</b> Nothing about the server changed — it is up or down exactly
+    /// as it was — so the channel hears nothing, and what the event exists for is telling the
+    /// surfaces holding the old label to drop it.
+    /// </summary>
+    [Fact]
+    public async Task Rename_RefreshesLabelsAndAnnouncesNothing()
+    {
+        var events = Substitute.For<IEventService>();
+        var kgsmClient = Substitute.For<IKgsmClient>();
+        kgsmClient.Events.Returns(events);
+
+        var handler = new KgsmServerEventHandler(
+            kgsmClient, Labels(), NullLogger<KgsmServerEventHandler>.Instance);
+
+        var announced = new List<ServerAnnouncement>();
+        var renamed = new List<(string Id, string DisplayName)>();
+        handler.RegisterAnnouncementHandler(a => { announced.Add(a); return Task.CompletedTask; });
+        handler.RegisterInstanceRenamedHandler((id, label) => { renamed.Add((id, label)); return Task.CompletedTask; });
+        handler.Initialize();
+
+        ICall subscription = events.ReceivedCalls()
+            .Single(c => c.GetMethodInfo().Name == nameof(IEventService.RegisterHandler)
+                      && c.GetMethodInfo().GetGenericArguments().Single() == typeof(InstanceDisplayNameChangedData));
+
+        await ((Func<InstanceDisplayNameChangedData, Task>)subscription.GetArguments().Single()!)(
+            new InstanceDisplayNameChangedData
+            {
+                InstanceName = "factorio-42",
+                OldDisplayName = "factorio-42",
+                NewDisplayName = "Fixed Name",
+            });
+
+        renamed.Should().ContainSingle().Which.Should().Be(("factorio-42", "Fixed Name"));
+        announced.Should().BeEmpty();
     }
 }

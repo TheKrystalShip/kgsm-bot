@@ -308,6 +308,10 @@ public static class DependencyInjection
         // Cached inventory (avoids spawning kgsm per message)
         services.AddSingleton<IKgsmStateCache, KgsmStateCache>();
 
+        // How a server is written down, for the surfaces that hold an id and nothing else. Reads the
+        // cache above, so a label costs no kgsm process.
+        services.AddSingleton<IServerLabels, ServerLabels>();
+
         return services;
     }
 }

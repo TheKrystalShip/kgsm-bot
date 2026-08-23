@@ -24,6 +24,7 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildStore _guilds;
     private readonly IDiscordSendQueue _queue;
+    private readonly IServerLabels _labels;
     private readonly DiscordOptions _discordOptions;
     private readonly ILogger<DiscordChannelRegistry> _logger;
 
@@ -31,12 +32,14 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
         DiscordSocketClient discordClient,
         IGuildStore guilds,
         IDiscordSendQueue queue,
+        IServerLabels labels,
         IOptions<DiscordOptions> discordOptions,
         ILogger<DiscordChannelRegistry> logger)
     {
         _discordClient = discordClient;
         _guilds = guilds;
         _queue = queue;
+        _labels = labels;
         _discordOptions = discordOptions.Value;
         _logger = logger;
     }
@@ -45,6 +48,9 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
     public async Task<Result> AddOrUpdateChannelAsync(string instanceName)
     {
         List<string> failures = [];
+
+        // Read once for the host: every guild's channel says the same thing about the same server.
+        string topic = TopicFor(instanceName, await _labels.LabelAsync(instanceName));
 
         foreach (GuildTopology topology in _guilds.Configured())
         {
@@ -57,7 +63,7 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
             if (!_guilds.Follows(topology.GuildId, instanceName))
                 continue;
 
-            Result result = await AddOrUpdateInAsync(topology, categoryId, instanceName);
+            Result result = await AddOrUpdateInAsync(topology, categoryId, instanceName, topic);
             if (result.IsFailure)
                 failures.Add($"{topology.GuildId}: {result.Error}");
         }
@@ -67,7 +73,60 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
             : Result.Failure(string.Join("; ", failures));
     }
 
-    private async Task<Result> AddOrUpdateInAsync(GuildTopology topology, ulong categoryId, string instanceName)
+    /// <inheritdoc />
+    public async Task<Result> RefreshChannelTopicAsync(string instanceName)
+    {
+        List<string> failures = [];
+        string topic = TopicFor(instanceName, await _labels.LabelAsync(instanceName));
+
+        foreach (GuildTopology topology in _guilds.Configured())
+        {
+            if (_guilds.ChannelFor(topology.GuildId, instanceName) is not ulong channelId)
+                continue;
+
+            if (_discordClient.GetChannel(channelId) is not ITextChannel channel)
+            {
+                // A channel the bot cannot see is not a channel that is gone, and this is not the
+                // operation that decides which — ReconcileBindingsAsync is. A topic is decoration:
+                // not writing one costs nothing.
+                _logger.LogDebug(
+                    "Not refreshing {InstanceName}'s channel topic in guild {GuildId}: channel " +
+                    "{ChannelId} cannot be seen.",
+                    instanceName, topology.GuildId, channelId);
+                continue;
+            }
+
+            if (string.Equals(channel.Topic, topic, StringComparison.Ordinal))
+                continue;
+
+            // Background lane, and a channel edit is the most rate-limited thing here — which is
+            // affordable only because this runs when a person renames a server, never on a state
+            // change. Nothing may drive it from the lifecycle events.
+            Result written = await _queue.SendAsync(
+                $"set the channel topic for {instanceName} in guild {topology.GuildId}",
+                SendLane.Background,
+                () => channel.ModifyAsync(properties => properties.Topic = topic));
+
+            if (written.IsFailure)
+                failures.Add($"{topology.GuildId}: {written.Error}");
+        }
+
+        return failures.Count == 0
+            ? Result.Success()
+            : Result.Failure(string.Join("; ", failures));
+    }
+
+    /// <summary>
+    /// What a server's channel says it is about: the label somebody chose, and the id every command
+    /// takes. A server that was never labelled gets the id alone rather than the id twice.
+    /// </summary>
+    private static string TopicFor(string instanceName, string label) =>
+        string.Equals(label, instanceName, StringComparison.Ordinal)
+            ? $"kgsm server {instanceName}"
+            : $"{label} · kgsm server {instanceName}";
+
+    private async Task<Result> AddOrUpdateInAsync(
+        GuildTopology topology, ulong categoryId, string instanceName, string topic)
     {
         try
         {
@@ -100,6 +159,12 @@ public class DiscordChannelRegistry : IDiscordChannelRegistry
                 async () => (ITextChannel)await guild.CreateTextChannelAsync(instanceName, properties =>
                 {
                     properties.CategoryId = category.Id;
+
+                    // The channel is named after the id — that is what every command and binding
+                    // uses, and a name cannot be kept in step with a label anyway — so the topic is
+                    // where the label goes. Set here rather than edited afterwards: it rides the
+                    // create call and so costs no second request.
+                    properties.Topic = topic;
                 }));
 
             if (created.IsFailure)

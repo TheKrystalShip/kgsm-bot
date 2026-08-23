@@ -20,16 +20,20 @@ namespace KGSM.Bot.Infrastructure.KGSM;
 public class KgsmServerEventHandler : IServerEventHandler
 {
     private readonly IKgsmClient _kgsmClient;
+    private readonly IServerLabels _labels;
     private readonly ILogger<KgsmServerEventHandler> _logger;
     private readonly List<Func<ServerAnnouncement, Task>> _announcementHandlers = new();
     private readonly List<Func<string, string, Task>> _instanceInstalledHandlers = new();
     private readonly List<Func<string, Task>> _instanceUninstalledHandlers = new();
+    private readonly List<Func<string, string, Task>> _instanceRenamedHandlers = new();
 
     public KgsmServerEventHandler(
         IKgsmClient kgsmClient,
+        IServerLabels labels,
         ILogger<KgsmServerEventHandler> logger)
     {
         _kgsmClient = kgsmClient;
+        _labels = labels;
         _logger = logger;
     }
 
@@ -101,6 +105,11 @@ public class KgsmServerEventHandler : IServerEventHandler
         _kgsmClient.Events.RegisterHandler<InstancePlayerUnbannedData>(
             d => AnnounceAsync(AnnouncementKind.PlayerUnbanned, d, Trimmed(d.Target)));
 
+        // Not an announcement. A label somebody chose is not fleet news — nothing about the server
+        // changed — but every surface holding the old one has to stop showing it, which is what the
+        // renamed handlers do. The event carries both labels, so nothing has to go and ask.
+        _kgsmClient.Events.RegisterHandler<InstanceDisplayNameChangedData>(OnInstanceRenamedAsync);
+
         // Initialize KGSM event listening
         _kgsmClient.Events.Initialize();
 
@@ -125,6 +134,12 @@ public class KgsmServerEventHandler : IServerEventHandler
         _instanceUninstalledHandlers.Add(handler);
     }
 
+    /// <inheritdoc />
+    public void RegisterInstanceRenamedHandler(Func<string, string, Task> handler)
+    {
+        _instanceRenamedHandlers.Add(handler);
+    }
+
     /// <summary>
     /// Builds the announcement for an instance-scoped event and hands it to every registered
     /// handler. A handler that throws is logged and the rest still run — one broken reporter must
@@ -132,7 +147,12 @@ public class KgsmServerEventHandler : IServerEventHandler
     /// </summary>
     private async Task AnnounceAsync(AnnouncementKind kind, EventDataBase data, string? detail = null)
     {
-        var announcement = new ServerAnnouncement(kind, data.InstanceName, detail, data.Actor);
+        // The event names the server by id, which is what it is keyed by everywhere and not what
+        // anybody calls it. The label is read off the cached inventory here, once, so a message and
+        // the status message beside it cannot disagree about what a server is called.
+        string label = await _labels.LabelAsync(data.InstanceName);
+
+        var announcement = new ServerAnnouncement(kind, data.InstanceName, detail, data.Actor, label);
 
         foreach (var handler in _announcementHandlers)
         {
@@ -199,6 +219,33 @@ public class KgsmServerEventHandler : IServerEventHandler
             {
                 _logger.LogError(ex, "Error handling instance uninstalled event for {InstanceName}",
                     data.InstanceName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Tells the bookkeeping side that a server is called something else now.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately silent. A rename changes nothing about the server — it is up or down exactly as
+    /// it was a moment ago — so announcing it would spend a channel's attention on somebody fixing a
+    /// typo. What it does change is every label already on screen, and those are refreshed by the
+    /// handlers below rather than by a message.
+    /// </remarks>
+    private async Task OnInstanceRenamedAsync(InstanceDisplayNameChangedData data)
+    {
+        _logger.LogInformation("Instance {InstanceName} is now shown as {DisplayName} (was {OldDisplayName})",
+            data.InstanceName, data.NewDisplayName, data.OldDisplayName);
+
+        foreach (var handler in _instanceRenamedHandlers)
+        {
+            try
+            {
+                await handler(data.InstanceName, data.NewDisplayName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error handling the rename of instance {InstanceName}", data.InstanceName);
             }
         }
     }

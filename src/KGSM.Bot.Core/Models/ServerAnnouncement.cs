@@ -92,8 +92,19 @@ public enum AnnouncementKind
 /// <c>system:watchdog</c>). <see langword="null"/> when the emitter declared none — never
 /// fabricated, and never re-derived into a surface it did not claim.
 /// </param>
+/// <param name="DisplayName">
+/// What the server is called, as opposed to <see cref="InstanceName"/>, which is what it is keyed
+/// by. Read off the inventory when the announcement is built. <see langword="null"/> for a server
+/// with no label of its own and for one the inventory no longer holds — both of which read as the
+/// id, which is what <see cref="Label"/> answers.
+/// </param>
 public sealed record ServerAnnouncement(
     AnnouncementKind Kind,
     string InstanceName,
     string? Detail = null,
-    string? Actor = null);
+    string? Actor = null,
+    string? DisplayName = null)
+{
+    /// <summary>What to call this server in the message, which is never blank.</summary>
+    public string Label => ServerLabel.Of(InstanceName, DisplayName);
+}

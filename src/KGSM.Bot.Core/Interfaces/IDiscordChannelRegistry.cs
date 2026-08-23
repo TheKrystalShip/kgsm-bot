@@ -30,6 +30,18 @@ public interface IDiscordChannelRegistry
     Task<Result> RemoveChannelAsync(string instanceName);
 
     /// <summary>
+    /// Write a server's current label into the topic of every channel bound to it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The channel keeps its id-based name.</b> Discord rate-limits a channel rename far too hard
+    /// for a bot to keep one in step with anything, and the name is also what somebody looking for a
+    /// server's channel scrolls to — so the label a person chose goes in the topic, which is edited
+    /// only when they change it. A guild whose channel or permission is gone costs its own topic and
+    /// nothing else.
+    /// </remarks>
+    Task<Result> RefreshChannelTopicAsync(string instanceName);
+
+    /// <summary>
     /// Drop the bindings whose channel somebody deleted in Discord. Run once, after the gateway is
     /// ready.
     /// </summary>

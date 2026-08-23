@@ -2,6 +2,7 @@ using Discord;
 using Discord.Interactions;
 
 using KGSM.Bot.Application;
+using KGSM.Bot.Core.Models;
 
 using Microsoft.Extensions.Logging;
 
@@ -44,10 +45,14 @@ public class InstancesAutocompleteHandler : AutocompleteHandler
                 return AutocompletionResult.FromError(new Exception(result.ErrorMessage));
             }
 
-            // Filter instances by current value
+            // Matched on both names and shown as both. What is typed back is always the id: it is
+            // what the command takes, what the engine keys on, and the one of the two that cannot
+            // change under a person mid-interaction.
             var filteredInstances = result.Instances!
-                .Where(i => i.Key.Contains(currentValue, StringComparison.OrdinalIgnoreCase))
-                .Select(i => new AutocompleteResult(i.Key, i.Key))
+                .Where(i => i.Key.Contains(currentValue, StringComparison.OrdinalIgnoreCase)
+                            || i.Value.DisplayName.Contains(currentValue, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(i => i.Value.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .Select(i => new AutocompleteResult(Describe(i.Key, i.Value.DisplayName), i.Key))
                 .Take(25) // Discord has a limit of 25 autocomplete results
                 .ToList();
 
@@ -59,5 +64,15 @@ public class InstancesAutocompleteHandler : AutocompleteHandler
             _logger.LogError(ex, "Error generating instance suggestions for autocomplete");
             return AutocompletionResult.FromError(ex);
         }
+    }
+
+    /// <summary>
+    /// One entry, as Discord shows it. Capped at the 100 characters a choice name may hold, from the
+    /// front — the label is the part somebody is reading down the list for.
+    /// </summary>
+    private static string Describe(string id, string displayName)
+    {
+        string described = ServerLabel.Describe(id, displayName);
+        return described.Length <= 100 ? described : described[..100];
     }
 }

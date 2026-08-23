@@ -49,6 +49,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IKgsmAccounts>());
         services.AddSingleton(Substitute.For<IGuildStore>());
         services.AddSingleton(Substitute.For<IStatusBoard>());
+        services.AddSingleton(Substitute.For<IServerLabels>());
         services.AddSingleton(Substitute.For<IServerConnectionService>());
         services.AddSingleton(Substitute.For<IPlayerRoster>());
         services.AddSingleton(Substitute.For<IServerInstanceService>());

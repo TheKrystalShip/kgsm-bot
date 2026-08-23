@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — a server is called what somebody named it
+
+Every server has two names. Its **id** is what the engine, the channel bindings, the guild filter and
+every command key on, it is generated at install, and it never changes. Its **display name** is free
+text somebody chose, changed whenever they like with `kgsm instances rename`. This surface shows the
+label and keys on the id, everywhere:
+
+- The **live status message** names each server by its label and prints the id beside it in code
+  ticks, so the string a command takes is on the line somebody is reading. Rows are ordered by the
+  label, which is the order they are scanned in. A server that was never labelled is printed once.
+- **Announcements** name the server the way the channel does. The label is read off the cached
+  inventory as the announcement is built, so a message and the status message above it cannot
+  disagree about what a server is called; the id is not repeated beside it, since the channel is
+  named after it and a player-joined line does not need it twice.
+- **Autocomplete** shows `Display Name (id)` and matches what is typed against both. What it hands
+  back is always the id.
+- **`/setup show`, `follow` and `unfollow`** describe each server the same way. The store keeps ids —
+  the only thing that survives a rename — and a row naming a server this host no longer has reads as
+  its id alone.
+- **A server's channel keeps its id-based name and carries the label in its topic.** Discord
+  rate-limits a channel rename far too hard for a bot to keep one in step with anything, and the name
+  is what somebody scrolls to. The topic is written when the channel is created, which costs no extra
+  request, and rewritten when a person renames the server.
+
+**`instance_display_name_changed` is not announced.** Nothing about the server changed — it is up or
+down exactly as it was — so a channel hears nothing. What the event does is drop the cached inventory,
+mark the status message dirty and refresh the channel topics, so every label already on screen stops
+being the old one.
+
+`/install`'s `name` option is the **display name**: the engine generates the id, and the reply says
+what the server will be shown as rather than what it will be called.
+
+kgsm-lib pin: **6.1.0**.
+
 ### Fixed — an install the engine refused is reported as refused
 
 `/install` and `/uninstall` report the engine's verdict. kgsm answers a mutating call with an exit

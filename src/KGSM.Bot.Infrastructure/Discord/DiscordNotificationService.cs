@@ -261,7 +261,7 @@ public class DiscordNotificationService : IDiscordNotificationService
     private static string ThreadName(ServerAnnouncement announcement)
     {
         string verb = announcement.Kind == AnnouncementKind.Failed ? "down" : "crash";
-        string name = $"{announcement.InstanceName} {verb} · {DateTimeOffset.UtcNow:MMM d HH:mm} UTC";
+        string name = $"{announcement.Label} {verb} · {DateTimeOffset.UtcNow:MMM d HH:mm} UTC";
         return name.Length <= 100 ? name : name[..100];
     }
 
@@ -345,11 +345,16 @@ public class DiscordNotificationService : IDiscordNotificationService
     /// Renders the message: a marker, the server, what happened, and the detail and actor the event
     /// carried. A detail or actor the event did not carry is left out — the sentence is shorter, not
     /// padded with "unknown".
+    /// <para>
+    /// The server is named by its <b>label</b>, which is what somebody reading a channel calls it.
+    /// The id it is keyed by is not repeated beside it: the channel is named after the id, the
+    /// status message carries both, and a player-joined line does not need saying twice.
+    /// </para>
     /// </summary>
     private string Render(ServerAnnouncement announcement)
     {
         string marker = MarkerFor(announcement.Kind);
-        string text = $"{marker} **{announcement.InstanceName}** {VerbFor(announcement.Kind)}";
+        string text = $"{marker} **{announcement.Label}** {VerbFor(announcement.Kind)}";
 
         if (announcement.Detail is not null)
         {
