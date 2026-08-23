@@ -19,7 +19,14 @@ url="https://github.com/TheKrystalShip/kgsm-bot"
 license=('GPL-3.0-or-later')
 groups=('kgsm-node')
 # No separate debug package: these are shipped to a private fleet, not a distro archive.
-options=('!debug')
+#
+# !strip is load-bearing, not a preference. This is a .NET single-file publish: the managed
+# assemblies are appended to the apphost ELF and located through a footer at the end of the file.
+# `strip` rewrites the ELF and drops everything past its section table, which takes the bundle with
+# it — leaving a 78KB apphost that starts, finds no bundle, and exits with "Failure processing
+# application bundle; Arithmetic overflow while reading bundle." A Native-AOT binary is a real ELF
+# and survives stripping, which is why only the single-file packages carry this.
+options=('!debug' '!strip')
 # kgsm-base carries the kgsm service account this unit runs as, the /var/lib/kgsm tree it reads the
 # account store and journals from, and the preset policy deciding whether it runs here.
 depends=('kgsm-base' 'kgsm' 'systemd' 'glibc' 'aspnet-runtime')

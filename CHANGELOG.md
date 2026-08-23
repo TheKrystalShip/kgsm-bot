@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the packaged binary carries its bundle again (`3.44.1`)
+
+`packaging/PKGBUILD` declares `!strip`. This project publishes single-file: the managed assemblies
+are appended to the apphost ELF and found through a footer at the end of the file, and makepkg's
+strip pass rewrites the ELF and drops everything past its section table — which takes the bundle
+with it. The package installed a 78KB apphost that started, found no bundle and exited with
+*"Failure processing application bundle; Arithmetic overflow while reading bundle"*, while the
+build, the package and namcap all looked correct. A Native-AOT binary is a real ELF and survives
+stripping, which is why the option belongs on this package and not on every one.
+
 ### Changed — a packaged install enables the bot and names the one key blocking it (`3.44.0`)
 
 `packaging/kgsm-bot.install` applies kgsm-base's `50-kgsm.preset` to this project's units in
