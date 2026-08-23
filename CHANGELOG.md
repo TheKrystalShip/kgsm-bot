@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a packaged node lists this leaf's commands
+
+`packaging/PKGBUILD` installs `deploy/kgsm-bot.commands.json` as
+`/var/lib/kgsm/leaves/commands/bot.json`, the path `deploy.sh` writes on a development host and the
+one kgsm-api reads to render this leaf's **Commands** tab. It is a subdirectory because the
+descriptor scan globs `*.json` at the level above and reads anything there as a leaf descriptor.
+
 ### Added — a server is called what somebody named it
 
 Every server has two names. Its **id** is what the engine, the channel bindings, the guild filter and

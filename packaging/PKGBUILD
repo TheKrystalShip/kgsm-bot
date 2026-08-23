@@ -71,5 +71,10 @@ package() {
     install -Dm644 "${repo}/deploy/kgsm-bot.leaf.json" \
         "${pkgdir}/var/lib/kgsm/leaves/bot.json"
 
+    # The command catalog kgsm-api scans to list this leaf's commands. A subdirectory, because the
+    # descriptor scan globs *.json at the level above and would read it as a malformed descriptor.
+    install -Dm644 "${repo}/deploy/kgsm-bot.commands.json" \
+        "${pkgdir}/var/lib/kgsm/leaves/commands/bot.json"
+
     install -Dm644 "${repo}/LICENSE" "${pkgdir}/usr/share/licenses/kgsm-bot/LICENSE"
 }
