@@ -23,7 +23,7 @@ with Windows, try at your own risk.
 
 - Discord Bot Token: Create a bot via the [Discord Developer Portal][2]
 - [KGSM][1], version 1.6+
-- [.NET SDK][5] version 9.0 or higher
+- [.NET SDK][5] version 10.0 or higher
 
 ### Configuration
 

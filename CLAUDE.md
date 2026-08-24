@@ -18,12 +18,11 @@ dependency is a package.
 **kgsm-lib comes from the org's GitHub Packages feed** (`nuget.config`) as
 `TheKrystalShip.KGSM.Lib`, pinned by version in Core, Application and Infrastructure. Editing
 `kgsm-lib/` changes nothing here until it is published at a new version and the three pins move
-together — a published version is immutable, so the old trap of a same-version repack serving a
-stale package is gone. The same applies to
+together — a published version is immutable. The same applies to
 `TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's relay contract) and
 `TheKrystalShip.KGSM.Auth`.
 
-Targets **.NET 10** (the README still says 9 — trust the `.csproj`/the code).
+Targets **.NET 10**.
 
 ## Commands
 
@@ -157,18 +156,16 @@ commands are registered globally and authorize from the account store, so this i
   is recorded (*can I actually do it here*) — recording a channel it cannot post in is how a guild
   gets configured and then silently receives nothing. Not `[Mutating]`: it changes no server.
 - **Each guild follows the servers it chooses, and `empty means all`.** `guild_servers` holds a
-  guild's allowlist; **no rows is no filter**, which is what every guild configured before the filter
-  existed already has — so nothing goes silent by upgrading, and a guild that wants silence runs
-  `/setup forget` instead. `/setup follow` narrows (the *first* one narrows to that server alone, and
+  guild's allowlist; **no rows is no filter** — a guild that wants silence runs `/setup forget`
+  instead. `/setup follow` narrows (the *first* one narrows to that server alone, and
   the reply says so), `/setup unfollow` widens, `/setup follow-all` clears it. **Unfollowing the last
   one is refused**: emptying the list means *everything*, which is the opposite of what somebody
   removing their last server is asking for, so both real choices are named instead.
 - **The filter governs what the bot says unprompted, never what it answers when asked.**
   Announcements, the per-server channel an install creates, and the rows on the live status message
   are filtered; slash commands are not. ⚠ Authority in this ecosystem is the KGSM account, host-wide
-  — filtering *reads* by which guild they were typed in would be a second, per-guild authority model,
-  which is exactly what `KgsmRoleMap` was and is banned (`auth-internal-users`). A viewer is trusted
-  with this host's inventory wherever they ask from.
+  — filtering *reads* by which guild they were typed in would be a second, per-guild authority
+  model, which is banned. A viewer is trusted with this host's inventory wherever they ask from.
 - **An unreadable filter follows everything.** Reading no rows and failing to read are both "no
   filter": the failure is loud in the log, and a guild an admin set up keeps hearing what it expected
   rather than going quiet for a reason invisible from inside Discord.
@@ -186,17 +183,19 @@ commands are registered globally and authorize from the account store, so this i
   channel it can actually post in, else the owner's DM, each **checked rather than attempted**; a
   guild that is already configured is not greeted, because that is a reconnection and it is already
   working. It grants nothing: `/setup` still needs KGSM admin.
-- **Adopting a host that predates this**: `kgsm-bot --adopt-guild-config [--apply]` reads the old
-  `Discord:GuildId` / `AnnouncementChannelId` / `InstancesCategoryId` and `KGSM:Instances` and
-  writes the store. Dry-run by default, `--from <settings.json>` names the file to read (the
-  shipped one no longer carries the map), `--announce-channel <id>` supplies the guild's channel
-  when the old configuration left it at zero. **It refuses a guild that already has a row** rather
-  than merging — a second run that re-pointed bindings is how live channels get orphaned and
-  duplicated beside fresh ones, splitting every server's history in two.
+- **`kgsm-bot --adopt-guild-config [--apply]` imports a single-guild configuration into the store.**
+  It reads `Discord:GuildId` / `AnnouncementChannelId` / `InstancesCategoryId` and the
+  `KGSM:Instances` channel map, from a settings file plus the environment, and writes the guild
+  store. Dry-run by default; `--from <settings.json>` names the file to read (default: the settings
+  file beside the binary, which carries no map — point it at the copy the host was actually
+  running), `--announce-channel <id>` supplies the guild's channel when the configuration read
+  leaves it at zero. **It refuses a guild that already has a row** rather than merging — a second
+  run that re-pointed bindings is how live channels get orphaned and duplicated beside fresh ones,
+  splitting every server's history in two.
 
-The old `KGSM:Instances` map could not be delivered by environment variable at all — systemd drops
-a variable whose name contains a hyphen, and an instance may be called `minecraft-homestead`. In a
-database that constraint does not exist: it is a row.
+A channel binding is a store row rather than a configuration key also because of delivery: an
+instance id may contain a hyphen (`minecraft-homestead`), and a systemd environment-variable name
+cannot carry one. A database row has no such constraint.
 
 ## Architecture
 
@@ -369,8 +368,8 @@ its server by id; so does a binding). It reads the cached inventory, so a label 
 
 ### Announcements: the catalog is the journal's, and the operator owns each switch
 
-The bot announces seventeen kinds of engine event, and `Discord:Announce` carries a switch per
-kind that the Control Panel renders as its own section. Three rules hold the surface together:
+Each kind of engine event the bot announces has its own switch in `Discord:Announce`, which the
+Control Panel renders as its own section. Three rules hold the surface together:
 
 - **A kind exists only if the journal carries it.** Nothing is polled, derived or inferred to
   fill a gap in the catalog — the bot never reaches into another leaf for a fact the engine does
@@ -483,8 +482,8 @@ is for players.
   `LatestAsync` distinguishes them and a renderer must too, and a failed read is deliberately not
   cached.
 - **The board flags backups only when they are worth flagging** — past `BackupStaleAfterHours` (48h),
-  or never taken at all. An age printed beside all sixteen servers buries the one that matters among
-  fifteen that do not.
+  or never taken at all. An age printed beside every server buries the one that matters among the
+  many that do not.
 - **A restore is staged, and the button carries a handle.** A server name and a backup id together do
   not reliably fit a 100-character `customId`, and a truncated one names a *different archive* rather
   than failing — so the operation is held in `IStagedRestores` and the button carries 32 hex
@@ -550,7 +549,7 @@ engine answers none of them, and neither shows up as anything but a process that
 `/setup show` answers a different question (what *this guild* is configured with), and the status
 socket answers the Control Panel, which is no use to somebody who only has Discord.
 
-`IBotHealth` runs seven checks at the moment they are reported: the gateway, the outbound queue, the
+`IBotHealth` runs its checks at the moment they are reported: the gateway, the outbound queue, the
 engine, the event journal, the KGSM account store, the guild store and the assistant.
 
 - **No check is inferred from another.** They fail independently — the engine and Discord have nothing
@@ -774,7 +773,7 @@ number of consumers read, so nothing is bound and nothing on any producer's side
 `KGSM.JournalDir` names the *engine's*, whose location is configurable; the rest are found on disk.
 Those events drive both the announcements and cache invalidation via `ServerEventCoordinatorService`.
 
-⚠ **Six of the seventeen announced kinds are not the engine's to emit.** `instance_crashed`,
+⚠ **Not every announced kind is the engine's to emit.** `instance_crashed`,
 `instance_failed`, `instance_started`, `instance_ready`, `instance_restarted` and player presence are
 the **supervisor's**, in its own journal. `AddKgsmJournalFederation` must therefore stay registered
 **after** `AddKgsmServices` in `DependencyInjection.cs` — above it, the single-journal registration
@@ -860,6 +859,12 @@ history; never duplicate it into docs or code.
   survive it: *"temporary shim for the rework"*, *"added to satisfy the new requirement"*,
   milestone/phase labels (*"per M2"*, *"the Phase 1 step"*). If a line's justification is the work
   that produced it rather than the system as it now stands, it goes.
+- **No volatile numbers.** Counts and versions that drift — how many projects/files/tests/
+  partials exist, a dependency's pinned version, a file's line count — never go in prose: they are
+  stale the moment anything changes, and nothing fails to remind anyone. Name the authoritative
+  source instead (the csproj, the directory, the barrel file). A number belongs in prose only when
+  it *is* the contract (a port, a timeout, a cap) or a measured fact that is itself the reason a
+  design exists.
 - **Edits are replacements, not appends.** When changing an existing feature, rewrite the affected
   doc/comment fresh as if writing it for the first time — never append a correction under the
   stale version, and never leave the stale version standing beside the new. The current revision
