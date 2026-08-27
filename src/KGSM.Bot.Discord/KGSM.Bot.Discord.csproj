@@ -68,7 +68,7 @@
 
     <!-- Pinned here as well as in Infrastructure: this project reads SpokenSentences directly, and a
          type used through a transitive reference is one a consumer can lose without touching it. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.3.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Speech" Version="1.4.0" />
   </ItemGroup>
 
   <ItemGroup>
