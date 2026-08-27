@@ -63,7 +63,7 @@ public sealed record HostHistory(
 /// </summary>
 /// <param name="At">When the engine emitted it.</param>
 /// <param name="Type">
-/// The raw engine event type, e.g. <c>instance_started</c>. Kept raw on purpose: the engine emits
+/// The raw engine event type, e.g. <c>server.started</c>. Kept raw on purpose: the engine emits
 /// far more kinds than this bot announces, and a reader that only understood the announced ones
 /// would drop most of a real day.
 /// </param>

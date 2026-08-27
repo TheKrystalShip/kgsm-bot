@@ -29,8 +29,8 @@ public sealed class HistoryModuleTests
     [Fact]
     public void ANamedTypeReadsAsItsPhrase()
     {
-        HistoryModule.Describe("instance_crashed").Phrase.Should().Contain("crashed");
-        HistoryModule.Describe("instance_backup_created").Phrase.Should().Be("was backed up");
+        HistoryModule.Describe("server.crashed").Phrase.Should().Contain("crashed");
+        HistoryModule.Describe("backup.created").Phrase.Should().Be("was backed up");
     }
 
     /// <summary>
@@ -41,10 +41,10 @@ public sealed class HistoryModuleTests
     [Fact]
     public void ADetailThatFinishesTheSentenceIsNotSeparatedFromIt()
     {
-        HistoryModule.Line(Moment("instance_player_joined", instance: "Ketchup", detail: "Void"))
+        HistoryModule.Line(Moment("player.joined", instance: "Ketchup", detail: "Void"))
             .Should().Contain("**Ketchup** was joined by Void").And.NotContain("by — Void");
 
-        HistoryModule.Line(Moment("instance_config_changed", detail: "backup_time"))
+        HistoryModule.Line(Moment("config.changed", detail: "backup_time"))
             .Should().Contain("had a setting changed — backup_time");
     }
 
@@ -55,7 +55,7 @@ public sealed class HistoryModuleTests
     [Fact]
     public void AnUnnamedTypeTakesItsDetailAsAnAside()
     {
-        HistoryModule.Describe("instance_some_future_thing").Completes.Should().BeFalse();
+        HistoryModule.Describe("server.some_future_thing").Completes.Should().BeFalse();
     }
 
     /// <summary>
@@ -66,7 +66,7 @@ public sealed class HistoryModuleTests
     public void ADetailThatOnlyRepeatsTheServersNameIsDropped()
     {
         string line = HistoryModule.Line(
-            Moment("instance_installed", instance: "stationeers", detail: "stationeers"));
+            Moment("server.installed", instance: "stationeers", detail: "stationeers"));
 
         line.Should().Contain("**stationeers** was installed from");
         line.Should().NotContain("from stationeers");
@@ -81,17 +81,17 @@ public sealed class HistoryModuleTests
     [Fact]
     public void AnUnnamedTypeIsRenderedFromTheEnginesOwnWord()
     {
-        HistoryModule.Describe("instance_deploy_finished").Phrase.Should().Be("deploy finished");
-        HistoryModule.Describe("instance_some_future_thing").Phrase.Should().Be("some future thing");
+        HistoryModule.Describe("server.deploy.finished").Phrase.Should().Be("deploy finished");
+        HistoryModule.Describe("server.some_future_thing").Phrase.Should().Be("some future thing");
 
-        // A type with no instance prefix keeps its whole word rather than losing a leading segment.
-        HistoryModule.Describe("host_rebooted").Phrase.Should().Be("host rebooted");
+        // A type outside the server namespace keeps its whole word rather than losing a leading segment.
+        HistoryModule.Describe("host.rebooted").Phrase.Should().Be("host rebooted");
     }
 
     [Fact]
     public void AnUnnamedTypeStillNamesItsServerAndActor()
     {
-        string line = HistoryModule.Line(Moment("instance_deploy_finished", actor: "system:scheduler"));
+        string line = HistoryModule.Line(Moment("server.deploy.finished", actor: "system:scheduler"));
 
         line.Should().Contain("**factorio**").And.Contain("deploy finished").And.Contain("system:scheduler");
     }
@@ -103,7 +103,7 @@ public sealed class HistoryModuleTests
     [Fact]
     public void WhatTheEventDidNotCarryIsNotFilledIn()
     {
-        string line = HistoryModule.Line(Moment("instance_started", instance: null, actor: null, detail: null));
+        string line = HistoryModule.Line(Moment("server.started", instance: null, actor: null, detail: null));
 
         line.Should().NotContain("unknown").And.NotContain("null").And.NotContain("—").And.NotContain("·");
         line.Should().Contain("started");
@@ -113,7 +113,7 @@ public sealed class HistoryModuleTests
     public void TheDetailAndTheActorAreShownWhenTheEventCarriedThem()
     {
         string line = HistoryModule.Line(
-            Moment("instance_config_changed", actor: "discord:heisen", detail: "memory_cap_mb"));
+            Moment("config.changed", actor: "discord:heisen", detail: "memory_cap_mb"));
 
         line.Should().Contain("memory_cap_mb").And.Contain("discord:heisen");
     }
@@ -127,7 +127,7 @@ public sealed class HistoryModuleTests
     {
         var at = new DateTimeOffset(2026, 8, 10, 23, 28, 17, TimeSpan.Zero);
 
-        HistoryModule.Line(Moment("instance_started", at: at))
+        HistoryModule.Line(Moment("server.started", at: at))
             .Should().StartWith($"<t:{at.ToUnixTimeSeconds()}:R>");
     }
 
@@ -138,7 +138,7 @@ public sealed class HistoryModuleTests
     [Fact]
     public void TheListIsCappedAndSaysHowMuchOfItWasShown()
     {
-        List<HistoryMoment> moments = [.. Enumerable.Range(0, 500).Select(_ => Moment("instance_started"))];
+        List<HistoryMoment> moments = [.. Enumerable.Range(0, 500).Select(_ => Moment("server.started"))];
 
         (string text, int shown) = HistoryModule.Fit(moments);
 
@@ -155,7 +155,7 @@ public sealed class HistoryModuleTests
     public void OneEnormousLineDoesNotOverflowTheBudget()
     {
         List<HistoryMoment> moments =
-            [.. Enumerable.Range(0, 10).Select(_ => Moment("instance_config_changed", detail: new string('x', 900)))];
+            [.. Enumerable.Range(0, 10).Select(_ => Moment("config.changed", detail: new string('x', 900)))];
 
         (string text, int shown) = HistoryModule.Fit(moments);
 
@@ -173,14 +173,14 @@ public sealed class HistoryModuleTests
     {
         List<HistoryMoment> moments =
         [
-            Moment("instance_installed", detail: "factorio"),
-            Moment("instance_deploy_started"),
-            Moment("instance_deploy_finished"),
-            Moment("instance_download_started"),
+            Moment("server.installed", detail: "factorio"),
+            Moment("server.deploy.started"),
+            Moment("server.deploy.finished"),
+            Moment("server.download.started"),
         ];
 
         HistoryModule.News(moments).Should().ContainSingle()
-            .Which.Type.Should().Be("instance_installed");
+            .Which.Type.Should().Be("server.installed");
     }
 
     /// <summary>
@@ -191,9 +191,9 @@ public sealed class HistoryModuleTests
     [Fact]
     public void AnUnnamedTypeSurvivesTheCut()
     {
-        HistoryModule.News([Moment("instance_some_future_thing"), Moment("instance_files_created")])
+        HistoryModule.News([Moment("server.some_future_thing"), Moment("server.install.files_created")])
             .Should().ContainSingle()
-            .Which.Type.Should().Be("instance_some_future_thing");
+            .Which.Type.Should().Be("server.some_future_thing");
     }
 
     /// <summary>
@@ -203,9 +203,9 @@ public sealed class HistoryModuleTests
     [Fact]
     public void AFailedStepIsNotFilteredAwayWithTheStepsAroundIt()
     {
-        HistoryModule.News([Moment("instance_deploy_failed"), Moment("instance_deploy_started")])
+        HistoryModule.News([Moment("server.deploy.failed"), Moment("server.deploy.started")])
             .Should().ContainSingle()
-            .Which.Type.Should().Be("instance_deploy_failed");
+            .Which.Type.Should().Be("server.deploy.failed");
     }
 
     [Fact]

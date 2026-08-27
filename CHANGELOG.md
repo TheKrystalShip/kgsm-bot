@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — an event is named the way the panel names it (`3.46.0`)
+
+Every engine event this bot matches is named in the ecosystem's dotted vocabulary — `server.started`,
+`backup.created`, `player.joined`. `/history` phrases the ones worth naming from that table and
+renders the rest from the engine's own word with its namespace dropped, so `server.deploy.finished`
+reads as "deploy finished" and a type nobody has named still appears with its server and its actor.
+
 ### Changed — an event is named by a type (`3.45.0`)
 
 An event's name is a type rather than a string, so a name that is not a name cannot reach the journal.

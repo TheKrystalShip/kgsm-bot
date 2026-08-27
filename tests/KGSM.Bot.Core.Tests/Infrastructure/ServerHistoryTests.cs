@@ -72,7 +72,7 @@ public sealed class ServerHistoryTests
     public async Task CoverageAndTruncationAreCarriedAcross()
     {
         var from = DateTimeOffset.UtcNow.AddDays(-3);
-        Answers(new EventHistoryPage([Entry("instance_started")], null, null, from, true, true));
+        Answers(new EventHistoryPage([Entry("server.started")], null, null, from, true, true));
 
         HostHistory history = await History().ReadAsync(null, TimeSpan.FromDays(30), 200);
 
@@ -114,7 +114,7 @@ public sealed class ServerHistoryTests
     public async Task TheMostSpecificFieldOnThePayloadBecomesTheDetail()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_config_changed", new { InstanceName = "factorio", Key = "memory_cap_mb" })],
+            [Entry("config.changed", new { InstanceName = "factorio", Key = "memory_cap_mb" })],
             null, null, null, false, true));
 
         HostHistory history = await History().ReadAsync(null, TimeSpan.FromHours(24), 200);
@@ -131,7 +131,7 @@ public sealed class ServerHistoryTests
     public async Task APlayerIsNamedByTheirNameAndNeverByTheirAddress()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_player_joined", new
+            [Entry("player.joined", new
             {
                 InstanceName = "factorio",
                 PlayerName = "bob",
@@ -154,7 +154,7 @@ public sealed class ServerHistoryTests
     public async Task AnUnnamedPlayerGetsNoDetailRatherThanAnAddress()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_player_joined", new { InstanceName = "factorio", PlayerAddr = "95.49.44.91" })],
+            [Entry("player.joined", new { InstanceName = "factorio", PlayerAddr = "95.49.44.91" })],
             null, null, null, false, true));
 
         (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single().Detail.Should().BeNull();
@@ -169,12 +169,12 @@ public sealed class ServerHistoryTests
     public async Task ConsoleInputIsRecordedWithoutQuotingWhatWasTyped()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_input_sent", new { InstanceName = "factorio", Command = "op somebody" })],
+            [Entry("console.input.sent", new { InstanceName = "factorio", Command = "op somebody" })],
             null, null, null, false, true));
 
         HistoryMoment moment = (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single();
 
-        moment.Type.Should().Be("instance_input_sent");
+        moment.Type.Should().Be("console.input.sent");
         moment.Detail.Should().BeNull();
     }
 
@@ -186,7 +186,7 @@ public sealed class ServerHistoryTests
     public async Task AStructuredFieldIsNotFlattenedIntoTheLine()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_ports_opened", new
+            [Entry("network.ports.opened", new
             {
                 InstanceName = "factorio",
                 Ports = new[] { new { start = 21025, end = 21025, protocol = "tcp" } },
@@ -206,7 +206,7 @@ public sealed class ServerHistoryTests
     public async Task AModerationTargetIsNotPrintedBecauseNothingHereKnowsWhatItIs()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_player_banned", new
+            [Entry("player.banned", new
             {
                 InstanceName = "factorio",
                 Target = "95.49.44.91",
@@ -216,7 +216,7 @@ public sealed class ServerHistoryTests
 
         HistoryMoment moment = (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single();
 
-        moment.Type.Should().Be("instance_player_banned");
+        moment.Type.Should().Be("player.banned");
         moment.Detail.Should().BeNull();
     }
 
@@ -260,7 +260,7 @@ public sealed class ServerHistoryTests
     public async Task WhetherAnEventIsTheNewsComesFromTheEngineAndIsCarried()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_installed"), Entry("instance_deploy_started"), Entry("instance_some_future_thing")],
+            [Entry("server.installed"), Entry("server.deploy.started"), Entry("server.some_future_thing")],
             null, null, null, false, true));
 
         IReadOnlyList<HistoryMoment> moments =
@@ -278,7 +278,7 @@ public sealed class ServerHistoryTests
     public async Task AnEventWithNoRecognisedFieldHasNoDetail()
     {
         Answers(new EventHistoryPage(
-            [Entry("instance_stopped", new { InstanceName = "factorio" })], null, null, null, false, true));
+            [Entry("server.stopped", new { InstanceName = "factorio" })], null, null, null, false, true));
 
         (await History().ReadAsync(null, TimeSpan.FromHours(24), 200)).Moments.Single().Detail.Should().BeNull();
     }

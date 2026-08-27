@@ -249,7 +249,7 @@ public class DiscordOptions
 /// The defaults are the events an operator would be surprised to miss — a server going up or down,
 /// a crash, an update, an install. Everything that fires on its own cadence rather than on an
 /// operator's action starts off: a busy server produces a join and a leave per player per session,
-/// and <c>instance_ready</c> follows every start (including the supervisor's own restarts), so both
+/// and <c>server.ready</c> follows every start (including the supervisor's own restarts), so both
 /// would double the traffic in a channel for a fact the operator can already see.
 /// </remarks>
 public class AnnouncementOptions

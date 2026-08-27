@@ -12,59 +12,59 @@ namespace KGSM.Bot.Core.Models;
 /// </remarks>
 public enum AnnouncementKind
 {
-    /// <summary>The server's process was launched (<c>instance_started</c>).</summary>
+    /// <summary>The server's process was launched (<c>server.started</c>).</summary>
     Started,
 
-    /// <summary>The server finished loading and is playable (<c>instance_ready</c>).</summary>
+    /// <summary>The server finished loading and is playable (<c>server.ready</c>).</summary>
     Ready,
 
-    /// <summary>The server was stopped (<c>instance_stopped</c>).</summary>
+    /// <summary>The server was stopped (<c>server.stopped</c>).</summary>
     Stopped,
 
-    /// <summary>An operator cycled the server (<c>instance_restarted</c>).</summary>
+    /// <summary>An operator cycled the server (<c>server.restarted</c>).</summary>
     Restarted,
 
-    /// <summary>The supervisor found the process dead and is restarting it (<c>instance_crashed</c>).</summary>
+    /// <summary>The supervisor found the process dead and is restarting it (<c>server.crashed</c>).</summary>
     Crashed,
 
-    /// <summary>The supervisor exhausted its restart attempts and left the server down (<c>instance_failed</c>).</summary>
+    /// <summary>The supervisor exhausted its restart attempts and left the server down (<c>server.crash.exhausted</c>).</summary>
     Failed,
 
     /// <summary>
-    /// A newer game build exists upstream (<c>instance_update_available</c>). The engine records what
+    /// A newer game build exists upstream (<c>server.update.available</c>). The engine records what
     /// each check found and emits only for a version it has not announced before, so this is one
     /// message per new build rather than one per check.
     /// </summary>
     UpdateAvailable,
 
-    /// <summary>A new game build was applied (<c>instance_version_updated</c>).</summary>
+    /// <summary>A new game build was applied (<c>server.updated</c>).</summary>
     Updated,
 
-    /// <summary>A server was installed (<c>instance_installed</c>).</summary>
+    /// <summary>A server was installed (<c>server.installed</c>).</summary>
     Installed,
 
-    /// <summary>A server was uninstalled (<c>instance_uninstalled</c>).</summary>
+    /// <summary>A server was uninstalled (<c>server.uninstalled</c>).</summary>
     Uninstalled,
 
-    /// <summary>A backup was written (<c>instance_backup_created</c>).</summary>
+    /// <summary>A backup was written (<c>backup.created</c>).</summary>
     BackupCreated,
 
-    /// <summary>A backup was rolled back onto the server (<c>instance_backup_restored</c>).</summary>
+    /// <summary>A backup was rolled back onto the server (<c>backup.restored</c>).</summary>
     BackupRestored,
 
-    /// <summary>A player connected (<c>instance_player_joined</c>).</summary>
+    /// <summary>A player connected (<c>player.joined</c>).</summary>
     PlayerJoined,
 
-    /// <summary>A player disconnected (<c>instance_player_left</c>).</summary>
+    /// <summary>A player disconnected (<c>player.left</c>).</summary>
     PlayerLeft,
 
-    /// <summary>A player was disconnected by an operator (<c>instance_player_kicked</c>).</summary>
+    /// <summary>A player was disconnected by an operator (<c>player.kicked</c>).</summary>
     PlayerKicked,
 
-    /// <summary>A player was blocked from reconnecting (<c>instance_player_banned</c>).</summary>
+    /// <summary>A player was blocked from reconnecting (<c>player.banned</c>).</summary>
     PlayerBanned,
 
-    /// <summary>A block on a player was lifted (<c>instance_player_unbanned</c>).</summary>
+    /// <summary>A block on a player was lifted (<c>player.unbanned</c>).</summary>
     PlayerUnbanned,
 }
 

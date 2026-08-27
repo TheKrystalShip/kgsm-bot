@@ -267,7 +267,7 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
     /// <remarks>
     /// <para>
     /// The named ones are the ones somebody scanning a day wants to pick out. Everything else falls
-    /// through to the engine's own word with its prefix stripped — <c>instance_deploy_finished</c>
+    /// through to the engine's own word with its prefix stripped — <c>server.deploy.finished</c>
     /// reads as "deploy finished" — which is a rendering of what the engine said rather than a guess
     /// at what it meant. That is what makes this list safe to leave incomplete: an event type nobody
     /// has named still appears, still names its server and its actor, and is never dropped for being
@@ -302,39 +302,39 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
     internal static readonly IReadOnlyDictionary<string, (string Phrase, bool Completes)> Phrases =
         new Dictionary<string, (string, bool)>(StringComparer.Ordinal)
     {
-        ["instance_started"] = ("started", false),
-        ["instance_ready"] = ("was ready to play", false),
-        ["instance_stopped"] = ("stopped", false),
-        ["instance_restarted"] = ("restarted", false),
-        ["instance_crashed"] = ("⚠️ crashed", false),
-        ["instance_failed"] = ("⚠️ gave up restarting", false),
+        ["server.started"] = ("started", false),
+        ["server.ready"] = ("was ready to play", false),
+        ["server.stopped"] = ("stopped", false),
+        ["server.restarted"] = ("restarted", false),
+        ["server.crashed"] = ("⚠️ crashed", false),
+        ["server.crash.exhausted"] = ("⚠️ gave up restarting", false),
 
-        ["instance_installed"] = ("was installed from", true),
-        ["instance_uninstalled"] = ("was uninstalled", false),
-        ["instance_update_available"] = ("has an update available", false),
-        ["instance_version_updated"] = ("was updated to", true),
+        ["server.installed"] = ("was installed from", true),
+        ["server.uninstalled"] = ("was uninstalled", false),
+        ["server.update.available"] = ("has an update available", false),
+        ["server.updated"] = ("was updated to", true),
 
-        ["instance_backup_created"] = ("was backed up", false),
-        ["instance_backup_restored"] = ("⚠️ was restored from a backup", false),
-        ["instance_backups_pruned"] = ("had old backups pruned", false),
+        ["backup.created"] = ("was backed up", false),
+        ["backup.restored"] = ("⚠️ was restored from a backup", false),
+        ["backup.pruned"] = ("had old backups pruned", false),
 
-        ["instance_player_joined"] = ("was joined by", true),
-        ["instance_player_left"] = ("was left by", true),
-        ["instance_player_kicked"] = ("kicked", true),
-        ["instance_player_banned"] = ("banned", true),
-        ["instance_player_unbanned"] = ("unbanned", true),
+        ["player.joined"] = ("was joined by", true),
+        ["player.left"] = ("was left by", true),
+        ["player.kicked"] = ("kicked", true),
+        ["player.banned"] = ("banned", true),
+        ["player.unbanned"] = ("unbanned", true),
 
-        ["instance_config_changed"] = ("had a setting changed", false),
-        ["instance_input_sent"] = ("was sent console input", false),
+        ["config.changed"] = ("had a setting changed", false),
+        ["console.input.sent"] = ("was sent console input", false),
 
-        ["instance_ports_opened"] = ("had its ports opened", false),
-        ["instance_ports_closed"] = ("had its ports closed", false),
-        ["instance_upnp_opened"] = ("had a UPnP forward opened", false),
-        ["instance_upnp_closed"] = ("had a UPnP forward closed", false),
-        ["instance_upnp_reasserted"] = ("had its UPnP forward re-asserted", false),
+        ["network.ports.opened"] = ("had its ports opened", false),
+        ["network.ports.closed"] = ("had its ports closed", false),
+        ["network.upnp.opened"] = ("had a UPnP forward opened", false),
+        ["network.upnp.closed"] = ("had a UPnP forward closed", false),
+        ["network.upnp.reasserted"] = ("had its UPnP forward re-asserted", false),
 
-        ["blueprint_created"] = ("blueprint created", false),
-        ["blueprint_updated"] = ("blueprint updated", false),
+        ["blueprint.created"] = ("blueprint created", false),
+        ["blueprint.updated"] = ("blueprint updated", false),
     };
 
     /// <summary>
@@ -344,8 +344,8 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     private static string Derived(string type)
     {
-        string stem = type.StartsWith("instance_", StringComparison.Ordinal) ? type[9..] : type;
-        return stem.Replace('_', ' ');
+        string stem = type.StartsWith("server.", StringComparison.Ordinal) ? type[7..] : type;
+        return stem.Replace('.', ' ').Replace('_', ' ');
     }
 
     /// <summary>The window in the words somebody asked for it in.</summary>

@@ -254,11 +254,11 @@ public class KgsmServerEventHandler : IServerEventHandler
     /// Announces a crash once, on the first attempt of the burst.
     /// </summary>
     /// <remarks>
-    /// The supervisor emits one <c>instance_crashed</c> per restart attempt, so a server in a
+    /// The supervisor emits one <c>server.crashed</c> per restart attempt, so a server in a
     /// restart loop produces a run of them seconds apart — measured on this host, four crashes
     /// produced eleven events. Announcing each one turns a channel into a stack trace. The first
     /// attempt is the news; the outcome, if the supervisor runs out of attempts, arrives as
-    /// <c>instance_failed</c> and is announced in its own right. A count that cannot be read is
+    /// <c>server.crash.exhausted</c> and is announced in its own right. A count that cannot be read is
     /// announced rather than dropped — silence about a crash is the worse failure.
     /// </remarks>
     private Task OnInstanceCrashedAsync(InstanceCrashedData data)

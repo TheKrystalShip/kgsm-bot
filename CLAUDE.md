@@ -359,7 +359,7 @@ its server by id; so does a binding). It reads the cached inventory, so a label 
 - **A missing label is the id, never an invented one.** A server that was never labelled, one the
   inventory no longer holds, and an inventory that could not be read all read as the id — and the
   descriptions print it once rather than twice.
-- **`instance_display_name_changed` is subscribed and not announced.** It is the one subscription
+- **`server.renamed` is subscribed and not announced.** It is the one subscription
   with no announcement kind behind it. Nothing about the server changed, so a channel hears nothing;
   what the event is for is dropping the cached inventory, marking the board dirty and rewriting the
   channel topics, so no surface is left showing a label nobody uses any more.
@@ -373,7 +373,7 @@ Control Panel renders as its own section. Three rules hold the surface together:
 
 - **A kind exists only if the journal carries it.** Nothing is polled, derived or inferred to
   fill a gap in the catalog — the bot never reaches into another leaf for a fact the engine does
-  not emit. "Update available" is a kind because the engine emits `instance_update_available`:
+  not emit. "Update available" is a kind because the engine emits `server.update.available`:
   kgsm records what each update check found and emits only for a version it has not announced
   before, so a channel sees one message per new build however often the host checks. How often it
   checks is the scheduler's business, and nothing here.
@@ -387,7 +387,7 @@ Control Panel renders as its own section. Three rules hold the surface together:
 
 **An announcement about a server that is down is something you act from.** `AnnouncementActions`
 owns which ones, and the two sets are deliberately different. A **restart button** goes on
-`instance_failed` only — a crash announcement says the supervisor is already restarting it, so a
+`server.crash.exhausted` only — a crash announcement says the supervisor is already restarting it, so a
 button there races the supervisor over the same server and blames whoever pressed it for the attempt
 that loses. A **thread** opens on both crash kinds, so the conversation about an incident stays with
 it; the @-mention surface keys on the channel, which makes a thread its own context rather than one
@@ -397,8 +397,8 @@ and stamped with the clicker's provenance. `Discord:ActionButtons` and `Discord:
 switch each off; a missing `Create Public Threads` costs the thread and nothing else.
 
 **Crashes are announced once per crash, not once per restart attempt.** The supervisor emits an
-`instance_crashed` per attempt, so a restart loop produces a run of them seconds apart. The
-first attempt is the news; the outcome arrives separately as `instance_failed`. An unreadable
+`server.crashed` per attempt, so a restart loop produces a run of them seconds apart. The
+first attempt is the news; the outcome arrives separately as `server.crash.exhausted`. An unreadable
 restart count is announced rather than dropped.
 
 A server with no channel of its own in a guild — every server in a guild running no board, and one
@@ -515,7 +515,7 @@ just asked, and reaching back over a restart is exactly what it is for.
 - ⚠ **The engine emits far more event types than the bot announces, and an unrecognised one is never
   dropped.** A measured day here carries deploy phases, UPnP forwards, port openings and prune results
   with no announcement kind behind any of them. The types worth naming are named; everything else
-  renders from the engine's own word with its subject prefix stripped (`instance_deploy_finished` →
+  renders from the engine's own word with its subject prefix stripped (`server.deploy.finished` →
   "deploy finished"). That is what makes the phrase table safe to leave incomplete — a type added
   upstream still appears, still names its server and its actor, with no change here.
 - **One field is lifted verbatim off each payload**, chosen by a documented order so an event carrying
@@ -773,8 +773,8 @@ number of consumers read, so nothing is bound and nothing on any producer's side
 `KGSM.JournalDir` names the *engine's*, whose location is configurable; the rest are found on disk.
 Those events drive both the announcements and cache invalidation via `ServerEventCoordinatorService`.
 
-⚠ **Not every announced kind is the engine's to emit.** `instance_crashed`,
-`instance_failed`, `instance_started`, `instance_ready`, `instance_restarted` and player presence are
+⚠ **Not every announced kind is the engine's to emit.** `server.crashed`,
+`server.crash.exhausted`, `server.started`, `server.ready`, `server.restarted` and player presence are
 the **supervisor's**, in its own journal. `AddKgsmJournalFederation` must therefore stay registered
 **after** `AddKgsmServices` in `DependencyInjection.cs` — above it, the single-journal registration
 wins, nothing throws and nothing is logged, and this bot announces installs and backups perfectly
