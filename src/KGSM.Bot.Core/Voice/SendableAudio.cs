@@ -5,7 +5,7 @@ namespace KGSM.Bot.Core.Voice;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ⚠ <b>An output stream sends nothing at all until a full buffer's worth of frames is queued.</b>
+/// <b>An output stream sends nothing at all until a full buffer's worth of frames is queued.</b>
 /// Below that its sending loop waits for a buffer that is never going to fill, and a flush waits on
 /// the sending loop — so a short write neither completes nor fails. It hangs, silently, forever.
 /// </para>

@@ -235,7 +235,7 @@ public sealed class RecognisingUtteranceSink : IVoiceUtteranceSink
     /// </summary>
     /// <remarks>
     /// <para>
-    /// ⚠ <b>This path may only make a sound.</b> Nothing is dispatched, nothing is counted, no window
+    /// <b>This path may only make a sound.</b> Nothing is dispatched, nothing is counted, no window
     /// is opened and no state is touched — the speaker is mid-sentence, and every one of those would
     /// be acting on half of an instruction they have not finished giving. The same audio arrives
     /// again, complete, a moment later; that copy is the one that is read and acted on, so a partial

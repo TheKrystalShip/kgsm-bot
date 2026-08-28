@@ -423,7 +423,7 @@ public class RecognisingUtteranceSinkTests
     [Fact]
     public async Task ReadingAheadDecidesNothing()
     {
-        // ⚠ The property the whole mechanism rests on. Half a sentence must never reach the
+        // The property the whole mechanism rests on. Half a sentence must never reach the
         // assistant, be counted, or open a window — it is an instruction nobody has finished giving,
         // and the complete copy arrives a moment later.
         RecognisingUtteranceSink sink = Sink();
@@ -488,7 +488,7 @@ public class RecognisingUtteranceSinkTests
     [Fact]
     public async Task TalkingOverTheBotWithoutTheTriggerDoesNotStopIt()
     {
-        // ⚠ The one that makes this usable in a room. People talk over each other in a voice
+        // The one that makes this usable in a room. People talk over each other in a voice
         // channel, and any weaker signal than the trigger silences the bot every time two of them do.
         RecognisingUtteranceSink sink = Sink();
 

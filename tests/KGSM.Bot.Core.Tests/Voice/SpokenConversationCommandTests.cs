@@ -52,7 +52,7 @@ public class SpokenConversationCommandTests
     [Fact]
     public void AStopFailingIsNotAnAskToStartOver()
     {
-        // ⚠ The dangerous near-miss: the words are in there, and the sentence is a question about a
+        // The dangerous near-miss: the words are in there, and the sentence is a question about a
         // server. Matching on containment would answer it by wiping the room.
         SpokenConversationCommands.Read("the server didn't start over the weekend, can you check")
             .Should().Be(SpokenConversationCommand.None);

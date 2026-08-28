@@ -339,7 +339,7 @@ public sealed class PlayerRosterTests
     /// not there, and nothing about it can be measured.
     /// </summary>
     /// <remarks>
-    /// ⚠ The engine's <c>is-active</c> answers by exit code, so it returns the stopped one for an
+    /// The engine's <c>is-active</c> answers by exit code, so it returns the stopped one for an
     /// instance it cannot open. Reporting that as a stopped server tells an operator their fleet went
     /// down when what happened is that a drive came out — so the engine is not asked at all, which is
     /// what the last assertion pins.

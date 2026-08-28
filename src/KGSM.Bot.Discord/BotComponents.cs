@@ -5,7 +5,7 @@ namespace KGSM.Bot.Discord;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ⚠ <b>Every one of these is silence, and silence looks exactly like nothing having happened.</b>
+/// <b>Every one of these is silence, and silence looks exactly like nothing having happened.</b>
 /// That is what makes this leaf different from the others: a monitor that stops sampling serves a
 /// stale number somebody can notice, and a bot that stops posting produces an absence nobody can see.
 /// </para>
@@ -31,7 +31,7 @@ public static class BotComponents
     /// Whether every configured guild is one the client can currently resolve.
     /// </summary>
     /// <remarks>
-    /// ⚠ Configured, connected, no guild — the state this leaf's status line was written to expose.
+    /// Configured, connected, no guild — the state this leaf's status line was written to expose.
     /// One component for all of them, with the offenders in the detail: a component per guild would
     /// grow the dedup set with every server the bot is invited to.
     /// </remarks>

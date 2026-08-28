@@ -25,7 +25,7 @@ namespace KGSM.Bot.Discord.Commands;
 /// The engine records it per backup: <c>cold</c> (the server was stopped, so nothing could write
 /// mid-archive), <c>flushed</c> (running, but it wrote its world out first), <c>hot</c> (running with
 /// no usable save command — <b>the archive may be torn</b>), or nothing at all when the run state
-/// could not be determined. A surface that flattened those into "backed up ✅" would be hiding the
+/// could not be determined. A surface that flattened those into "backed up" would be hiding the
 /// only part that decides whether the backup is worth having.
 /// </para>
 /// <para>

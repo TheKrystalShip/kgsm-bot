@@ -104,12 +104,12 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     /// carries on mid-flow.
     /// </para>
     /// <para>
-    /// ⚠ <b>It changes the voice for the whole host, not just for Discord.</b> One engine serves every
+    /// <b>It changes the voice for the whole host, not just for Discord.</b> One engine serves every
     /// surface here, which is what makes a person hear the same assistant wherever they reach it — so
     /// the reply says so rather than letting it read as a setting for this channel.
     /// </para>
     /// <para>
-    /// ⚠ <b>It does not survive the engine restarting, and the reply says that too.</b> The durable
+    /// <b>It does not survive the engine restarting, and the reply says that too.</b> The durable
     /// setting is that leaf's own, in the Control Panel; writing to it from here would be a second
     /// source of truth for the same thing, and the one nobody can see would be winning. This is for
     /// hearing a voice before choosing it.

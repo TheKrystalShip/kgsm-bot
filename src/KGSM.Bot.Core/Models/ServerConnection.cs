@@ -109,7 +109,7 @@ public sealed record FirewallExposure(
 /// <param name="Firewall">What the firewall authority says about those ports.</param>
 /// <param name="IsRunning">Whether the server is up, or <see langword="null"/> when that could not
 /// be read. A closed-looking port on a stopped server is simply a stopped server, and the reply says
-/// which it is — but only when it knows. ⚠ Null is not <see langword="false"/>: a footer saying
+/// which it is — but only when it knows. Null is not <see langword="false"/>: a footer saying
 /// nothing is listening, printed because a read failed, is the fabrication this three-state
 /// prevents.</param>
 public sealed record ServerConnection(

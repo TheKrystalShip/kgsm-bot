@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Pinned to `TheKrystalShip.KGSM.Lib` 8.7.0, which classifies `reactor.proposed` and `reactor.resolved`
 so a handler registered for one gets a payload class rather than a `JsonElement`.
 
-⚠ **Nothing here announces one.** A proposal's handle is the capability that redeems it, and a channel
+**Nothing here announces one.** A proposal's handle is the capability that redeems it, and a channel
 a fleet reads is the last place it belongs — an offer reaches a person through the panel and Web Push,
 both of which know who is looking at them.
 
@@ -54,7 +54,7 @@ stripping, which is why the option belongs on this package and not on every one.
 The node's post-transaction hook starts what is enabled, stopped and configured. `post_upgrade` does
 not preset: an administrator's `disable` survives every later version.
 
-⚠ The hook refuses to START it until `Discord__Token` is set in `/etc/kgsm-bot/kgsm-bot.env` — a bot
+The hook refuses to START it until `Discord__Token` is set in `/etc/kgsm-bot/kgsm-bot.env` — a bot
 with no token connects to nothing. `kgsm-node-status` names that key, and only that key.
 
 `depends=('kgsm-base')`, which carries the `kgsm` account this unit runs as and the `/var/lib/kgsm`
@@ -117,7 +117,7 @@ result is now read on all of them.
 
 Every surface that reports run state has three answers rather than two: running, stopped, and
 unread. A server whose files sit behind an unreachable library is the third, and the reply names
-the library — `❔ Unread — library \`external\` is away` on `/list`, `📦 library away (\`external\`)`
+the library — `Unread — library \`external\` is away` on `/list`, `library away (\`external\`)`
 on the live status board, its own sentence on `/players` and `/is-active`, and a footer on
 `/connect` that declines to say whether anything is listening.
 
@@ -125,7 +125,7 @@ The engine measures an absent disk as an absence and reports null, and kgsm-lib 
 carries that through: `InstanceRuntimeStatus.Status` and `Instance.Runtime` are nullable, and
 `Instance.LibraryState` says why the rest of an instance is empty.
 
-⚠ **The engine's `is-active` cannot express this, so it is not asked.** It answers by exit code, and
+**The engine's `is-active` cannot express this, so it is not asked.** It answers by exit code, and
 `IsActive` reports any non-zero as stopped — so an instance it cannot even open reads as a stopped
 server, and an unplugged disk reads as a shelf of servers going down at once. `PlayerRoster`,
 `ServerConnectionService` and `/list` check the library state first and skip the call, which is also
@@ -168,7 +168,7 @@ rewrite **detectable** — a reference carrying both finds the line by position 
 right one by id, where before a shifted offset resolved to a real, parseable event of the wrong kind
 with nothing to notice.
 
-⚠ Optional and optional forever: lines written before this are on disk for as long as retention holds
+Optional and optional forever: lines written before this are on disk for as long as retention holds
 them, and **absent means unknown, never a mismatch**. Authority: `journal-entry-id-plan.md`.
 
 ### Fixed — a first setup on a host where nothing is installed yet completes
@@ -185,7 +185,7 @@ plus one `manage-units` call on this project's own service — `start` when the 
 is not running). Both are dispatched as the same `manage-units` action, so a host without the grant is
 refused either way and the probe measures the grant rather than the unit.
 
-⚠ Measured in the positive direction only. The deploying user on the development host is in
+Measured in the positive direction only. The deploying user on the development host is in
 `wheel`, and two pre-existing polkit rules there grant that group every
 `org.freedesktop.systemd1.*` action outright, so no systemctl call by that user can be refused
 and the negative path cannot be exercised on it. That `try-restart` consults polkit before it
@@ -210,7 +210,7 @@ unrecognised makes the account of a turn quietly incomplete.
 ### Fixed — federation cannot be registered in the wrong order
 
 kgsm-lib 4.30.0 makes `AddKgsmServices` and `AddKgsmJournalFederation` register the same resolution
-rule, so either call order yields a federated reader. ⚠ **The bug it removes had no symptom**: a
+rule, so either call order yields a federated reader. **The bug it removes had no symptom**: a
 consumer that federated too early kept reading the engine's journal *successfully* — healthy journal,
 quiet host, nothing to catch — while every other producer's events sat in files it never opened.
 `JournalDiscovery` also scans once per process now, instead of once for the history reader and again
@@ -243,7 +243,7 @@ What changed for a listener here, all of it the package's rules winning:
 - **A link is read as its text.** Its target is an address, not a sentence — "example.invalid/path"
   read aloud is noise, and its dots would cut the sentence in the middle.
 - **A table's pipes and a link's brackets are silent**, as the other markup already was.
-- ⚠ **A fence marker counts only at the true start of a line.** A sentence ending part-way along a
+- **A fence marker counts only at the true start of a line.** A sentence ending part-way along a
   line leaves the rest of it in a fresh buffer, and reading that as a line start took
   "Done. \`\`\`yaml" for a fence — silencing every word after it for the rest of the answer. Both
   implementations had this; neither had noticed.
@@ -267,7 +267,7 @@ markup stripped — only when each part of it goes out.
   line ending, and it must be worth at least `LeastChars` of speech — so "Yes." rides out with the
   sentence after it and "2.0.58" stays in one piece. Whatever the reply ends on is spoken by the
   flush, terminated or not.
-- ⚠ **No boundary is offered inside a fenced block.** Segmenting first and stripping markup per piece
+- **No boundary is offered inside a fenced block.** Segmenting first and stripping markup per piece
   would read a stack trace out a line at a time, which is precisely what `SpokenText` exists to
   prevent. The fence is tracked across the slices as they accumulate; the piece finally cut carries
   the whole block and `SpokenText` drops it, including a fence the reply never closes.
@@ -291,7 +291,7 @@ them cut in at all.
 - `IVoiceSessions.BeginRecital` opens one answer's worth of speaking and `IVoiceRecital` is the handle
   its pieces are spoken through. `StopSpeaking` abandons the current recital **whether or not anything
   is playing**, and every piece still owed to it is refused.
-- ⚠ A piece is checked twice and **the check that matters is the one after the wait for the mouth** —
+- A piece is checked twice and **the check that matters is the one after the wait for the mouth** —
   a sentence queued behind another spends that sentence's whole duration waiting there, which is
   exactly the window an interruption lands in. Refusing only on the way in would let everything
   already waiting play.
@@ -332,7 +332,7 @@ engine is no longer the bot's to start, to configure, or to keep.
 
 `Voice:ModelPath`, `Voice:UseGpu`, `Voice:SpeechModelPath`, `Voice:SpeechVoice`, `Voice:SpeakUseGpu`
 and `Voice:WorkerIdleMinutes` are gone; `Voice:SpeechSocket` (blank = the standard path) replaces
-them. ⚠ An existing `Discord__Voice__SpeechVoice` override — the Control Panel writes one to
+them. An existing `Discord__Voice__SpeechVoice` override — the Control Panel writes one to
 `/var/lib/kgsm-api/leaf-overrides/bot.env` — now binds to nothing. Set the voice on the **Speech**
 leaf instead.
 
@@ -356,7 +356,7 @@ with the voice knobs flipped:
 The bot is 145MB. Everything above that was two models loaded at startup whether or not anybody had
 ever been in a voice channel.
 
-⚠ **Unloading them inside the process does not work**, which is why this is a second process rather
+**Unloading them inside the process does not work**, which is why this is a second process rather
 than lazy loading. Probed directly — load, dispose, aggressive compacting GC, `malloc_trim`, measure:
 whisper returned **9MB of 383MB**, and kokoro **331MB of 1319MB**. The video memory does come back
 (682 → 122MiB). What does not is the CUDA runtime: 919MB of the kokoro figure appears on the *first
@@ -390,7 +390,7 @@ How long the models may sit loaded after the last voice channel empties. Zero ke
 
 ### Fixed — 61MB held to speak in one voice
 
-⚠ **`KokoroVoiceManager` bulk-loads every voice on disk** the first time it is asked for one, and that
+**`KokoroVoiceManager` bulk-loads every voice on disk** the first time it is asked for one, and that
 is not the 54 English voices it looks like — it walks subdirectories, and `voices-zh` brings the total
 to **157 `.npy` arrays**. Measured on hotrod: **1848MB → 1787MB** resident after loading exactly the
 one voice in use. Each array is over the large-object threshold, so they sat on the LOH and were never
@@ -401,7 +401,7 @@ process now holds only the configured one, and `/voice speak-as` reads whatever 
 memory follows what has actually been tried rather than what exists. Listing the available voices
 reads the **directory** and loads nothing at all.
 
-⚠ A voice named in configuration that this host does not have now reports the names it *does* have,
+A voice named in configuration that this host does not have now reports the names it *does* have,
 rather than failing with the name that was already known to be wrong.
 
 ### Changed — `af_heart` is the default
@@ -419,7 +419,7 @@ a voice needs a restart. Every voice is already in memory — they load together
 synthesiser takes one *per sentence* — so changing it swaps a reference. Nothing reloads, nothing
 re-warms, and the bot stays in the channel mid-conversation.
 
-⚠ **It lasts until the process does, and the reply says so.** The durable setting stays the leaf's,
+**It lasts until the process does, and the reply says so.** The durable setting stays the leaf's,
 and this deliberately does not write to it: a bot speaking in a voice its own configuration does not
 name is two sources of truth, and the invisible one would be winning. Hear a voice here, keep it in
 the panel.
@@ -428,7 +428,7 @@ Autocomplete rather than fixed choices — Discord caps an option at 25 and ther
 voices than that. Suggestions come from the voices actually loaded, so the list cannot offer a name
 the host would then refuse.
 
-⚠ Changing the voice **clears the phrase cache**, which is keyed by text and therefore holds audio in
+Changing the voice **clears the phrase cache**, which is keyed by text and therefore holds audio in
 the voice being replaced. Without that the bot answers in the new voice and goes on acknowledging in
 the old one.
 
@@ -448,7 +448,7 @@ Ordered by training data rather than alphabetically, because that is the axis yo
 difference between the top of a group and the bottom is not accent or timbre but how synthetic the
 voice sounds.
 
-⚠ Applying it **restarts the bot**, which drops it out of any voice channel it is sitting in.
+Applying it **restarts the bot**, which drops it out of any voice channel it is sitting in.
 
 ## [3.31.0] - 2026-08-14
 
@@ -469,7 +469,7 @@ being asked for. The spoken phrases are matched deterministically, like the yes/
 same reason — something that discards a room's memory should be readable, testable and identical every
 time.
 
-⚠ **Matched against the whole utterance, not by containment.** *"the server didn't start over the
+**Matched against the whole utterance, not by containment.** *"the server didn't start over the
 weekend, can you check"* is a question, and a matcher looking for "start over" anywhere would answer it
 by wiping the channel. "Forget it" is left out entirely: it almost always means "never mind about
 that", said in the exact moment somebody would be most annoyed to lose everything.
@@ -508,7 +508,7 @@ Cancelling the write stops the writing, not the sound: up to a whole buffer of a
 queued and plays on for about a second. The output stream is now thrown away with what it was
 holding, and the next answer builds a new one.
 
-⚠ The writer's own `ClearAsync` cannot be used for this — it dequeues frames without releasing the
+The writer's own `ClearAsync` cannot be used for this — it dequeues frames without releasing the
 slots they occupied or returning their buffers to the pool, so one call starves the stream
 permanently. Discarding queued audio means discarding the stream.
 
@@ -553,7 +553,7 @@ that was not measured is the same error as reporting a status that was not measu
 
 ### Changed — one note that bends, instead of two notes
 
-⚠ **Two struck notes a fourth apart is a doorbell**, however the timbre is tuned. The melody is the
+**Two struck notes a fourth apart is a doorbell**, however the timbre is tuned. The melody is the
 thing being recognised, and everybody already knows that one — so no amount of adjusting the partials
 was going to fix it.
 
@@ -568,7 +568,7 @@ metallic inharmonic partial deleted. Measured, it is bright at the strike and se
 within a fifth of a second — a warm knock rather than a ring. The reflections are pulled in tight, so
 it sounds close rather than in a hall. Attack is 28ms.
 
-⚠ Phase is **accumulated per sample** rather than computed from elapsed time. With a frequency that
+Phase is **accumulated per sample** rather than computed from elapsed time. With a frequency that
 changes, `sin(2πf(t)·t)` is not a note that bends — it is a note whose phase jumps every sample, which
 is heard as a rasp.
 
@@ -604,7 +604,7 @@ Three separate causes of a tone that lags the moment it describes:
 
 - **The look-ahead ran on the 200ms tick.** It now runs on the loop that receives frames, so a
   sentence is read the instant it is long enough rather than up to a fifth of a second later.
-- ⚠ **A tone that would arrive late is now dropped.** It used to queue behind whatever was already
+- **A tone that would arrive late is now dropped.** It used to queue behind whatever was already
   playing. "Your turn" heard three seconds after the fact describes a moment that has gone, and
   invites somebody to talk into something not listening for them — worse than silence. It waits 400ms
   for the connection to be free and gives up.
@@ -635,7 +635,7 @@ derived from it, since the two disagreeing is what causes this. The write is als
 taking longer to go out than it could possibly take to play drops the stream and rebuilds it, so no
 future stall in the audio stack can freeze everything a person asks afterwards.
 
-⚠ This was latent before the tones: a short spoken answer — "Yes." — synthesises to well under a
+This was latent before the tones: a short spoken answer — "Yes." — synthesises to well under a
 second and would have done the same thing.
 
 ## [3.26.0] - 2026-08-14
@@ -663,7 +663,7 @@ assembler now hands out a copy of a sentence's opening once it holds 1.5 seconds
 trigger is looked for there, so "hey assistant, is minecraft running" is answered with the tone while
 the speaker is still on "minecraft".
 
-⚠ **A partial reading may only make a sound — never a decision.** It is the opening of an instruction
+**A partial reading may only make a sound — never a decision.** It is the opening of an instruction
 nobody has finished giving: nothing is dispatched, counted, or opened from it, and the same audio
 arrives again complete a moment later. That is what makes it safe for whisper to be wrong about a
 fragment, which it sometimes is. It is also **skipped outright when the recogniser is busy** rather
@@ -1167,7 +1167,7 @@ could never fire. From inside a channel that is indistinguishable from a host wh
 every producer's journal: the engine's, the supervisor's, the firewall authority's and the monitor's.
 Nothing else moved — every handler is registered against `IEventSource` and never learns what backs it.
 
-⚠ **The call must stay after `AddKgsmServices`.** Above it, the single-journal registration wins,
+**The call must stay after `AddKgsmServices`.** Above it, the single-journal registration wins,
 nothing throws, nothing is logged, and the bot goes quiet about incidents again.
 `JournalFederationWiringTests` resolves both halves out of the container the bot actually builds, since
 that is a failure with no symptom to notice.
@@ -1347,7 +1347,7 @@ morning's crashes at once.
   deleted, so `/setup show` stops listing channels that do not exist and a reinstall does not try to
   reuse one.
 
-  ⚠ **"Not visible" is not "deleted", and the difference decides whether a binding is destroyed.** A
+  **"Not visible" is not "deleted", and the difference decides whether a binding is destroyed.** A
   channel the bot has lost `View Channel` on is missing from the cache exactly like one that no longer
   exists, and unbinding it would orphan a live channel full of a server's history with nothing
   pointing at it. So a cache miss is confirmed against Discord — which answers nothing for a deleted
@@ -1481,7 +1481,7 @@ morning's crashes at once.
   state, and a depth that does not come back down is its only symptom.
 
 - **"Update available" announcements** (`Discord:Announce:UpdateAvailable`, on by default). A channel
-  hears when a newer game build is released for one of its servers — `🆕 **factorio** has an update
+  hears when a newer game build is released for one of its servers — `**factorio** has an update
   available — 1.4.1 → 1.4.2` — which is the cue to run `/update`.
 
   The bot subscribes to `instance_update_available` and does nothing else: the engine decides what is
@@ -1565,7 +1565,7 @@ morning's crashes at once.
 ### Removed
 
 - **`Discord__GuildId`, `Discord__InstancesCategoryId`, `Discord__AnnouncementChannelId` and the
-  `KGSM:Instances` channel map.** ⚠ **A host upgrading past this must run
+  `KGSM:Instances` channel map.** **A host upgrading past this must run
   `deploy/deploy.sh`'s new binary with `--adopt-guild-config --apply` *before* redeploying**, while
   the old settings file is still in place — otherwise the 15-odd channel bindings it holds are gone
   and every server is given a fresh channel beside the one carrying its history. Back up
@@ -1652,14 +1652,14 @@ from this repo along with the Ollama client, the agent loop, the conversation st
 one engine behind Discord, the Control Panel and the assistant's own site, and it is the
 kgsm-assistant leaf.
 
-**⚠ Configuration removed: `Ollama`, `Conversation`, `LlmAgent` and `Llm`.** A host that still sets
+**Configuration removed: `Ollama`, `Conversation`, `LlmAgent` and `Llm`.** A host that still sets
 any of them binds nothing. Their replacement is the `Assistant` section. The prompt text that lived
 in `Llm:Preamble` / `ActionsAllowed` / `ActionsDenied` is **not migrated**: the assistant's own
 prompts already say the same things and say them more accurately — every action stages behind a
 confirmation now, which the bot's text predated. A host that wants a different Discord voice writes
 `<Prompts:Directory>/kgsm-bot/preamble.md` on the assistant, which overrides per leaf.
 
-**⚠ `/var/lib/kgsm-bot` is no longer created or used.** The bot keeps no state at all;
+**`/var/lib/kgsm-bot` is no longer created or used.** The bot keeps no state at all;
 `setup.sh` provisions nothing and `deploy.sh` prunes the whole prefix. An existing directory is
 left alone and can be deleted by hand — the conversations in it are superseded by the assistant's.
 
@@ -1733,7 +1733,7 @@ this repo skipped over.
   assistant. Roles are read off the member object the gateway already provides — no REST call, no
   lookup token, no cache — which is why this leaf takes only the model half of the shared auth
   packages.
-- **⚠ Slash commands are gated.** `/start`, `/stop`, `/restart`, `/install` and `/uninstall` now
+- **Slash commands are gated.** `/start`, `/stop`, `/restart`, `/install` and `/uninstall` now
   require **operator** and refuse anyone below it; every slash module requires guild membership, so a
   command run in a DM is refused rather than answered. They previously ran for anyone Discord let
   invoke them.

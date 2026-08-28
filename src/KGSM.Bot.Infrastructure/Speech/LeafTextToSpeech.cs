@@ -73,7 +73,7 @@ internal sealed class LeafTextToSpeech : ITextToSpeech
         if (!changed)
             return Result.Failure($"There's no voice called \"{voice}\" on this host.");
 
-        // ⚠ Cleared, because the cache is keyed by TEXT: every phrase in it is audio in the voice that
+        // Cleared, because the cache is keyed by TEXT: every phrase in it is audio in the voice that
         // has just been replaced. Leaving it would have the bot answer in the new voice and go on
         // acknowledging in the old one, which reads as a half-applied change rather than as a cache.
         _said.Clear();

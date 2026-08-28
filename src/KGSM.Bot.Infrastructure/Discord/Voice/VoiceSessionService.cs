@@ -326,7 +326,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         /// still queued would let the next answer start writing into the middle of this one.
         /// </para>
         /// <para>
-        /// ⚠ <b>Anything shorter than the output buffer is padded to it.</b> Discord.Net's buffered
+        /// <b>Anything shorter than the output buffer is padded to it.</b> Discord.Net's buffered
         /// writer transmits nothing at all until a full buffer's worth of frames has been queued —
         /// below that its sending loop waits, and the flush waits on the sending loop, so a short
         /// write never completes and never fails. Measured: a 290ms tone wedged the stream, the write
@@ -361,7 +361,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
                 await _mouth.WaitAsync(ct);
             }
 
-            // ⚠ Asked again, and this is the check that matters. A piece queued behind the sentence
+            // Asked again, and this is the check that matters. A piece queued behind the sentence
             // before it spends that sentence's whole duration waiting here, and an interruption
             // arriving in that window is exactly the one a person makes — they cut in while the bot
             // is talking. Refusing only on the way in would let every piece already waiting play.
@@ -398,7 +398,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             }
             catch (OperationCanceledException) when (speech.Stopped)
             {
-                // ⚠ Cancelling stops the writing, not the sound. Up to a whole buffer of audio is
+                // Cancelling stops the writing, not the sound. Up to a whole buffer of audio is
                 // already queued and would keep playing for a second after somebody cut in — so the
                 // stream is thrown away with what it was holding, and the next answer builds a new
                 // one. That is the only way to drop queued frames: the writer's own Clear dequeues
@@ -431,7 +431,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
             }
             catch (OperationCanceledException)
             {
-                // ⚠ Cancelled well inside the budget, so the stream is not the thing that failed —
+                // Cancelled well inside the budget, so the stream is not the thing that failed —
                 // the connection underneath it went away, and Discord.Net cancels an in-flight write
                 // from the audio client's own token when it does. Measured: a voice disconnect
                 // reported here as a wedged stream, which sends anybody reading the log after the
@@ -488,7 +488,7 @@ public sealed class VoiceSessionService : IVoiceSessions, IDisposable
         /// between them rather than reporting two.
         /// </para>
         /// <para>
-        /// ⚠ <b>The recital goes first and it goes whether or not anything is playing.</b> An answer
+        /// <b>The recital goes first and it goes whether or not anything is playing.</b> An answer
         /// spoken as it is written is queued a sentence at a time, so the moment somebody cuts in is
         /// as likely to fall in the gap between two of them as inside one — and dropping only the
         /// sentence in the air would have the bot pause and then resume over the top of them.

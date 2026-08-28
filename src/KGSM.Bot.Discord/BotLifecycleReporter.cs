@@ -13,7 +13,7 @@ namespace KGSM.Bot.Discord;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ⚠ <b>systemd liveness is not health for this leaf, and the gateway's word is not either.</b> The
+/// <b>systemd liveness is not health for this leaf, and the gateway's word is not either.</b> The
 /// unit reports active, the gateway reports Connected, and the bot can still be unable to post a
 /// single message: a guild that failed to populate, a channel it can no longer see, a store it could
 /// not open. Every one of those is silence, and silence is indistinguishable from nothing having
@@ -56,7 +56,7 @@ public sealed class BotLifecycleReporter(
 
         try
         {
-            // ⚠ The first reading is taken after one interval, not immediately. A gateway that has
+            // The first reading is taken after one interval, not immediately. A gateway that has
             // not connected yet is a leaf still starting, not a degraded one — reporting at t=0 filed
             // a normal startup as a fault, with an unresolved guild beside it for the same reason. A
             // connect measured here takes under two seconds, so a gateway still down after thirty is
@@ -138,7 +138,7 @@ public sealed class BotLifecycleReporter(
     /// Whether every configured guild and channel is one the client can currently see.
     /// </summary>
     /// <remarks>
-    /// ⚠ One component for all guilds and one for all channels, with the offenders named in the
+    /// One component for all guilds and one for all channels, with the offenders named in the
     /// detail. A component per guild would grow the emitter's dedup set with every server this bot is
     /// invited to, and a guild removed while degraded would never recover.
     /// </remarks>

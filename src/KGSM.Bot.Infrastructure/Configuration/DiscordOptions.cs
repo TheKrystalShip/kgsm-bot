@@ -528,7 +528,7 @@ public class VoiceOptions
     /// is still being said moves it to where a person expects it.
     /// </para>
     /// <para>
-    /// ⚠ <b>It costs a whole recognition pass.</b> Whisper pads what it is given to a fixed window, so
+    /// <b>It costs a whole recognition pass.</b> Whisper pads what it is given to a fixed window, so
     /// reading a second and a half costs about what reading the sentence costs — and it is spent on
     /// every utterance long enough to qualify, including the ones nobody addressed to the bot. It is
     /// skipped outright whenever the recogniser is busy, so it can never delay a real answer, and what

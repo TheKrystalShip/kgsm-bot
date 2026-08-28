@@ -74,7 +74,7 @@ public interface IVoiceSessions
     /// reading the rest instead of hearing it.
     /// </para>
     /// <para>
-    /// ⚠ <b>The whole of an answer goes, not the sentence in the air.</b> An answer spoken as it is
+    /// <b>The whole of an answer goes, not the sentence in the air.</b> An answer spoken as it is
     /// written is a queue of pieces, and stopping only the one playing leaves the bot pausing and
     /// then talking over the person who cut in — which is worse than not letting them cut in at all.
     /// So the current recital is abandoned as well, and every piece still owed to it is refused.

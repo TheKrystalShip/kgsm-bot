@@ -98,7 +98,7 @@ public class SpokenRecitalTests
     [Fact]
     public async Task CuttingTheBotOffDropsEverythingStillOwed()
     {
-        // ⚠ The trap. With five sentences queued, stopping only the one playing has the bot pause and
+        // The trap. With five sentences queued, stopping only the one playing has the bot pause and
         // then carry on talking over the person who cut in.
         var held = new FakeRecital { Block = true };
         var speech = new FakeSpeech();

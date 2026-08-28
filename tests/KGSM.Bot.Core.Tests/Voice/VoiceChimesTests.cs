@@ -146,7 +146,7 @@ public class VoiceChimesTests
     [Fact]
     public void TheTonesMoveInOppositeDirections()
     {
-        // ⚠ The pair is compared against ITSELF at the same instant rather than each tone against its
+        // The pair is compared against ITSELF at the same instant rather than each tone against its
         // own tail. Crossings answer to brightness as well as pitch, and both tones start bright and
         // mellow as they ring — so an early-against-late reading inside one tone measures the decay
         // as much as the bend. At the same moment the two share a timbre, and only the pitch differs,

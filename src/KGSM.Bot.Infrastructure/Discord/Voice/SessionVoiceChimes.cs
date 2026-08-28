@@ -42,7 +42,7 @@ internal sealed class SessionVoiceChimes : IVoiceChimes
     /// How long a tone will wait for the connection to stop talking before it is abandoned.
     /// </summary>
     /// <remarks>
-    /// ⚠ <b>A tone is only true at the moment it plays.</b> "Your turn" arriving after the bot has
+    /// <b>A tone is only true at the moment it plays.</b> "Your turn" arriving after the bot has
     /// been speaking for three seconds describes a moment that has already gone, and the person hears
     /// it against whatever is happening instead — which is worse than hearing nothing, because it
     /// invites them to talk into something that is not listening for them.

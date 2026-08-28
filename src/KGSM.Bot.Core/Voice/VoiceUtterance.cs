@@ -32,7 +32,7 @@ namespace KGSM.Bot.Core.Voice;
 /// </param>
 /// <param name="Partial">
 /// Whether this is a copy of a sentence still being spoken, taken to find out early whether the bot
-/// is being addressed. ⚠ <b>A partial utterance may not decide anything.</b> It is the opening of a
+/// is being addressed. <b>A partial utterance may not decide anything.</b> It is the opening of a
 /// sentence and the speaker has not finished, so acting on it would act on half an instruction —
 /// everything it is allowed to do is make a sound. The same audio arrives again, complete, when they
 /// stop talking, and that copy is the one that is read.

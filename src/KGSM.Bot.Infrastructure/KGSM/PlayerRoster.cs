@@ -121,7 +121,7 @@ public sealed class PlayerRoster : IPlayerRoster
     /// nothing is not a zero.
     /// </para>
     /// <para>
-    /// ⚠ <b>A server whose library is away is not asked about, rather than asked and disbelieved.</b>
+    /// <b>A server whose library is away is not asked about, rather than asked and disbelieved.</b>
     /// The engine's <c>is-active</c> answers by exit code, so it has only two values and returns the
     /// stopped one for an instance it cannot even open — which is how an unplugged disk comes to be
     /// reported as fifteen servers going down at once. The supervisor's presence map can likewise

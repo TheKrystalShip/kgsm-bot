@@ -66,7 +66,7 @@ public static class VoiceChimes
     /// </summary>
     /// <remarks>
     /// <para>
-    /// ⚠ <b>Two struck notes a fourth apart is a doorbell</b>, however the timbre is tuned — the
+    /// <b>Two struck notes a fourth apart is a doorbell</b>, however the timbre is tuned — the
     /// melody is the thing being recognised, and everybody already knows that one. So there is one
     /// note, and the direction is carried by bending its pitch instead.
     /// </para>
@@ -204,7 +204,7 @@ public static class VoiceChimes
 
     /// <summary>Rings the note, bending it as it goes.</summary>
     /// <remarks>
-    /// ⚠ <b>Phase is accumulated, never computed from the elapsed time.</b> With a frequency that
+    /// <b>Phase is accumulated, never computed from the elapsed time.</b> With a frequency that
     /// changes, <c>sin(2πf(t)·t)</c> is not a note that bends — it is a note whose phase jumps on
     /// every sample, which is heard as a rasp rather than as a pitch.
     /// </remarks>

@@ -236,7 +236,7 @@ public static class DependencyInjection
         // from a host where nothing went wrong. Crash announcements, the incident thread under them
         // and the restart button on a give-up all hang off events this call is what delivers.
         //
-        // ⚠ Must stay AFTER AddKgsmServices: that call registers a single-journal IEventSource and
+        // Must stay AFTER AddKgsmServices: that call registers a single-journal IEventSource and
         // IEventJournalHistory, and this one replaces both by being registered last. Above it, this
         // silently does nothing — there is no error, only the wrong registration winning.
         //
@@ -254,9 +254,9 @@ public static class DependencyInjection
 
         // This leaf's OWN journal — the write half, which it has never had. It reads every other
         // producer's above; this is the one it writes, and it records nothing but what this bot could
-        // and could not do. ⚠ The two are unrelated: reading the federation says nothing about being
+        // and could not do. The two are unrelated: reading the federation says nothing about being
         // able to be read, and until now nothing on this host could see a bot that had gone silent.
-        // ⚠ The ENTRY assembly, not this one. The version lives on KGSM.Bot.Discord (the deployable);
+        // The ENTRY assembly, not this one. The version lives on KGSM.Bot.Discord (the deployable);
         // the class libraries carry none, so passing this assembly stamped every event 1.0.0 — a
         // version no release was ever numbered, which is exactly what ProducerVersion exists to avoid.
         services.AddKgsmJournal(

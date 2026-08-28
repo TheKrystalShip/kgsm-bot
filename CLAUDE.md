@@ -105,16 +105,16 @@ commands are registered globally and authorize from the account store, so this i
 - **One announcement mechanism, with the board as a layer on it.** `AnnounceAsync` iterates the
   configured guilds that follow the server in question and posts once in each; the only variable is
   which channel — the server's own where the guild runs a board and bound one, else the guild's
-  announcement channel. `Render` names the server by its label (`🟢 **My Factorio** started — … (heisen)`), so a
+  announcement channel. `Render` names the server by its label (`**My Factorio** started — … (heisen)`), so a
   message reads correctly out of either.
 - **A binding is a preference; the announcement channel is the requirement.** A server's own channel
   deleted in Discord leaves a binding pointing at nothing, and the bot **falls back** to the guild's
   announcement channel rather than losing the announcement — treating the binding as the only place a
   server may report is how every message about it disappears silently for as long as nobody notices.
-  ⚠ The stale binding is not repaired on that path: deciding a channel is really gone takes asking
+  The stale binding is not repaired on that path: deciding a channel is really gone takes asking
   Discord, and doing it per announcement would spend a request fixing bookkeeping nobody is waiting
   on. `ReconcileBindingsAsync` does it once, on `Ready`.
-- **A binding is dropped only on an answer that says the channel is gone.** ⚠ The gateway cache
+- **A binding is dropped only on an answer that says the channel is gone.** The gateway cache
   answers "deleted" and "the bot lost `View Channel`" with the same silence, and unbinding the second
   orphans a live channel full of a server's history with nothing pointing at it. So a cache miss is
   confirmed with a REST fetch — Discord returns nothing for a deleted channel and refuses for one it
@@ -138,7 +138,7 @@ commands are registered globally and authorize from the account store, so this i
   events cost **one**; a periodic republish (`StatusMessageRefreshSeconds`) is a backstop for what no
   event describes, never the mechanism; and the message id is **stored**, because a restart that
   posts a second board and keeps the wrong one current is a fabricated status with a timestamp on it.
-  A run state that could not be read is marked unread (`❔`), never stopped. The snapshot is read
+  A run state that could not be read is marked unread (``), never stopped. The snapshot is read
   **once for the host and narrowed per guild**, so a board cannot list a server the guild sitting
   beside it has unfollowed — and a guild following none of what is installed is told that, rather
   than being told the host is empty.
@@ -148,7 +148,7 @@ commands are registered globally and authorize from the account store, so this i
   (`board_category_id NOT NULL`), never by a boolean beside one, because a flag and a category can
   disagree. `/setup board-off` and `/setup forget` **never delete a channel**: deleting one with
   history because a setting changed is not a decision a bot gets to make, and the reply says so.
-- **`[RequireTier(KgsmTier.Admin)]`, never a Discord permission.** ⚠ Gating `/setup` on *Manage
+- **`[RequireTier(KgsmTier.Admin)]`, never a Discord permission.** Gating `/setup` on *Manage
   Server* would let anyone who can add the bot to a guild of their own point this host's
   announcements — including player joins and leaves — into it, and authorizing correctly would not
   help: an announcement has no caller to authorize. **Two questions, two refusals**: the tier
@@ -163,7 +163,7 @@ commands are registered globally and authorize from the account store, so this i
   removing their last server is asking for, so both real choices are named instead.
 - **The filter governs what the bot says unprompted, never what it answers when asked.**
   Announcements, the per-server channel an install creates, and the rows on the live status message
-  are filtered; slash commands are not. ⚠ Authority in this ecosystem is the KGSM account, host-wide
+  are filtered; slash commands are not. Authority in this ecosystem is the KGSM account, host-wide
   — filtering *reads* by which guild they were typed in would be a second, per-guild authority
   model, which is banned. A viewer is trusted with this host's inventory wherever they ask from.
 - **An unreadable filter follows everything.** Reading no rows and failing to read are both "no
@@ -470,8 +470,8 @@ is for players.
 - **Consistency is measured per backup and is the thing worth reading.** The engine records how the
   capture was taken: `cold` (stopped — nothing could write mid-archive), `flushed` (running, but it
   wrote its world out first), `hot` (running with no usable save command — **the archive may be
-  torn**), or nothing at all when the run state could not be read. ⚠ A surface that flattens those
-  into "backed up ✅" hides the only part that decides whether the backup is worth having. **An
+  torn**), or nothing at all when the run state could not be read. A surface that flattens those
+  into "backed up" hides the only part that decides whether the backup is worth having. **An
   unrecognised value is printed as it came** — the engine owns this vocabulary, and a surface guessing
   what a new word means is how a torn archive gets described as a good one.
 - **Nothing stores an age; the timestamp is stored and the age computed at render.** That is what
@@ -512,7 +512,7 @@ just asked, and reaching back over a restart is exactly what it is for.
   the oldest moment the record still holds, said only when the window asked for more than that.
   **Truncation** is a scan that stopped at its budget, so the page is a prefix. The one empty answer
   that means *nothing happened* is the one with a readable journal behind it.
-- ⚠ **The engine emits far more event types than the bot announces, and an unrecognised one is never
+- **The engine emits far more event types than the bot announces, and an unrecognised one is never
   dropped.** A measured day here carries deploy phases, UPnP forwards, port openings and prune results
   with no announcement kind behind any of them. The types worth naming are named; everything else
   renders from the engine's own word with its subject prefix stripped (`server.deploy.finished` →
@@ -521,7 +521,7 @@ just asked, and reaching back over a restart is exactly what it is for.
 - **One field is lifted verbatim off each payload**, chosen by a documented order so an event carrying
   several is described by the most specific it has. Nothing is computed, and an event carrying none of
   them shows no detail rather than a stand-in.
-- ⚠ **What a payload field *is* comes from kgsm-lib's `KgsmEventCatalog`; which of them says most
+- **What a payload field *is* comes from kgsm-lib's `KgsmEventCatalog`; which of them says most
   about the moment is this surface's judgement.** The bot holds no second opinion about which fields
   identify somebody — it prints what the engine classifies as public and scalar, so a field
   reclassified upstream changes what Discord shows on the day the pin moves. That rule is what keeps
@@ -556,7 +556,7 @@ engine, the event journal, the KGSM account store, the guild store and the assis
   to do with each other — so a summary that took one as evidence for the next would report a state
   that was never measured. A check that throws is a failing check carrying the exception's words;
   nothing here may propagate, because the whole point is to be answerable while things are broken.
-- ⚠ **Four verdicts, not two.** A dependency this host was never given is `Off`, not broken —
+- **Four verdicts, not two.** A dependency this host was never given is `Off`, not broken —
   counting an undeployed assistant against the total makes a correct host read as permanently short of
   something. A check that reached no answer is `Unknown`, not a pass, and is deliberately not green: a
   gateway mid-reconnect is neither connected nor faulty, and reporting it either way sends somebody
@@ -589,7 +589,7 @@ answers.
   circle the container refuses.
 - **The silence that ends a sentence has to be looked for.** Frames stop arriving when somebody stops
   talking, so the read loop cannot notice the gap it is sitting in — a ticker closes utterances.
-- ⚠ **The trigger is matched anywhere in an utterance, not at the start.** Requiring it first was
+- **The trigger is matched anywhere in an utterance, not at the start.** Requiring it first was
   measured refusing real requests: people lead in ("okay let me try — hey assistant, …") and that is
   one breath, therefore one utterance. Accepted cost: quoting the phrase fires it.
 - **The listening state is two tones, and it is a state rather than a message.** Waiting for you to
@@ -599,7 +599,7 @@ answers.
   and it does not wear out the way a fixed phrase does. **Anything with something to *tell* you stays
   spoken**: a tone cannot say why, and a rising tone after a confirmation that could not be made out
   reads as "go ahead" when the opposite happened.
-- ⚠ **A sentence's opening is read before it is finished, and that reading may only make a sound.**
+- **A sentence's opening is read before it is finished, and that reading may only make a sound.**
   Recognition runs on a *closed* utterance, so being addressed could otherwise only be known after the
   speaker stopped — putting the "go ahead" tone after the words it was meant to encourage.
   `UtteranceAssembler.Peek` hands out a copy at `EarlyTriggerMs`, and `RecognisingUtteranceSink`
@@ -619,7 +619,7 @@ answers.
 - **The recogniser is primed with this host's names**, because a recogniser knows English and not that
   a server is called `Ketchup`. Nothing downstream rewrites what was said — see the CHANGELOG for why
   correcting a misheard name afterwards is not merely risky but unachievable at any threshold.
-  ⚠ **How the names are written down is the speech package's answer, not this repo's.**
+  **How the names are written down is the speech package's answer, not this repo's.**
   `TheKrystalShip.KGSM.Speech.SpokenVocabulary` composes the context and owns `IsEchoOf`, the guard
   against whisper handing that context back as though somebody had read it aloud. What stays here is
   *reading the inventory* and how often — a browser voice note and a spoken request are the same host
@@ -635,7 +635,7 @@ answers.
   holds token fragments until there is a whole sentence; `SpokenRecital` synthesises and plays each in
   turn. So the room hears the opening of a long answer while the model is still producing the end of
   it, and what is spoken is unchanged — the whole reply, in order.
-  - ⚠ **Where a reply is cut is the speech package's answer, not this repo's.**
+  - **Where a reply is cut is the speech package's answer, not this repo's.**
     `TheKrystalShip.KGSM.Speech.SpokenSentences` holds the rules — a fenced block dropped rather than
     read line by line, a sentence ending only at punctuation *followed by whitespace* so `kgsm.sh` and
     `2.0.58` survive, a short sentence riding out with the next, and whatever is left said by the
@@ -649,7 +649,7 @@ answers.
   - **Everything spoken for a turn rides one recital**, including the sentence pointing at a staged
     action's buttons and the sentence said when a turn fails. Anything said beside it would survive an
     interruption and talk over whoever cut in.
-- ⚠ **Hearing and speaking are not in this process — they are the `kgsm-speech` leaf.** One engine
+- **Hearing and speaking are not in this process — they are the `kgsm-speech` leaf.** One engine
   per host, reached over `/run/kgsm-speech/speech.sock`, serving every surface that listens or speaks.
   The reason is measured: the models cost about 1.6GB and 1.1GB of video memory, and **unloading them
   inside a running process does not give that back** (whisper returned 9MB of 383MB, kokoro 331MB of
@@ -665,12 +665,12 @@ answers.
     counterpart). A bot leaving a channel is not evidence nobody else is speaking; the engine idles
     out on its own schedule, which is the only place the whole picture is visible.
   - **A host without the leaf is the ordinary case**, and it is the same degraded shape as a host with
-    no model files: the bot joins, hears nothing, and answers in the channel's chat. ⚠ This is the one
+    no model files: the bot joins, hears nothing, and answers in the channel's chat. This is the one
     place the bot's voice *surface* depends on a sibling leaf — the bot itself does not, exactly as
     slash commands and announcements need no assistant.
   - **What stays on this side is what the engine does not know**: this host's server names (priming),
     the echo check, the phrase cache, and the 24kHz→48kHz upsample Discord needs.
-- ⚠ **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
+- **The trigger cuts the bot off, and nothing weaker does.** Saying it while an answer is playing
   stops that answer (`IVoiceSessions.StopSpeaking`, `Voice:Interruptible`), and the request that
   stopped it is answered next. **The whole answer goes, not the sentence in the air**: an answer read
   out as it is written is a queue of sentences, so the moment somebody cuts in is as likely to fall in
@@ -685,14 +685,14 @@ answers.
   where people talk over each other, and acting on it silences the bot every time two of them do.
   Continuing a conversation is not cutting into one, so an answer inside a `VoiceAttention` window and
   the rest of a request truncated at the ceiling both leave the speech alone.
-- ⚠ **Stopping the write does not stop the sound — the stream has to go.** Up to `BufferMillis` of
+- **Stopping the write does not stop the sound — the stream has to go.** Up to `BufferMillis` of
   audio is already queued in the writer and plays on regardless, so an interrupt disposes `_out` and
   the next answer builds a new one. The writer's own `ClearAsync` **cannot** be used: it dequeues
   frames without releasing the queue slots or returning their buffers to the pool, so one call starves
   the stream for good. Every path that abandons the stream disposes it, because a `BufferedWriteStream`
   owns a send loop that runs until something cancels it — a dropped reference is a second writer on the
   same connection as its replacement.
-- ⚠ **Clearing or compacting a conversation is read BEFORE a turn exists.** `/conversation clear` and
+- **Clearing or compacting a conversation is read BEFORE a turn exists.** `/conversation clear` and
   `/conversation compact`, and spoken ("start over", "forget everything") via
   `SpokenConversationCommands` → `IAssistantTurnClient.RunCommandAsync` → the assistant's own
   `/commands/{name}`. These act on the stored conversation, so they can never be a question: a model
@@ -701,10 +701,10 @@ answers.
   over the weekend"* into a wipe — and the assistant owns what each command does and who may run it,
   including the operator gate on clearing a shared room. Its wording is shown and spoken verbatim;
   nothing here forms a second opinion about what happened.
-- ⚠ **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
+- **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
   surface posts and the spoken reply says so. The button re-derives authority at the click; a
   recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.
-- ⚠ **Audio shorter than the output buffer is padded to it, and every write is bounded.** Discord.Net's
+- **Audio shorter than the output buffer is padded to it, and every write is bounded.** Discord.Net's
   buffered writer transmits nothing until its queue holds a full buffer's worth of frames — below that
   its send loop waits forever and the flush waits on the send loop, so a short write neither returns
   nor throws. Measured: one 290ms tone wedged the stream and, because requests are answered one at a
@@ -721,7 +721,7 @@ answers.
 
 `/status`, `/list`, `/is-active` and `/supervision` reply ephemerally under `EphemeralReads` (on) — a
 busy channel does not need everyone's status checks in its scrollback. `/history` follows the same
-switch. ⚠ **`/connect` is deliberately not one of them**: its whole purpose is to be read by somebody
+switch. **`/connect` is deliberately not one of them**: its whole purpose is to be read by somebody
 other than the person who typed it. `/logs` and `/health` are always private whatever the switch says
 — a game log carries player IP addresses, and a failing health check names host paths and the reasons
 stores could not be opened.
@@ -773,7 +773,7 @@ number of consumers read, so nothing is bound and nothing on any producer's side
 `KGSM.JournalDir` names the *engine's*, whose location is configurable; the rest are found on disk.
 Those events drive both the announcements and cache invalidation via `ServerEventCoordinatorService`.
 
-⚠ **Not every announced kind is the engine's to emit.** `server.crashed`,
+**Not every announced kind is the engine's to emit.** `server.crashed`,
 `server.crash.exhausted`, `server.started`, `server.ready`, `server.restarted` and player presence are
 the **supervisor's**, in its own journal. `AddKgsmJournalFederation` must therefore stay registered
 **after** `AddKgsmServices` in `DependencyInjection.cs` — above it, the single-journal registration

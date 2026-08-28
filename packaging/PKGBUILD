@@ -11,7 +11,7 @@
 # packaging time is a unit nobody tested.
 
 pkgname=kgsm-bot
-pkgver=3.44.1
+pkgver=3.46.2
 pkgrel=1
 pkgdesc="KGSM Discord bot — slash commands, announcements and chat onto a KGSM host"
 arch=('x86_64')

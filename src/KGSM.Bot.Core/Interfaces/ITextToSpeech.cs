@@ -38,12 +38,12 @@ public interface ITextToSpeech
     /// </summary>
     /// <remarks>
     /// <para>
-    /// ⚠ <b>It changes the voice for the whole host, not just for this bot.</b> One engine serves
+    /// <b>It changes the voice for the whole host, not just for this bot.</b> One engine serves
     /// every surface, which is what makes a person hear the same assistant in Discord as in a
     /// browser — and means a caller has to say so rather than presenting it as a local preference.
     /// </para>
     /// <para>
-    /// ⚠ <b>It lasts until the engine restarts.</b> The durable setting is that leaf's own; nothing
+    /// <b>It lasts until the engine restarts.</b> The durable setting is that leaf's own; nothing
     /// here writes to it, because a voice its configuration does not name is two sources of truth and
     /// the one nobody can see wins. This is for hearing a voice before choosing it.
     /// </para>

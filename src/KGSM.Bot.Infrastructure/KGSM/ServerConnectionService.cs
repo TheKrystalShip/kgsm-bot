@@ -80,7 +80,7 @@ public sealed class ServerConnectionService : IServerConnectionService
     /// Whether the server is up, or null when this host cannot say.
     /// </summary>
     /// <remarks>
-    /// ⚠ <b>An instance whose library is away is not asked about.</b> The engine answers this by exit
+    /// <b>An instance whose library is away is not asked about.</b> The engine answers this by exit
     /// code, so it has no way to say "I could not look" and returns the stopped one for an instance
     /// it cannot open — which would put "nothing is listening on those ports" under a connect string
     /// on the strength of an unplugged disk.

@@ -9,7 +9,7 @@ namespace KGSM.Bot.Core.Models;
 /// decoration somebody chose, and it changes whenever they like. This is the one place the two are
 /// composed, so every surface here writes them the same way round.
 /// <para>
-/// ⚠ <b>Nothing derived here is ever passed back to the engine.</b> A label is text to read; the id
+/// <b>Nothing derived here is ever passed back to the engine.</b> A label is text to read; the id
 /// is what a command carries, which is why <see cref="Describe"/> keeps it visible rather than
 /// hiding it behind a prettier word.
 /// </para>

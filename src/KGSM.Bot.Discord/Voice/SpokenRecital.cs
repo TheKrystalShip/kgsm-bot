@@ -28,7 +28,7 @@ namespace KGSM.Bot.Discord.Voice;
 /// the frame reader, and neither is a thing to do to somebody's question.
 /// </para>
 /// <para>
-/// ⚠ <b>Everything spoken for the turn rides the same recital</b>, including the sentence pointing at
+/// <b>Everything spoken for the turn rides the same recital</b>, including the sentence pointing at
 /// a staged action's buttons and the sentence said when a turn fails. Cutting the bot off drops a
 /// recital whole, so anything spoken outside it would carry on over the person who cut in.
 /// </para>

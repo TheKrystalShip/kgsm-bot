@@ -666,7 +666,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// Says a last thing as part of the answer it belongs to, and waits for the whole of it.
     /// </summary>
     /// <remarks>
-    /// ⚠ <b>Through the recital, not beside it.</b> Somebody who cuts in has cut off the answer, and
+    /// <b>Through the recital, not beside it.</b> Somebody who cuts in has cut off the answer, and
     /// a sentence spoken outside the recital would survive that and talk over them. Without one —
     /// a host that cannot speak, or a turn read out in one go — this is the plain say it always was.
     /// </remarks>

@@ -345,7 +345,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     /// One server's run state as a marker and a word, with three outcomes rather than two.
     /// </summary>
     /// <remarks>
-    /// ⚠ <b>An instance whose library is away is not asked about.</b> Its files, its version and its
+    /// <b>An instance whose library is away is not asked about.</b> Its files, its version and its
     /// process are all behind a disk that is not there, and the engine's <c>is-active</c> answers by
     /// exit code — so it returns the stopped one for an instance it cannot open, and a list rendering
     /// that reports a shelf of servers as down when what happened is that a drive came out. The
