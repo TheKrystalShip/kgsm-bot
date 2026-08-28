@@ -46,7 +46,7 @@
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
     <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
          /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="8.6.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="8.7.0" />
     <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="3.0.0" />
     <!-- This host's KGSM accounts, which are what say who may act here. Opened directly off the
          shared store file rather than asked for over HTTP: a file cannot be down, so the bot goes on

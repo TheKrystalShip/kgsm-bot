@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the reactor's offers are a shape this bot can read (3.46.2)
+
+Pinned to `TheKrystalShip.KGSM.Lib` 8.7.0, which classifies `reactor.proposed` and `reactor.resolved`
+so a handler registered for one gets a payload class rather than a `JsonElement`.
+
+⚠ **Nothing here announces one.** A proposal's handle is the capability that redeems it, and a channel
+a fleet reads is the last place it belongs — an offer reaches a person through the panel and Web Push,
+both of which know who is looking at them.
+
 ### Changed — the reactor's judgments are a shape this bot can read (`3.46.1`)
 
 kgsm-lib 8.6.0, which classifies `reactor.decided` and `reactor.acted`. Nothing announces one yet;
