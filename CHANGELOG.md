@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the reactor's judgments are a shape this bot can read (`3.46.1`)
+
+kgsm-lib 8.6.0, which classifies `reactor.decided` and `reactor.acted`. Nothing announces one yet;
+what changes is that the payloads deserialize into a class rather than arriving as an event this
+build has never heard of, so subscribing to a judgment is a handler registration rather than a
+schema to write out by hand.
+
 ### Changed — an event is named the way the panel names it (`3.46.0`)
 
 Every engine event this bot matches is named in the ecosystem's dotted vocabulary — `server.started`,
