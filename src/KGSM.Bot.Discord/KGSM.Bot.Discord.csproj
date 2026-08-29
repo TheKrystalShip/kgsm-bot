@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>3.46.2</Version>
+    <Version>3.47.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -64,7 +64,7 @@
     <PackageReference Include="Discord.Net.Core" Version="3.20.1" />
     <PackageReference Include="Discord.Net.Interactions" Version="3.20.1" />
     <PackageReference Include="Discord.Net.WebSocket" Version="3.20.1" />
-    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="3.0.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="3.2.0" />
 
     <!-- Pinned here as well as in Infrastructure: this project reads SpokenSentences directly, and a
          type used through a transitive reference is one a consumer can lose without touching it. -->

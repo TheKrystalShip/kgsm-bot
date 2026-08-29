@@ -1,3 +1,4 @@
+using TheKrystalShip.KGSM.Auth;
 using TheKrystalShip.KGSM.LeafConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;
@@ -18,8 +19,9 @@ public class AssistantOptions
     /// <summary>
     /// Base address of the assistant's HTTP surface. Blank leaves the conversational surface off.
     /// </summary>
-    /// <panel>Where the assistant service is reached. It is normally on this same machine. Left blank,
-    /// the bot still runs commands and announces, and only answering questions is unavailable.</panel>
+    /// <panel>Where the assistant service is reached. It is normally on this same machine, on the
+    /// loopback address it binds, which is what this is set to. Left blank, the bot still runs commands
+    /// and announces, and only answering questions is unavailable.</panel>
     [LeafField("assistantBaseUrl", "Assistant address", Group = "assistant", Risk = LeafRisk.Wiring)]
     public string BaseUrl { get; set; } = string.Empty;
 
@@ -47,4 +49,14 @@ public class AssistantOptions
     [LeafField("assistantTimeoutSec", "Answer timeout", Group = "assistant",
         Type = LeafType.Int, Min = 1, Unit = "s")]
     public int TimeoutSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Where the host keeps the relay secret above, read when none is set here.
+    /// </summary>
+    /// <panel>Where this host keeps the secret the assistant recognises this bot by. Left to itself the
+    /// first surface to look for it creates the file and the rest read it, so a host nobody configured
+    /// still has a bot that answers questions.</panel>
+    [LeafField("assistantRelaySecretPath", "Relay secret file", Group = "assistant", Type = LeafType.Path,
+        Risk = LeafRisk.Wiring)]
+    public string RelaySecretPath { get; set; } = KgsmRelaySecret.DefaultPath;
 }

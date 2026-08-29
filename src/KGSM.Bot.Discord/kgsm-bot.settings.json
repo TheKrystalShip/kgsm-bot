@@ -261,7 +261,7 @@
   // key (KGSM__Blueprints__factorio__OnlineTrigger), a single variable cannot express one, and the
   // Control Panel does not render it.
   "KGSM": {
-    "Path": "/usr/local/bin/kgsm",
+    "Path": "/usr/bin/kgsm",
     "JournalDir": "/var/lib/kgsm/events",
     "WatchdogSocketPath": "/run/kgsm-watchdog/control.sock",
     "StatusSocketPath": "/run/kgsm-bot/status.sock",
@@ -329,8 +329,9 @@
   // the asking person's. No address configured leaves the conversational surface off; slash commands,
   // announcements and channel status are unaffected.
   "Assistant": {
-    "BaseUrl": "",
+    "BaseUrl": "http://127.0.0.1:5180",
     "RelaySecret": "",
+    "RelaySecretPath": "/var/lib/kgsm/auth/relay-secret",
     "TimeoutSeconds": 300
   },
 

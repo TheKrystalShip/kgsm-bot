@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the relay secret is the host's, and the bot finds it (3.47.0)
+
+`Assistant:RelaySecret` left blank takes the secret from `Assistant:RelaySecretPath`
+(`/var/lib/kgsm/auth/relay-secret`), minting it if no surface on the host has yet. The assistant resolves the
+same file, so the pair matches with nothing asked of an operator — where before both sides shipped blank
+and @-mentioning the bot was silently dead on every host nobody hand-configured.
+
+Nothing outside the host can supply this value: the bot, the assistant and the Control Panel API run as
+the same account on the same machine, which is the whole basis on which the secret is trusted. It sits
+beside the account store because `/var/lib/kgsm` itself is root-owned on a host provisioned from a
+checkout, so minting at the top of the tree fails there — on exactly the hosts this is meant to fix.
+
+The client says so when it cannot resolve one, naming the file: the usual cause is a directory owned by
+somebody else, and the symptom is otherwise an assistant that refuses every question with nothing
+logged to say why.
+
+### Changed — the assistant's address defaults to where it listens (3.47.0)
+
+`Assistant:BaseUrl` is `http://127.0.0.1:5180`, the loopback address `kgsm-assistant-service.service`
+binds. A host without the assistant is unchanged in behaviour — the surface probes before it answers, so
+it reports itself unavailable rather than failing a question.
+
+### Fixed — the packaged engine path (3.47.0)
+
+`KGSM:Path` is `/usr/bin/kgsm`, which is what the package installs and what `kgsm-bot.service` already
+set. The settings file declared `/usr/local/bin/kgsm`, a path no node has, and the env file's commented
+hint pointed at the same one.
+
+### Fixed — the descriptor names this leaf's unit, not a path to it (3.47.0)
+
+The `systemd-unit` floor source names `kgsm-bot.service`. Where that file sits is a property of how the
+host was provisioned, and this leaf cannot know which.
+
 ### Changed — the reactor's offers are a shape this bot can read (3.46.2)
 
 Pinned to `TheKrystalShip.KGSM.Lib` 8.7.0, which classifies `reactor.proposed` and `reactor.resolved`

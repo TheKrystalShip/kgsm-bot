@@ -1,3 +1,4 @@
+using TheKrystalShip.KGSM.Auth;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
@@ -41,6 +42,13 @@ public static class DependencyInjection
 
         services.Configure<AssistantOptions>(
             configuration.GetSection(AssistantOptions.Section));
+        // The relay secret is the host's, not this bot's: the assistant checks it and the Control Panel
+        // API presents the same one, and all three run as the same account on the same machine. Nothing
+        // outside the host can supply it, so a blank one is resolved rather than owed — the first
+        // surface to look mints the file and the rest read it. Resolved once here because minting is a
+        // filesystem write and the answer does not change while the process lives.
+        services.PostConfigure<AssistantOptions>(o =>
+            o.RelaySecret = KgsmRelaySecret.Resolve(o.RelaySecret, o.RelaySecretPath));
 
         // Which Discord servers this host announces into. A singleton because it holds the open
         // store, and — like the account store — opening it is what can fail, so it fails into an

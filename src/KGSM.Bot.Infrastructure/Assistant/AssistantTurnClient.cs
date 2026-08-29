@@ -80,6 +80,17 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
                 "Assistant:BaseUrl is not a valid absolute URL ({BaseUrl}) — the conversational surface is off",
                 settings.BaseUrl);
         }
+
+        // An assistant to reach and no secret to reach it with. The secret is normally the host's own,
+        // minted on first look, so an empty one means the file could be neither read nor created — a
+        // provisioning fault that is otherwise invisible until somebody @-mentions the bot and the
+        // assistant refuses. Name the file: the usual cause is a directory owned by somebody else.
+        if (_hasBaseUrl && !_relay.IsConfigured)
+            _logger.LogWarning(
+                "no relay secret — the assistant at {BaseUrl} will refuse every question this bot asks on "
+                + "someone's behalf. The host's own secret is {Path}, which could not be read or created; "
+                + "check that directory is owned by the account this bot runs as",
+                settings.BaseUrl, settings.RelaySecretPath);
     }
 
     /// <summary>
