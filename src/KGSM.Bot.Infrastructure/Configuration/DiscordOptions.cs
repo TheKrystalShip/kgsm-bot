@@ -1,6 +1,6 @@
 using KGSM.Bot.Core.Models;
 
-using TheKrystalShip.KGSM.LeafConfig;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;
 
@@ -13,21 +13,21 @@ namespace KGSM.Bot.Infrastructure.Configuration;
 /// from inside Discord and held in the guild store. What this host announces at all, and how a
 /// message looks when it does, is host policy and lives here.
 /// </remarks>
-[LeafSection(Section)]
+[ConfigSection(Section)]
 public class DiscordOptions
 {
     public const string Section = "Discord";
 
     /// <panel>Token the bot signs in to Discord with. Without a valid one it cannot connect at
     /// all.</panel>
-    [LeafField("discordToken", "Bot token", Group = "discord", Type = LeafType.Secret,
-        Risk = LeafRisk.Wiring, NoDefault = true)]
+    [ConfigField("discordToken", "Bot token", Group = "discord", Type = ConfigType.Secret,
+        Risk = ConfigRisk.Wiring, NoDefault = true)]
     public string Token { get; set; } = string.Empty;
 
     /// <panel>Whether uninstalling a server also deletes its Discord channel, taking that channel's
     /// history with it. Off, the channel is left behind.</panel>
-    [LeafField("removeChannelOnUninstall", "Delete channel with the server", Group = "channels",
-        Risk = LeafRisk.Destructive)]
+    [ConfigField("removeChannelOnUninstall", "Delete channel with the server", Group = "channels",
+        Risk = ConfigRisk.Destructive)]
     public bool RemoveChannelOnInstanceDeletion { get; set; } = false;
 
     /// <summary>
@@ -42,7 +42,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>The address the bot tells people to connect to — a domain name, if this host has one.
     /// Left blank, it uses the external IP address the host measures for itself.</panel>
-    [LeafField("publicAddress", "Public address", Group = "connect")]
+    [ConfigField("publicAddress", "Public address", Group = "connect")]
     public string PublicAddress { get; set; } = string.Empty;
 
     /// <summary>
@@ -55,7 +55,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>Whether an announcement about a server that is down carries a button to restart it.
     /// Pressing it needs the same permission the command does.</panel>
-    [LeafField("announcementActions", "Buttons on announcements", Group = "announcements")]
+    [ConfigField("announcementActions", "Buttons on announcements", Group = "announcements")]
     public bool ActionButtons { get; set; } = true;
 
     /// <summary>
@@ -67,7 +67,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>Whether a crash opens a thread under its announcement, so the conversation about it
     /// stays with it instead of scrolling the channel. Needs permission to create threads.</panel>
-    [LeafField("incidentThreads", "Threads for crashes", Group = "announcements")]
+    [ConfigField("incidentThreads", "Threads for crashes", Group = "announcements")]
     public bool IncidentThreads { get; set; } = true;
 
     /// <summary>
@@ -82,7 +82,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>Whether the assistant looks into a server the supervisor has given up on and posts what
     /// it found in the crash thread, before anybody asks. It only reads; it never acts on its own.</panel>
-    [LeafField("incidentTriage", "Investigate crashes", Group = "announcements")]
+    [ConfigField("incidentTriage", "Investigate crashes", Group = "announcements")]
     public bool IncidentTriage { get; set; } = true;
 
     /// <summary>
@@ -95,7 +95,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How long the bot waits before editing the live status message again, so a burst of
     /// changes becomes one edit instead of one each.</panel>
-    [LeafField("statusMessageMinIntervalSec", "Status message floor", Group = "status",
+    [ConfigField("statusMessageMinIntervalSec", "Status message floor", Group = "status",
         Min = 5, Unit = "s")]
     public int StatusMessageMinIntervalSeconds { get; set; } = 15;
 
@@ -109,7 +109,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How often the live status message is refreshed even when nothing has happened, to catch
     /// anything no event reported.</panel>
-    [LeafField("statusMessageRefreshSec", "Status message refresh", Group = "status",
+    [ConfigField("statusMessageRefreshSec", "Status message refresh", Group = "status",
         Min = 60, Unit = "s")]
     public int StatusMessageRefreshSeconds { get; set; } = 900;
 
@@ -124,7 +124,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How old a server's newest backup has to be before the live status message flags it. A
     /// server with no backup at all is always flagged. Set to 0 to show the age for every server.</panel>
-    [LeafField("backupStaleAfterHours", "Flag backups older than", Group = "status",
+    [ConfigField("backupStaleAfterHours", "Flag backups older than", Group = "status",
         Min = 0, Unit = "h")]
     public int BackupStaleAfterHours { get; set; } = 48;
 
@@ -139,7 +139,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>Whether answers to "what's the status" commands are shown only to the person who asked,
     /// instead of to the whole channel. Sharing commands like /connect are unaffected.</panel>
-    [LeafField("ephemeralReads", "Keep status answers private", Group = "channels")]
+    [ConfigField("ephemeralReads", "Keep status answers private", Group = "channels")]
     public bool EphemeralReads { get; set; } = true;
 
     /// <summary>
@@ -152,7 +152,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>Whether the bot shows how many servers are up beside its name in the member list. It
     /// needs no channel and no setup, and every Discord server sees the same line.</panel>
-    [LeafField("presence", "Show the host in the member list", Group = "status")]
+    [ConfigField("presence", "Show the host in the member list", Group = "status")]
     public bool Presence { get; set; } = true;
 
     /// <summary>
@@ -166,7 +166,7 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How often the bot re-checks the host to update the line beside its name. Set it low and
     /// Discord will start refusing the updates.</panel>
-    [LeafField("presenceRefreshSec", "Presence refresh", Group = "status",
+    [ConfigField("presenceRefreshSec", "Presence refresh", Group = "status",
         Min = 20, Unit = "s", DependsOn = "presence")]
     public int PresenceRefreshSeconds { get; set; } = 60;
 
@@ -182,8 +182,8 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How long the bot waits between two messages it sends on its own, so a burst is spread
     /// out instead of arriving at once and getting the bot throttled.</panel>
-    [LeafField("sendQueueMinIntervalMs", "Send floor", Group = "limits",
-        Min = 0, Max = 5000, Unit = "ms", Risk = LeafRisk.Wiring)]
+    [ConfigField("sendQueueMinIntervalMs", "Send floor", Group = "limits",
+        Min = 0, Max = 5000, Unit = "ms", Risk = ConfigRisk.Wiring)]
     public int SendQueueMinIntervalMs { get; set; } = 200;
 
     /// <summary>
@@ -196,8 +196,8 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How many messages may wait to be sent before the bot starts refusing new ones and
     /// saying so. Reaching this means Discord is not keeping up with this host.</panel>
-    [LeafField("sendQueueCapacity", "Send queue size", Group = "limits",
-        Min = 16, Risk = LeafRisk.Wiring)]
+    [ConfigField("sendQueueCapacity", "Send queue size", Group = "limits",
+        Min = 16, Risk = ConfigRisk.Wiring)]
     public int SendQueueCapacity { get; set; } = 500;
 
     /// <summary>
@@ -210,22 +210,22 @@ public class DiscordOptions
     /// </remarks>
     /// <panel>How many times the bot re-tries a message Discord could not take, before giving up on
     /// it. Only a temporary failure is re-tried.</panel>
-    [LeafField("sendQueueMaxAttempts", "Send attempts", Group = "limits",
-        Min = 1, Max = 10, Risk = LeafRisk.Wiring)]
+    [ConfigField("sendQueueMaxAttempts", "Send attempts", Group = "limits",
+        Min = 1, Max = 10, Risk = ConfigRisk.Wiring)]
     public int SendQueueMaxAttempts { get; set; } = 4;
 
     /// <summary>The first hold-off after a rate limit or a server error; it doubles from here.</summary>
     /// <panel>How long the bot pauses everything it is sending after Discord refuses a message for a
     /// temporary reason. It doubles each time until the ceiling below.</panel>
-    [LeafField("sendQueueBackoffMs", "Backoff", Group = "limits",
-        Min = 100, Unit = "ms", Risk = LeafRisk.Wiring)]
+    [ConfigField("sendQueueBackoffMs", "Backoff", Group = "limits",
+        Min = 100, Unit = "ms", Risk = ConfigRisk.Wiring)]
     public int SendQueueBackoffMs { get; set; } = 1000;
 
     /// <summary>The ceiling the doubling hold-off stops at.</summary>
     /// <panel>The longest the bot will pause between re-tries, however many times sending has
     /// failed.</panel>
-    [LeafField("sendQueueMaxBackoffMs", "Backoff ceiling", Group = "limits",
-        Min = 1000, Unit = "ms", Risk = LeafRisk.Wiring)]
+    [ConfigField("sendQueueMaxBackoffMs", "Backoff ceiling", Group = "limits",
+        Min = 1000, Unit = "ms", Risk = ConfigRisk.Wiring)]
     public int SendQueueMaxBackoffMs { get; set; } = 60000;
 
     public StatusOptions Status { get; set; } = new();
@@ -233,10 +233,10 @@ public class DiscordOptions
     public VoiceOptions Voice { get; set; } = new();
     /// <panel>Whether announcements are deleted again after a while, so a busy channel does not fill
     /// with them. On, the channel keeps no record of what happened.</panel>
-    [LeafField("deleteStatusMessages", "Clean up announcements", Group = "channels")]
+    [ConfigField("deleteStatusMessages", "Clean up announcements", Group = "channels")]
     public bool DeleteStatusMessageAfterDelay { get; set; } = false;
     /// <panel>How long an announcement stays before it is deleted.</panel>
-    [LeafField("deleteStatusMessagesAfterSec", "Announcement lifetime", Group = "channels",
+    [ConfigField("deleteStatusMessagesAfterSec", "Announcement lifetime", Group = "channels",
         Min = 1, Unit = "s", DependsOn = "deleteStatusMessages")]
     public int DeleteStatusMessageDelaySeconds { get; set; } = 300;
 }
@@ -255,67 +255,67 @@ public class DiscordOptions
 public class AnnouncementOptions
 {
     /// <panel>A server's process was launched.</panel>
-    [LeafField("announceStarted", "Server started", Group = "announcements")]
+    [ConfigField("announceStarted", "Server started", Group = "announcements")]
     public bool Started { get; set; } = true;
 
     /// <panel>A server finished loading and is playable. Follows every start, including the ones the
     /// supervisor makes on its own, so leaving it off keeps a channel to one message per start.</panel>
-    [LeafField("announceReady", "Server ready to play", Group = "announcements")]
+    [ConfigField("announceReady", "Server ready to play", Group = "announcements")]
     public bool Ready { get; set; } = false;
 
     /// <panel>A server was stopped.</panel>
-    [LeafField("announceStopped", "Server stopped", Group = "announcements")]
+    [ConfigField("announceStopped", "Server stopped", Group = "announcements")]
     public bool Stopped { get; set; } = true;
 
     /// <panel>Someone cycled a server deliberately.</panel>
-    [LeafField("announceRestarted", "Server restarted", Group = "announcements")]
+    [ConfigField("announceRestarted", "Server restarted", Group = "announcements")]
     public bool Restarted { get; set; } = true;
 
     /// <panel>A server died unexpectedly and the supervisor is restarting it. Announced once per
     /// crash, not once per restart attempt.</panel>
-    [LeafField("announceCrashed", "Server crashed", Group = "announcements")]
+    [ConfigField("announceCrashed", "Server crashed", Group = "announcements")]
     public bool Crashed { get; set; } = true;
 
     /// <panel>The supervisor ran out of restart attempts and left a server down. This is the one
     /// that means somebody has to go look.</panel>
-    [LeafField("announceFailed", "Server gave up restarting", Group = "announcements")]
+    [ConfigField("announceFailed", "Server gave up restarting", Group = "announcements")]
     public bool Failed { get; set; } = true;
 
     /// <panel>A newer game build was released for a server. Announced once per build, not once per
     /// check, and only for servers this host actually checks.</panel>
-    [LeafField("announceUpdateAvailable", "Game update available", Group = "announcements")]
+    [ConfigField("announceUpdateAvailable", "Game update available", Group = "announcements")]
     public bool UpdateAvailable { get; set; } = true;
 
     /// <panel>A new game build was applied to a server.</panel>
-    [LeafField("announceUpdated", "Game updated", Group = "announcements")]
+    [ConfigField("announceUpdated", "Game updated", Group = "announcements")]
     public bool Updated { get; set; } = true;
 
     /// <panel>A new server was installed.</panel>
-    [LeafField("announceInstalled", "Server installed", Group = "announcements")]
+    [ConfigField("announceInstalled", "Server installed", Group = "announcements")]
     public bool Installed { get; set; } = true;
 
     /// <panel>A server was uninstalled.</panel>
-    [LeafField("announceUninstalled", "Server uninstalled", Group = "announcements")]
+    [ConfigField("announceUninstalled", "Server uninstalled", Group = "announcements")]
     public bool Uninstalled { get; set; } = true;
 
     /// <panel>A backup of a server was written.</panel>
-    [LeafField("announceBackupCreated", "Backup created", Group = "announcements")]
+    [ConfigField("announceBackupCreated", "Backup created", Group = "announcements")]
     public bool BackupCreated { get; set; } = false;
 
     /// <panel>A backup was rolled back onto a server, replacing what was there.</panel>
-    [LeafField("announceBackupRestored", "Backup restored", Group = "announcements")]
+    [ConfigField("announceBackupRestored", "Backup restored", Group = "announcements")]
     public bool BackupRestored { get; set; } = true;
 
     /// <panel>A player connected. One message per join — busy on a popular server.</panel>
-    [LeafField("announcePlayerJoined", "Player joined", Group = "announcements")]
+    [ConfigField("announcePlayerJoined", "Player joined", Group = "announcements")]
     public bool PlayerJoined { get; set; } = false;
 
     /// <panel>A player disconnected. One message per leave.</panel>
-    [LeafField("announcePlayerLeft", "Player left", Group = "announcements")]
+    [ConfigField("announcePlayerLeft", "Player left", Group = "announcements")]
     public bool PlayerLeft { get; set; } = false;
 
     /// <panel>A player was kicked, banned, or had a ban lifted.</panel>
-    [LeafField("announceModeration", "Player kicked or banned", Group = "announcements")]
+    [ConfigField("announceModeration", "Player kicked or banned", Group = "announcements")]
     public bool Moderation { get; set; } = true;
 
     /// <summary>
@@ -357,15 +357,15 @@ public class AnnouncementOptions
 public class StatusOptions
 {
     /// <panel>Shown beside a server that is running.</panel>
-    [LeafField("statusOnline", "Running marker", Group = "channels")]
+    [ConfigField("statusOnline", "Running marker", Group = "channels")]
     public string Online { get; set; } = string.Empty;
 
     /// <panel>Shown beside a server that is stopped.</panel>
-    [LeafField("statusOffline", "Stopped marker", Group = "channels")]
+    [ConfigField("statusOffline", "Stopped marker", Group = "channels")]
     public string Offline { get; set; } = string.Empty;
 
     /// <panel>Shown beside a server that is no longer installed.</panel>
-    [LeafField("statusUninstalled", "Uninstalled marker", Group = "channels")]
+    [ConfigField("statusUninstalled", "Uninstalled marker", Group = "channels")]
     public string Uninstalled { get; set; } = string.Empty;
 }
 
@@ -390,30 +390,30 @@ public class VoiceOptions
     /// <panel>Whether the bot may join a voice channel and listen to what is said in it. Off, the
     /// voice commands refuse and no audio is ever received. Everyone in a channel the bot is in is
     /// heard, not only whoever invited it.</panel>
-    [LeafField("voiceEnabled", "Voice listening", Group = "voice", Risk = LeafRisk.Wiring)]
+    [ConfigField("voiceEnabled", "Voice listening", Group = "voice", Risk = ConfigRisk.Wiring)]
     public bool Enabled { get; set; } = false;
 
     /// <panel>How long somebody has to stop talking before the bot treats their sentence as
     /// finished. Too short cuts people off mid-sentence; too long makes every answer wait.</panel>
-    [LeafField("voiceSilenceGapMs", "End-of-speech silence", Group = "voice",
+    [ConfigField("voiceSilenceGapMs", "End-of-speech silence", Group = "voice",
         Min = 100, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
     public int SilenceGapMs { get; set; } = 800;
 
     /// <panel>The shortest sound worth passing on. Below this it is a cough or a keyboard, not
     /// speech.</panel>
-    [LeafField("voiceMinUtteranceMs", "Shortest utterance", Group = "voice",
+    [ConfigField("voiceMinUtteranceMs", "Shortest utterance", Group = "voice",
         Min = 100, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
     public int MinUtteranceMs { get; set; } = 400;
 
     /// <panel>The longest one person may talk before the bot cuts it and takes what it has. Somebody
     /// talking without pausing is normal; an unbounded buffer is not.</panel>
-    [LeafField("voiceMaxUtteranceSeconds", "Longest utterance", Group = "voice",
+    [ConfigField("voiceMaxUtteranceSeconds", "Longest utterance", Group = "voice",
         Min = 1, Max = 120, Unit = "s", DependsOn = "voiceEnabled")]
     public int MaxUtteranceSeconds { get; set; } = 20;
 
     /// <panel>Whether the bot leaves once it is the only one left in the channel. Off, it stays until
     /// somebody tells it to leave.</panel>
-    [LeafField("voiceLeaveWhenAlone", "Leave an empty channel", Group = "voice",
+    [ConfigField("voiceLeaveWhenAlone", "Leave an empty channel", Group = "voice",
         DependsOn = "voiceEnabled")]
     public bool LeaveWhenAlone { get; set; } = true;
 
@@ -428,7 +428,7 @@ public class VoiceOptions
     /// <panel>What somebody says to get the bot's attention, like <code>hey assistant</code>. It is
     /// found anywhere in a sentence, so leading into a request works — and so does quoting the
     /// phrase, which will get you an answer. Several may be given, separated by commas.</panel>
-    [LeafField("voiceTriggers", "Trigger phrase", Group = "voice", DependsOn = "voiceEnabled")]
+    [ConfigField("voiceTriggers", "Trigger phrase", Group = "voice", DependsOn = "voiceEnabled")]
     public string Triggers { get; set; } = "hey assistant";
 
     /// <summary>
@@ -444,7 +444,7 @@ public class VoiceOptions
     /// listens. Names like <code>Ketchup</code> are otherwise heard as ordinary words — "catch-up" —
     /// because nothing has told it the server exists. The list is refreshed as servers are installed
     /// and removed.</panel>
-    [LeafField("voicePrimeWithServerNames", "Prime with server names", Group = "voice",
+    [ConfigField("voicePrimeWithServerNames", "Prime with server names", Group = "voice",
         DependsOn = "voiceEnabled")]
     public bool PrimeWithServerNames { get; set; } = true;
 
@@ -462,7 +462,7 @@ public class VoiceOptions
     /// without needing the trigger phrase again — answering a question the bot just asked you should
     /// not require introducing yourself to it. It only ever covers the speaker who was asked, and one
     /// reply spends it. Set to 0 to always require the trigger.</panel>
-    [LeafField("voiceReplyWindowSeconds", "Answer window", Group = "voice", Unit = "seconds",
+    [ConfigField("voiceReplyWindowSeconds", "Answer window", Group = "voice", Unit = "seconds",
         DependsOn = "voiceEnabled")]
     public int ReplyWindowSeconds { get; set; } = 20;
 
@@ -479,7 +479,7 @@ public class VoiceOptions
     /// waiting is named out loud before you are asked, so one yes covers all of it. Only a clear yes
     /// counts: anything the bot is unsure of is asked again rather than treated as approval. The
     /// buttons are always posted as well.</panel>
-    [LeafField("voiceConfirmByVoice", "Approve out loud", Group = "voice", DependsOn = "voiceEnabled")]
+    [ConfigField("voiceConfirmByVoice", "Approve out loud", Group = "voice", DependsOn = "voiceEnabled")]
     public bool ConfirmByVoice { get; set; } = true;
 
     /// <summary>
@@ -494,7 +494,7 @@ public class VoiceOptions
     /// <panel>Whether the bot says something short — "Looking into it." — the moment it hears you,
     /// instead of going quiet until the answer is ready. An approved job that takes a while says so
     /// as it starts, rather than leaving you waiting without knowing anything happened.</panel>
-    [LeafField("voiceAcknowledge", "Say something while working", Group = "voice",
+    [ConfigField("voiceAcknowledge", "Say something while working", Group = "voice",
         DependsOn = "voiceEnabled")]
     public bool Acknowledge { get; set; } = true;
 
@@ -512,7 +512,7 @@ public class VoiceOptions
     /// has your request and is working on it. Switched off, those moments are spoken instead. Anything
     /// with something to tell you — a long job, a question it could not make out — is always
     /// spoken.</panel>
-    [LeafField("voiceChimes", "Mark listening with tones", Group = "voice",
+    [ConfigField("voiceChimes", "Mark listening with tones", Group = "voice",
         DependsOn = "voiceEnabled")]
     public bool Chimes { get; set; } = true;
 
@@ -544,13 +544,13 @@ public class VoiceOptions
     /// still speaking rather than afterwards. It costs a full recognition pass on most of what is said
     /// in the channel, so set it to 0 on a busy host or a slow one. It never delays an answer: it is
     /// skipped whenever the recogniser is already working.</panel>
-    [LeafField("voiceEarlyTriggerMs", "Spot the trigger early", Group = "voice",
+    [ConfigField("voiceEarlyTriggerMs", "Spot the trigger early", Group = "voice",
         Min = 0, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
     public int EarlyTriggerMs { get; set; } = 1500;
 
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>
-    [LeafField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",
+    [ConfigField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",
         Min = 1, Max = 60, Unit = "s", DependsOn = "voiceEnabled")]
     public int FollowUpSeconds { get; set; } = 10;
 
@@ -568,13 +568,13 @@ public class VoiceOptions
     /// the bot. Switch it on to find out how the recogniser is hearing your trigger phrase, and off
     /// again afterwards — while it is on, everything anybody says in the channel is written to this
     /// host's log.</panel>
-    [LeafField("voiceLogTranscripts", "Log everything heard", Group = "voice",
-        Risk = LeafRisk.Wiring, DependsOn = "voiceEnabled")]
+    [ConfigField("voiceLogTranscripts", "Log everything heard", Group = "voice",
+        Risk = ConfigRisk.Wiring, DependsOn = "voiceEnabled")]
     public bool LogTranscripts { get; set; } = false;
 
     /// <panel>Whether the bot says its answers out loud as well as posting them. Off, it still
     /// listens and still answers — in the voice channel's chat.</panel>
-    [LeafField("voiceSpeak", "Answer out loud", Group = "voice", DependsOn = "voiceEnabled")]
+    [ConfigField("voiceSpeak", "Answer out loud", Group = "voice", DependsOn = "voiceEnabled")]
     public bool Speak { get; set; } = true;
 
     /// <summary>
@@ -597,7 +597,7 @@ public class VoiceOptions
     /// do not have to wait out a long reply to ask something else. Only the trigger does it —
     /// ordinary talking over the bot does not, or a busy channel would cut it off constantly. The
     /// answer stays in the chat either way.</panel>
-    [LeafField("voiceInterruptible", "Cut in while it is talking", Group = "voice",
+    [ConfigField("voiceInterruptible", "Cut in while it is talking", Group = "voice",
         DependsOn = "voiceSpeak")]
     public bool Interruptible { get; set; } = true;
 
@@ -620,7 +620,7 @@ public class VoiceOptions
     /// <panel>The socket the host's speech engine (kgsm-speech) listens on. Leave blank unless you
     /// have moved it — the bot uses the standard path. Without that leaf installed the bot still
     /// joins voice channels; it just cannot hear or speak, and answers in the channel instead.</panel>
-    [LeafField("voiceSpeechSocket", "Speech engine socket", Group = "voice", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring, DependsOn = "voiceEnabled")]
+    [ConfigField("voiceSpeechSocket", "Speech engine socket", Group = "voice", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring, DependsOn = "voiceEnabled")]
     public string SpeechSocket { get; set; } = string.Empty;
 }

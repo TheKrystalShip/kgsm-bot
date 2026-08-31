@@ -1,5 +1,5 @@
 using TheKrystalShip.KGSM.Auth.Users;
-using TheKrystalShip.KGSM.LeafConfig;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;
 
@@ -12,7 +12,7 @@ namespace KGSM.Bot.Infrastructure.Configuration;
 /// straight off disk rather than asked for over HTTP: a file cannot be down, so the bot keeps
 /// authorizing people with every other leaf stopped.
 /// </remarks>
-[LeafSection(Section)]
+[ConfigSection(Section)]
 public class AuthOptions
 {
     public const string Section = "Auth";
@@ -23,6 +23,6 @@ public class AuthOptions
     /// <panel>The file this host keeps its KGSM accounts in, shared with the Control Panel and the
     /// assistant. Someone's Discord account decides who they are; the account it is connected to
     /// decides what they may do here.</panel>
-    [LeafField("authUsersDbPath", "Account store", Group = "authorization", Risk = LeafRisk.Wiring)]
+    [ConfigField("authUsersDbPath", "Account store", Group = "authorization", Risk = ConfigRisk.Wiring)]
     public string UsersDbPath { get; set; } = UserStoreOptions.DefaultPath;
 }

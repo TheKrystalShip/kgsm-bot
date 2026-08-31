@@ -75,15 +75,15 @@ nothing. That is where the token lives (`/etc/kgsm-bot/kgsm-bot.env`). The descr
 fails the build when the settings file and the annotated options classes disagree in either
 direction, so a key added to one without the other never ships.
 
-**`deploy/kgsm-bot.leaf.json` is generated, not written.** `TheKrystalShip.KGSM.LeafConfig`
-rewrites it on every build from `[LeafField]` attributes and `<panel>` doc tags — so edit the
+**`deploy/kgsm-bot.leaf.json` is generated, not written.** `TheKrystalShip.KGSM.ComponentConfig`
+rewrites it on every build from `[ConfigField]` attributes and `<panel>` doc tags — so edit the
 options classes, never the JSON, and commit what the build produces. `Discord`, `KGSM` and
 `KgsmCache` carry theirs on their own types in `KGSM.Bot.Infrastructure`, which the generator
 picks up because it scans every assembly beside the built binary. `KgsmAuth` is declared as
 `[LeafFrameworkField]`s in `LeafDescriptor.cs` instead: that type belongs to
 `TheKrystalShip.KGSM.Auth`, and each surface describes the same keys in its own words, so the prose
 has to live with the surface that shows it. Format:
-`../leaf-config-descriptor.md`; mechanism: `../kgsm-leafconfig/README.md`.
+`../leaf-config-descriptor.md`; mechanism: `../kgsm-componentconfig/README.md`.
 
 ## Where it announces: `/setup` owns the topology
 

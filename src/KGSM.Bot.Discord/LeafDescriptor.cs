@@ -1,7 +1,7 @@
-using TheKrystalShip.KGSM.LeafConfig;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 // What the Control Panel shows about this bot, declared beside the configuration it describes.
-// TheKrystalShip.KGSM.LeafConfig reads this out of the built assemblies and writes
+// TheKrystalShip.KGSM.ComponentConfig reads this out of the built assemblies and writes
 // deploy/kgsm-bot.leaf.json; deploy.sh installs that into /var/lib/kgsm/leaves/bot.json, where
 // kgsm-api scans for it. The bot itself never reads any of this.
 //
@@ -18,37 +18,37 @@ using TheKrystalShip.KGSM.LeafConfig;
 
 // The bound settings types live over there. Named explicitly, so a referenced package's own settings
 // types cannot leak their sections in here.
-[assembly: LeafSectionAssembly("KGSM.Bot.Infrastructure")]
+[assembly: ConfigSectionAssembly("KGSM.Bot.Infrastructure")]
 
-[assembly: LeafGroup("general", "General", 1)]
-[assembly: LeafGroup("discord", "Discord", 2)]
-[assembly: LeafGroup("authorization", "Who may act", 3)]
-[assembly: LeafGroup("announcements", "Announcements", 4)]
-[assembly: LeafGroup("channels", "Server channels", 5)]
+[assembly: ConfigGroup("general", "General", 1)]
+[assembly: ConfigGroup("discord", "Discord", 2)]
+[assembly: ConfigGroup("authorization", "Who may act", 3)]
+[assembly: ConfigGroup("announcements", "Announcements", 4)]
+[assembly: ConfigGroup("channels", "Server channels", 5)]
 // The two ambient surfaces: the message kept current in a channel, and the line beside the bot's own
 // name. Both say what the host is doing without being asked, and both are paced rather than driven.
-[assembly: LeafGroup("status", "Live status", 6)]
+[assembly: ConfigGroup("status", "Live status", 6)]
 // Beside the status message, because the two answer the same question from opposite ends: that one
 // is how a burst becomes a single edit, this one is what paces everything the bot sends regardless.
-[assembly: LeafGroup("limits", "Sending to Discord", 7)]
-[assembly: LeafGroup("connect", "Joining a server", 8)]
-[assembly: LeafGroup("kgsm", "KGSM connection", 9)]
-[assembly: LeafGroup("cache", "Inventory cache", 10)]
-[assembly: LeafGroup("assistant", "Assistant", 11)]
-[assembly: LeafGroup("voice", "Voice", 12)]
+[assembly: ConfigGroup("limits", "Sending to Discord", 7)]
+[assembly: ConfigGroup("connect", "Joining a server", 8)]
+[assembly: ConfigGroup("kgsm", "KGSM connection", 9)]
+[assembly: ConfigGroup("cache", "Inventory cache", 10)]
+[assembly: ConfigGroup("assistant", "Assistant", 11)]
+[assembly: ConfigGroup("voice", "Voice", 12)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
-[assembly: LeafFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]
-[assembly: LeafFloorSource("systemd-unit", "kgsm-bot.service")]
-[assembly: LeafFloorSource("env-file", "/etc/kgsm-bot/kgsm-bot.env")]
+[assembly: ConfigFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]
+[assembly: ConfigFloorSource("systemd-unit", "kgsm-bot.service")]
+[assembly: ConfigFloorSource("env-file", "/etc/kgsm-bot/kgsm-bot.env")]
 
-[assembly: LeafFrameworkNamespace("Logging__",
+[assembly: ConfigFrameworkNamespace("Logging__",
     "per-category filtering is open-ended: any category name is a valid key")]
 
-[assembly: LeafFrameworkField("logLevel", "Logging__LogLevel__Default", "Log level",
+[assembly: ConfigFrameworkField("logLevel", "Logging__LogLevel__Default", "Log level",
     Description = "Minimum severity this leaf logs.",
     Group = "general",
-    Type = LeafType.Enum,
+    Type = ConfigType.Enum,
     Values = ["Trace", "Debug", "Information", "Warning", "Error", "Critical"])]
 
 // ── TheKrystalShip.KGSM.Auth's section, described for this surface ───────────
@@ -60,10 +60,10 @@ using TheKrystalShip.KGSM.LeafConfig;
 // Who may act is not in this section. It is the KGSM account behind a Discord account, in the store
 // declared on AuthOptions over in KGSM.Bot.Infrastructure.
 
-[assembly: LeafFrameworkField("authClientId", "KgsmAuth__Providers__discord__ClientId", "Discord application id",
+[assembly: ConfigFrameworkField("authClientId", "KgsmAuth__Providers__discord__ClientId", "Discord application id",
     Description = "The Discord application people sign in through on the surfaces that have a sign-in. The bot itself does not, and works without this.",
     Group = "authorization", NoDefault = true)]
 
-[assembly: LeafFrameworkField("authClientSecret", "KgsmAuth__Providers__discord__ClientSecret", "Discord application secret",
+[assembly: ConfigFrameworkField("authClientSecret", "KgsmAuth__Providers__discord__ClientSecret", "Discord application secret",
     Description = "Secret for that application. Only the surfaces with a sign-in use it; the bot does not.",
-    Group = "authorization", Type = LeafType.Secret, NoDefault = true)]
+    Group = "authorization", Type = ConfigType.Secret, NoDefault = true)]

@@ -1,5 +1,5 @@
 using TheKrystalShip.KGSM.Auth;
-using TheKrystalShip.KGSM.LeafConfig;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;
 
@@ -11,7 +11,7 @@ namespace KGSM.Bot.Infrastructure.Configuration;
 /// bot's slash commands, announcements and channel status all work exactly as they do now, and only
 /// the @-mention surface is unavailable.
 /// </remarks>
-[LeafSection(Section)]
+[ConfigSection(Section)]
 public class AssistantOptions
 {
     public const string Section = "Assistant";
@@ -22,7 +22,7 @@ public class AssistantOptions
     /// <panel>Where the assistant service is reached. It is normally on this same machine, on the
     /// loopback address it binds, which is what this is set to. Left blank, the bot still runs commands
     /// and announces, and only answering questions is unavailable.</panel>
-    [LeafField("assistantBaseUrl", "Assistant address", Group = "assistant", Risk = LeafRisk.Wiring)]
+    [ConfigField("assistantBaseUrl", "Assistant address", Group = "assistant", Risk = ConfigRisk.Wiring)]
     public string BaseUrl { get; set; } = string.Empty;
 
     /// <summary>
@@ -36,8 +36,8 @@ public class AssistantOptions
     /// </remarks>
     /// <panel>Shared secret the assistant recognises this bot by. It has to match the assistant's own,
     /// and without it the assistant refuses every question the bot asks on someone's behalf.</panel>
-    [LeafField("assistantRelaySecret", "Assistant relay secret", Group = "assistant",
-        Type = LeafType.Secret, Risk = LeafRisk.Wiring)]
+    [ConfigField("assistantRelaySecret", "Assistant relay secret", Group = "assistant",
+        Type = ConfigType.Secret, Risk = ConfigRisk.Wiring)]
     public string RelaySecret { get; set; } = string.Empty;
 
     /// <summary>
@@ -46,8 +46,8 @@ public class AssistantOptions
     /// </summary>
     /// <panel>How long to wait for an answer before giving up. A question that has the assistant check
     /// several servers takes longer than a simple one.</panel>
-    [LeafField("assistantTimeoutSec", "Answer timeout", Group = "assistant",
-        Type = LeafType.Int, Min = 1, Unit = "s")]
+    [ConfigField("assistantTimeoutSec", "Answer timeout", Group = "assistant",
+        Type = ConfigType.Int, Min = 1, Unit = "s")]
     public int TimeoutSeconds { get; set; } = 300;
 
     /// <summary>
@@ -56,7 +56,7 @@ public class AssistantOptions
     /// <panel>Where this host keeps the secret the assistant recognises this bot by. Left to itself the
     /// first surface to look for it creates the file and the rest read it, so a host nobody configured
     /// still has a bot that answers questions.</panel>
-    [LeafField("assistantRelaySecretPath", "Relay secret file", Group = "assistant", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring)]
+    [ConfigField("assistantRelaySecretPath", "Relay secret file", Group = "assistant", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
     public string RelaySecretPath { get; set; } = KgsmRelaySecret.DefaultPath;
 }

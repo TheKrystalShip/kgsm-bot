@@ -1,18 +1,18 @@
-using TheKrystalShip.KGSM.LeafConfig;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;
 
 /// <summary>
 /// Configuration options for KGSM
 /// </summary>
-[LeafSection(Section)]
+[ConfigSection(Section)]
 public class KgsmOptions
 {
     public const string Section = "KGSM";
 
     /// <panel>Path to the KGSM executable. Everything the bot knows about this host's servers is read
     /// through it.</panel>
-    [LeafField("kgsmPath", "KGSM executable", Group = "kgsm", Type = LeafType.Path, Risk = LeafRisk.Wiring)]
+    [ConfigField("kgsmPath", "KGSM executable", Group = "kgsm", Type = ConfigType.Path, Risk = ConfigRisk.Wiring)]
     public string Path { get; set; } = string.Empty;
 
     /// <summary>
@@ -39,8 +39,8 @@ public class KgsmOptions
     /// updates the moment a server starts or stops. The supervisor's, the firewall's and the
     /// monitor's journals are found automatically and need no setting. Read-only and shared with
     /// every other consumer — nothing needs configuring on the engine side.</panel>
-    [LeafField("kgsmJournalDir", "KGSM event journal", Group = "kgsm", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring)]
+    [ConfigField("kgsmJournalDir", "KGSM event journal", Group = "kgsm", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
     public string JournalDir { get; set; } = "/var/lib/kgsm/events";
 
     /// <summary>
@@ -52,8 +52,8 @@ public class KgsmOptions
     /// unreachable daemon is handled gracefully at call time.
     /// </summary>
     /// <panel>The supervisor's control socket, which the bot starts and stops servers through.</panel>
-    [LeafField("watchdogSocketPath", "Watchdog socket", Group = "kgsm", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring)]
+    [ConfigField("watchdogSocketPath", "Watchdog socket", Group = "kgsm", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
     public string WatchdogSocketPath { get; set; } = "/run/kgsm-watchdog/control.sock";
 
     /// <summary>
@@ -71,8 +71,8 @@ public class KgsmOptions
     /// </remarks>
     /// <panel>Where the bot publishes its status for the Control Panel to read — gateway state, each
     /// Discord server it is set up in, and its channel map. Leave blank to serve no status at all.</panel>
-    [LeafField("statusSocketPath", "Status socket", Group = "kgsm", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring)]
+    [ConfigField("statusSocketPath", "Status socket", Group = "kgsm", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
     public string StatusSocketPath { get; set; } = "/run/kgsm-bot/status.sock";
 
     /// <summary>
@@ -87,8 +87,8 @@ public class KgsmOptions
     /// </remarks>
     /// <panel>The firewall authority's control socket, which the bot asks whether a server's ports are
     /// actually reachable. It only ever reads.</panel>
-    [LeafField("firewallSocketPath", "Firewall socket", Group = "kgsm", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring)]
+    [ConfigField("firewallSocketPath", "Firewall socket", Group = "kgsm", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
     public string FirewallSocketPath { get; set; } = "/run/kgsm-firewall/firewall.sock";
 
     public Dictionary<string, BlueprintSettings> Blueprints { get; set; } = new();

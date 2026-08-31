@@ -1,4 +1,4 @@
-using TheKrystalShip.KGSM.LeafConfig;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;
 
@@ -10,7 +10,7 @@ namespace KGSM.Bot.Infrastructure.Configuration;
 /// credentials. It sits outside <c>/opt/kgsm-bot</c> because the deploy syncs that prefix with
 /// <c>rsync --delete</c>, which would take this file with it.
 /// </remarks>
-[LeafSection(Section)]
+[ConfigSection(Section)]
 public class GuildOptions
 {
     public const string Section = "Guilds";
@@ -32,7 +32,7 @@ public class GuildOptions
     /// <panel>The file the bot records each Discord server's setup in — its announcement channel and
     /// its per-server channels. Written by <c>/setup</c> in Discord, not here. Losing it loses every
     /// channel a server's history is in.</panel>
-    [LeafField("guildsDbPath", "Guild store", Group = "discord", Type = LeafType.Path,
-        Risk = LeafRisk.Wiring)]
+    [ConfigField("guildsDbPath", "Guild store", Group = "discord", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
     public string DbPath { get; set; } = DefaultDbPath;
 }
