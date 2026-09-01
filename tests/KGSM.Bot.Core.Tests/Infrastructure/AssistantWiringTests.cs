@@ -40,7 +40,9 @@ public class AssistantWiringTests
     {
         using var provider = (ServiceProvider)Build(
             ("Assistant:BaseUrl", "http://127.0.0.1:5180"),
-            ("Assistant:RelaySecret", "s3cret"));
+            // Asking on somebody's behalf is a member-to-member call, so the surface is armed by this
+            // host being in a cluster rather than by a secret of the bot's own.
+            ("Cluster:Secret", "cluster-secret-for-tests"));
 
         provider.GetRequiredService<IAssistantTurnClient>().IsConfigured.Should().BeTrue();
     }

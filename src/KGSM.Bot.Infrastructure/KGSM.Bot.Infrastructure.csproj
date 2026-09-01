@@ -55,6 +55,12 @@
     <!-- The assistant leaf's own relay contract: the headers that carry who is asking and what they
          may do. Published by the service that reads them, so this bot and the Control Panel API
          cannot come to spell an identity differently. -->
-    <PackageReference Include="TheKrystalShip.Kgsm.Assistant.Relay" Version="1.1.0" />
+    <PackageReference Include="TheKrystalShip.Kgsm.Assistant.Relay" Version="2.0.0" />
+
+    <!-- Membership. This bot calls the assistant as a MEMBER of the cluster, with its own service
+         token, naming the person whose message it is acting on. Holding the cluster secret is what
+         makes that token believable; the package is inert without one, which is the state a bot on a
+         machine standing alone is in. -->
+    <PackageReference Include="TheKrystalShip.KGSM.Cluster" Version="1.0.0-dev.18" />
   </ItemGroup>
 </Project>

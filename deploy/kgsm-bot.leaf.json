@@ -615,16 +615,6 @@
       "risk": "wiring"
     },
     {
-      "key": "assistantRelaySecret",
-      "env": "Assistant__RelaySecret",
-      "label": "Assistant relay secret",
-      "description": "Shared secret the assistant recognises this bot by. It has to match the assistant's own, and without it the assistant refuses every question the bot asks on someone's behalf.",
-      "group": "assistant",
-      "type": "secret",
-      "default": "",
-      "risk": "wiring"
-    },
-    {
       "key": "assistantTimeoutSec",
       "env": "Assistant__TimeoutSeconds",
       "label": "Answer timeout",
@@ -635,16 +625,6 @@
       "min": 1,
       "unit": "s",
       "risk": "safe"
-    },
-    {
-      "key": "assistantRelaySecretPath",
-      "env": "Assistant__RelaySecretPath",
-      "label": "Relay secret file",
-      "description": "Where this host keeps the secret the assistant recognises this bot by. Left to itself the first surface to look for it creates the file and the rest read it, so a host nobody configured still has a bot that answers questions.",
-      "group": "assistant",
-      "type": "path",
-      "default": "/var/lib/kgsm/auth/relay-secret",
-      "risk": "wiring"
     },
     {
       "key": "voiceEnabled",

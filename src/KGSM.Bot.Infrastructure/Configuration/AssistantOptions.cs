@@ -26,21 +26,6 @@ public class AssistantOptions
     public string BaseUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// The host's shared relay secret, which is what lets the bot ask the assistant a question as
-    /// somebody else. Without it every question is refused, so the surface is off.
-    /// </summary>
-    /// <remarks>
-    /// The same value the assistant is configured with (<c>Assistant__Relay__Secret</c>). It
-    /// authenticates the bot as a trusted relay — the identity and the authority it then forwards are
-    /// the asking person's, read from their KGSM account, never this secret's.
-    /// </remarks>
-    /// <panel>Shared secret the assistant recognises this bot by. It has to match the assistant's own,
-    /// and without it the assistant refuses every question the bot asks on someone's behalf.</panel>
-    [ConfigField("assistantRelaySecret", "Assistant relay secret", Group = "assistant",
-        Type = ConfigType.Secret, Risk = ConfigRisk.Wiring)]
-    public string RelaySecret { get; set; } = string.Empty;
-
-    /// <summary>
     /// How long one question may take before the bot gives up on it. Generous, because a question
     /// that makes the assistant read several servers legitimately takes a while.
     /// </summary>
@@ -49,14 +34,4 @@ public class AssistantOptions
     [ConfigField("assistantTimeoutSec", "Answer timeout", Group = "assistant",
         Type = ConfigType.Int, Min = 1, Unit = "s")]
     public int TimeoutSeconds { get; set; } = 300;
-
-    /// <summary>
-    /// Where the host keeps the relay secret above, read when none is set here.
-    /// </summary>
-    /// <panel>Where this host keeps the secret the assistant recognises this bot by. Left to itself the
-    /// first surface to look for it creates the file and the rest read it, so a host nobody configured
-    /// still has a bot that answers questions.</panel>
-    [ConfigField("assistantRelaySecretPath", "Relay secret file", Group = "assistant", Type = ConfigType.Path,
-        Risk = ConfigRisk.Wiring)]
-    public string RelaySecretPath { get; set; } = KgsmRelaySecret.DefaultPath;
 }

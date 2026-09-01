@@ -12,6 +12,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.Kgsm.Assistant.Relay;
+using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.Cluster.Identity;
 
 namespace KGSM.Bot.Infrastructure.Assistant;
 
@@ -42,18 +45,25 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
 
     private readonly HttpClient _http;
     private readonly AssistantRelay _relay;
+    private readonly IClusterTokenService _tokens;
+    private readonly ClusterOptions _cluster;
     private readonly ILogger<AssistantTurnClient> _logger;
     private readonly bool _hasBaseUrl;
 
-    public AssistantTurnClient(IOptions<AssistantOptions> options, ILogger<AssistantTurnClient> logger)
-        : this(options.Value, transport: null, logger) { }
+    public AssistantTurnClient(
+        IOptions<AssistantOptions> options, IClusterTokenService tokens, ClusterOptions cluster,
+        ILogger<AssistantTurnClient> logger)
+        : this(options.Value, transport: null, tokens, cluster, logger) { }
 
     /// <summary>Test seam: supply the transport, so what goes on the wire can be asserted.</summary>
     internal AssistantTurnClient(
-        AssistantOptions settings, HttpMessageHandler? transport, ILogger<AssistantTurnClient> logger)
+        AssistantOptions settings, HttpMessageHandler? transport, IClusterTokenService tokens,
+        ClusterOptions cluster, ILogger<AssistantTurnClient> logger)
     {
         _logger = logger;
-        _relay = new AssistantRelay(settings.RelaySecret, RelayLeaf.Bot);
+        _relay = new AssistantRelay(RelayLeaf.Bot);
+        _tokens = tokens;
+        _cluster = cluster;
 
         _http = new HttpClient(transport ?? new SocketsHttpHandler
         {
@@ -81,23 +91,40 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
                 settings.BaseUrl);
         }
 
-        // An assistant to reach and no secret to reach it with. The secret is normally the host's own,
-        // minted on first look, so an empty one means the file could be neither read nor created — a
-        // provisioning fault that is otherwise invisible until somebody @-mentions the bot and the
-        // assistant refuses. Name the file: the usual cause is a directory owned by somebody else.
-        if (_hasBaseUrl && !_relay.IsConfigured)
+        // An assistant to reach and no cluster to reach it as. Asking on somebody's behalf is a
+        // member-to-member call, so without the shared secret this bot can mint nothing the assistant
+        // would believe and every question would be refused. Say it once, naming the file every member
+        // on the machine reads, rather than leaving it to surface as a refusal the first time somebody
+        // @-mentions the bot.
+        if (_hasBaseUrl && !_cluster.Enabled)
             _logger.LogWarning(
-                "no relay secret — the assistant at {BaseUrl} will refuse every question this bot asks on "
-                + "someone's behalf. The host's own secret is {Path}, which could not be read or created; "
-                + "check that directory is owned by the account this bot runs as",
-                settings.BaseUrl, settings.RelaySecretPath);
+                "this host is in no cluster — the assistant at {BaseUrl} will refuse every question this "
+                + "bot asks on someone's behalf. The secret every member on the machine shares lives in "
+                + "/etc/kgsm/kgsm-cluster.env; check it is readable by the account this bot runs as",
+                settings.BaseUrl);
     }
 
     /// <summary>
-    /// True when there is both an address to reach the assistant at and a secret it will accept.
+    /// Authenticates the call as this member and names the Discord account it is acting for.
+    /// </summary>
+    /// <remarks>
+    /// The handle is qualified with the provider, because a bare id names nobody: the assistant resolves
+    /// it against the cluster's accounts, where the same person may also hold a password credential, and
+    /// an unqualified subject would have to be guessed at.
+    /// <para>
+    /// No tier is sent, and there is none to send. What this person may do is the assistant's answer,
+    /// read from its own replica — so a compromised bot can ask as somebody it names and never above
+    /// what that person actually holds.
+    /// </para>
+    /// </remarks>
+    private void ActFor(HttpRequestMessage request, string discordUserId) =>
+        ClusterCall.ActFor(request, _tokens.Mint(), KgsmActor.Format(KgsmActorProvider.Discord, discordUserId));
+
+    /// <summary>
+    /// True when there is both an address to reach the assistant at and a cluster to reach it as.
     /// Either missing leaves the surface off, rather than producing questions the assistant refuses.
     /// </summary>
-    public bool IsConfigured => _hasBaseUrl && _relay.IsConfigured;
+    public bool IsConfigured => _hasBaseUrl && _cluster.Enabled;
 
     public Task<bool> IsAvailableAsync(CancellationToken ct = default) =>
         IsConfigured
@@ -145,9 +172,9 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             // a human clicks. Auto-running is an admin's deliberate per-turn choice on a surface that
             // offers it, and Discord does not — a message that silently restarted a server would be
             // indistinguishable from one that asked about it.
+            ActFor(request, ask.UserId);
             _relay.Write(
                 request,
-                new RelayPrincipal(ask.UserId, ask.DisplayName, ask.Tier),
                 new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
 
             using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
@@ -204,9 +231,9 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             // The same headers a turn carries, so the command lands on the conversation the next
             // question will continue. A room named here is the whole point: it is what makes clearing
             // a channel's conversation reach that channel's conversation and not the asker's own.
+            ActFor(request, ask.UserId);
             _relay.Write(
                 request,
-                new RelayPrincipal(ask.UserId, ask.DisplayName, ask.Tier),
                 new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
 
             using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
@@ -272,9 +299,9 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             };
             request.Headers.Accept.ParseAdd("text/event-stream");
 
+            ActFor(request, ask.UserId);
             _relay.Write(
                 request,
-                new RelayPrincipal(ask.UserId, ask.DisplayName, ask.Tier),
                 new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
 
             using var response = await _http
@@ -490,9 +517,11 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
                 Content = JsonContent.Create(new ConfirmBody(approval.Token), options: Json),
             };
 
-            // The approver's own identity and their tier as it is right now — the assistant judges the
-            // click on that, not on whatever was true when the action was proposed.
-            _relay.Write(request, new RelayPrincipal(approval.UserId, approval.DisplayName, approval.Tier));
+            // The approver, named rather than described: the assistant reads their tier from its own
+            // accounts as it is right now, not as it was when the action was proposed and not as this
+            // bot believes it to be.
+            ActFor(request, approval.UserId);
+            _relay.Write(request);
 
             using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
 

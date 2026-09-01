@@ -13,6 +13,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using TheKrystalShip.KGSM.Auth;
 
 using Xunit;
+using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.Cluster.Identity;
+using TheKrystalShip.KGSM.Cluster.Membership;
 
 namespace KGSM.Bot.Tests.Infrastructure;
 
@@ -58,16 +61,33 @@ public class AssistantTurnClientTests
 
     private static Transport Answering(string body) => new(_ => Json(HttpStatusCode.OK, body));
 
+    /// <summary>
+    /// A client that is a member of a cluster, which is what asking on somebody's behalf takes: the
+    /// token it mints is what the assistant believes, and a blank secret mints nothing.
+    /// </summary>
     private static AssistantTurnClient Client(
-        Transport transport, string baseUrl = "http://127.0.0.1:5180", string secret = Secret) =>
-        new(new AssistantOptions { BaseUrl = baseUrl, RelaySecret = secret, TimeoutSeconds = 30 },
-            transport, NullLogger<AssistantTurnClient>.Instance);
+        Transport transport, string baseUrl = "http://127.0.0.1:5180", string secret = ClusterSecret)
+    {
+        var options = new ClusterOptions
+        {
+            MemberId = "hotrod-bot",
+            Secret = secret,
+            StorePath = Path.Combine(Path.GetTempPath(), $"kgsm-bot-tests-{Guid.NewGuid():N}.db"),
+            Kind = MemberKind.Anchor,
+        };
+        return new AssistantTurnClient(
+            new AssistantOptions { BaseUrl = baseUrl, TimeoutSeconds = 30 },
+            transport, new ClusterTokenService(options, NullLogger<ClusterTokenService>.Instance), options,
+            NullLogger<AssistantTurnClient>.Instance);
+    }
+
+    private const string ClusterSecret = "cluster-secret-for-tests";
 
     private static string? Header(HttpRequestMessage request, string name) =>
         request.Headers.TryGetValues(name, out var values) ? string.Join(",", values) : null;
 
     [Fact]
-    public async Task ForwardsTheAskingPerson_TheirTier_AndThisLeafsName()
+    public async Task NamesTheAskingPerson_AndThisLeaf_AndAssertsNoAuthority()
     {
         var transport = Answering("""{"text":"It is running.","confirmations":[]}""");
         using var client = Client(transport);
@@ -77,11 +97,19 @@ public class AssistantTurnClientTests
         var request = transport.Seen!;
         request.Method.Should().Be(HttpMethod.Post);
         request.RequestUri!.AbsolutePath.Should().Be("/turn");
-        Header(request, "X-Relay-Secret").Should().Be(Secret);
-        Header(request, "X-Relay-User").Should().Be("385730677141929985");
-        Header(request, "X-Relay-User-Name").Should().Be("Heisen");
-        Header(request, "X-Relay-Tier").Should().Be(KgsmTiers.ToWire(KgsmTier.Operator));
+
+        // The Discord account, qualified with its provider: the assistant resolves it against the
+        // cluster's accounts, where the same person may also hold a password credential.
+        Header(request, "X-Kgsm-Acting").Should().Be("discord:385730677141929985");
+        // This bot's own service token is what says the caller may name anybody at all.
+        request.Headers.Authorization!.Scheme.Should().Be("Bearer");
+        request.Headers.Authorization.Parameter.Should().NotBeNullOrWhiteSpace();
         Header(request, "X-Relay-Leaf").Should().Be("kgsm-bot");
+
+        // Nothing about what that person may do. The assistant reads their tier from its own replica,
+        // so a compromised bot can ask as somebody it names and never above what they actually hold.
+        Header(request, "X-Relay-Tier").Should().BeNull();
+        Header(request, "X-Relay-Secret").Should().BeNull();
     }
 
     /// <summary>
@@ -288,7 +316,7 @@ public class AssistantTurnClientTests
     /// judges the approval on that, not on whatever was true when the action was proposed.
     /// </summary>
     [Fact]
-    public async Task AnApprovalForwardsTheClicker_AndHandsBackTheGrantUntouched()
+    public async Task AnApprovalNamesTheClicker_AndHandsBackTheGrantUntouched()
     {
         var transport = Answering("""{"text":"'Ketchup' has been started.","success":true}""");
         using var client = Client(transport);
@@ -297,8 +325,10 @@ public class AssistantTurnClientTests
 
         var request = transport.Seen!;
         request.RequestUri!.AbsolutePath.Should().Be("/confirm");
-        Header(request, "X-Relay-User").Should().Be("385730677141929985");
-        Header(request, "X-Relay-Tier").Should().Be(KgsmTiers.ToWire(KgsmTier.Operator));
+        // The clicker is named; what they may do is re-read by the assistant at the click, from its own
+        // accounts, so approving carries no more authority than asking did.
+        Header(request, "X-Kgsm-Acting").Should().Be("discord:385730677141929985");
+        Header(request, "X-Relay-Tier").Should().BeNull();
         Header(request, "X-Relay-Leaf").Should().Be("kgsm-bot");
 
         using var body = JsonDocument.Parse(transport.SeenBody!);

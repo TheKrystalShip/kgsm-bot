@@ -18,6 +18,8 @@ using Discord.Interactions;
 using TheKrystalShip.KGSM.Extensions;
 using TheKrystalShip.KGSM.Lifecycle;
 using System.Reflection;
+using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.Cluster.Membership;
 
 namespace KGSM.Bot.Infrastructure;
 
@@ -42,13 +44,31 @@ public static class DependencyInjection
 
         services.Configure<AssistantOptions>(
             configuration.GetSection(AssistantOptions.Section));
-        // The relay secret is the host's, not this bot's: the assistant checks it and the Control Panel
-        // API presents the same one, and all three run as the same account on the same machine. Nothing
-        // outside the host can supply it, so a blank one is resolved rather than owed — the first
-        // surface to look mints the file and the rest read it. Resolved once here because minting is a
-        // filesystem write and the answer does not change while the process lives.
-        services.PostConfigure<AssistantOptions>(o =>
-            o.RelaySecret = KgsmRelaySecret.Resolve(o.RelaySecret, o.RelaySecretPath));
+        // Membership. This bot asks the assistant on somebody's behalf, which is a member-to-member call:
+        // it authenticates as itself with a service token and names the person, and the assistant decides
+        // what that person may do from its own replica of the cluster's accounts.
+        //
+        // Registered unconditionally and inert without a secret — a bot on a machine standing alone mints
+        // nothing and starts no worker, which is a deployment fact rather than a misconfiguration. The
+        // secret is read through ClusterConfiguration so every member on the machine spells the key
+        // identically; one that spelled it differently would read a blank from a file that is not empty
+        // and quietly report itself standalone.
+        //
+        // The store sits inside this bot's own StateDirectory=, because two members sharing one would
+        // share a roster and an outbox.
+        services.AddKgsmCluster(new ClusterOptions
+        {
+            // Named per MEMBER, never per host: a machine running a node and an assistant beside this
+            // bot holds three members, and they cannot share a name. Blank names it after the machine.
+            MemberId = configuration["Cluster:MemberId"] is { Length: > 0 } id
+                ? id.Trim()
+                : Environment.MachineName.Trim().ToLowerInvariant() + "-bot",
+            Secret = ClusterConfiguration.Secret(configuration),
+            SecretPrevious = ClusterConfiguration.SecretPrevious(configuration),
+            StorePath = Path.Combine(StatePaths.DefaultDirectory, "cluster.db"),
+            // A chat surface, not a node: it runs no game servers and hosts no leaves.
+            Kind = MemberKind.Anchor,
+        });
 
         // Which Discord servers this host announces into. A singleton because it holds the open
         // store, and — like the account store — opening it is what can fail, so it fails into an

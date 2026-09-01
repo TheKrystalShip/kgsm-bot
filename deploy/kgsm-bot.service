@@ -38,6 +38,12 @@ Environment=KGSM__JournalDir=/var/lib/kgsm/events
 # granting the same person different authority on different surfaces, so prefer the shared file.
 # Seeded by deploy/setup.sh; optional, so a host that never provisioned it still starts.
 EnvironmentFile=-/etc/kgsm/kgsm-auth.env
+# The cluster's shared secret, host-level like the file above and read by every member on this machine.
+# Its presence with a secret in it is what lets this bot ask the assistant on somebody's behalf: the
+# call is a member-to-member one, authenticated by a token minted from this secret. Absent or blank,
+# the conversational surface stays off and slash commands, announcements and the board carry on.
+# Optional, so a machine in no cluster starts with nothing to configure.
+EnvironmentFile=-/etc/kgsm/kgsm-cluster.env
 EnvironmentFile=/etc/kgsm-bot/kgsm-bot.env
 
 Restart=on-failure

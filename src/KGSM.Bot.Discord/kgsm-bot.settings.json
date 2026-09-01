@@ -322,16 +322,18 @@
     "BlueprintsTtlSeconds": 600
   },
 
-  // The kgsm-assistant leaf, which answers when the bot is @-mentioned. It is one service behind every
+  // The kgsm-assistant, which answers when the bot is @-mentioned. It is one service behind every
   // surface, so a conversation held in Discord is the same conversation the Control Panel and the
-  // assistant's own site show that person. The secret is the host's shared relay secret — it
-  // authenticates the bot as a trusted relay, while the identity and authority it forwards are always
-  // the asking person's. No address configured leaves the conversational surface off; slash commands,
-  // announcements and channel status are unaffected.
+  // assistant's own site show that person.
+  //
+  // Asking on somebody's behalf is a member-to-member call: this bot authenticates as itself with a
+  // service token minted from the cluster secret every member on the machine shares, and names the
+  // person whose message it is acting on. What that person may do is the assistant's answer, read from
+  // its own accounts — nothing here says anything about authority. A machine in no cluster mints
+  // nothing, so the conversational surface stays off; no address configured does the same. Slash
+  // commands, announcements and channel status are unaffected either way.
   "Assistant": {
     "BaseUrl": "http://127.0.0.1:5180",
-    "RelaySecret": "",
-    "RelaySecretPath": "/var/lib/kgsm/auth/relay-secret",
     "TimeoutSeconds": 300
   },
 

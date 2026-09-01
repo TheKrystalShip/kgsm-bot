@@ -19,7 +19,8 @@ dependency is a package.
 `TheKrystalShip.KGSM.Lib`, pinned by version in Core, Application and Infrastructure. Editing
 `kgsm-lib/` changes nothing here until it is published at a new version and the three pins move
 together — a published version is immutable. The same applies to
-`TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's relay contract) and
+`TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's per-turn contract),
+`TheKrystalShip.KGSM.Cluster` (membership, and the token this bot calls the assistant with) and
 `TheKrystalShip.KGSM.Auth`.
 
 Targets **.NET 10**.
@@ -66,8 +67,8 @@ Key sections: `KgsmAuth` (the host's shared sign-in application), `Auth` (the ac
 (token, status markers, `PublicAddress`, `RemoveChannelOnInstanceDeletion`, `ActionButtons`,
 `IncidentThreads`, the status-message cadence pair, the message-cleanup pair, the five `SendQueue`
 keys, and the `Announce` switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, `StatusSocketPath`,
-`FirewallSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant leaf is + the
-shared relay secret), `KgsmCache` (inventory TTLs).
+`FirewallSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant is, and how long
+one question may take), `KgsmCache` (inventory TTLs).
 
 An environment variable **overrides one key** of that file by spelling the key's path with
 `__` (`Discord__Token`), and a variable naming a key the file does not declare binds to
@@ -224,8 +225,10 @@ which front end triggered it:
    `/start`, `/stop`, `/list`, `/status`, `/supervision`, blueprints, `/setup`, etc. The full list is
    published, not written — see *The command manifest* below.
 2. **Natural language** (`MessageHandler.cs` + `Infrastructure/Assistant/`) — triggered by
-   @-mentioning the bot. The message goes to the **kgsm-assistant leaf** over its HTTP
-   surface, carrying the asking human's identity and the tier resolved from their roles. The
+   @-mentioning the bot. The message goes to the **kgsm-assistant** over its HTTP surface as a
+   member-to-member call: this bot authenticates as itself with a cluster service token and names the
+   asking human on `X-Kgsm-Acting`, and the assistant resolves what they may do from its own replica
+   of the cluster's accounts. **No tier is sent, and there is none to send.** The
    bot runs no model and holds no conversation: the assistant's tool catalog is what acts,
    through its own kgsm access. A new assistant capability reaches Discord with no change
    here.
