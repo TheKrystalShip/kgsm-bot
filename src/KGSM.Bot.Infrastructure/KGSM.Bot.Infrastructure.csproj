@@ -66,6 +66,6 @@
          token, naming the person whose message it is acting on. Holding the cluster secret is what
          makes that token believable; the package is inert without one, which is the state a bot on a
          machine standing alone is in. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Cluster" Version="1.0.0-dev.18" />
+    <PackageReference Include="TheKrystalShip.KGSM.Cluster" Version="1.0.0-dev.19" />
   </ItemGroup>
 </Project>

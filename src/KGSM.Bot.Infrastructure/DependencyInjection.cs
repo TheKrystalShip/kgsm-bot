@@ -108,6 +108,12 @@ public static class DependencyInjection
         services.AddSingleton<IClusterMessageHandler, AccountReplicationHandler>();
         services.AddSingleton<IClusterMessageHandler, AccountRemovalHandler>();
 
+        // Which member of the cluster carries the chat surface. Registered beside the membership
+        // above and inert without a secret for the same reason: a bot standing alone reports itself
+        // not clustered and serves what it always has. It claims only into an assignment nobody
+        // holds, so a cluster that already named a bot is left alone.
+        services.AddHostedService<Cluster.BotCapabilityWorker>();
+
         // The first full copy. The stream alone would leave this member holding only what changed after
         // it joined, resolving everybody who existed before that as a stranger.
         services.AddHostedService<AccountSnapshotWorker>();

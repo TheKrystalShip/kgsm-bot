@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — this bot holds the cluster's `bot` capability (3.50.0)
+
+`BotCapabilityWorker` claims `bot` and follows it, so the member carrying the chat surface is named
+rather than being an anchor holding nothing — which read as a member waiting to be given a job. The
+Control Panel resolves the holder to find the bot at all, and its member page says what it holds.
+
+Claimed only into an assignment nobody holds, so a cluster that already named a bot is left alone,
+and inert without a cluster secret: a bot standing alone reports itself not clustered and serves what
+it always has.
+
+**It gates nothing.** Each bot reads the journal of the machine it runs on, so two in one cluster
+describe two different fleets rather than one twice, and silencing the candidate would lose a
+machine's events. What two bots cannot share is a Discord guild — set up in the same server they
+answer every command twice — and that is configured rather than observable from here.
+
+
 ### Added — the bot holds its own copy of the cluster's accounts (3.49.0)
 
 `Cluster:GossipUrl` states the address the other members reach this bot at. A member cannot work out
