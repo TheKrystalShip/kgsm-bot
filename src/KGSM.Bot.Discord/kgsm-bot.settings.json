@@ -57,7 +57,8 @@
   // auth anchor. Standing alone it reads the accounts on its own host, exactly as it always has.
   "Cluster": {
     "MemberId": "",
-    "Urls": "http://127.0.0.1:5182"
+    "Urls": "http://127.0.0.1:5182",
+    "GossipUrl": ""
   },
 
   "Discord": {

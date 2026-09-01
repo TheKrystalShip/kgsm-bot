@@ -50,4 +50,22 @@ public sealed class BotClusterOptions
     /// reached through the same TLS front end every other member sits behind.</panel>
     [ConfigField("clusterUrls", "Member wire address", Group = "cluster", Risk = ConfigRisk.Wiring)]
     public string Urls { get; set; } = "http://127.0.0.1:5182";
+
+    /// <summary>
+    /// The address the other members of the cluster reach this bot at.
+    /// </summary>
+    /// <remarks>
+    /// Stated rather than inferred, because a member cannot work out for itself what name it is reached
+    /// by. It is what the anchor pushes account changes to, so a member without one holds whatever it
+    /// copied on joining and never hears that somebody was demoted — and a loopback bind is never
+    /// advertised, since a loopback address means "me" to whoever reads it.
+    /// <para>
+    /// A members-only address: this bot serves no browser surface, so it is never handed to one.
+    /// </para>
+    /// </remarks>
+    /// <panel>The address the rest of the cluster reaches this bot at. Blank leaves it reachable only by
+    /// members on this same machine, which means the accounts it holds stop being updated.</panel>
+    [ConfigField("clusterGossipUrl", "Address other members use", Group = "cluster",
+        Risk = ConfigRisk.Wiring, NoDefault = true)]
+    public string GossipUrl { get; set; } = string.Empty;
 }

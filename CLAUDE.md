@@ -275,7 +275,10 @@ word for who somebody is. A copy of a copy would put a second member's freshness
 what they may do here.
 
 Receiving that copy is what the member wire is for: `Cluster:Urls` is the only thing this bot listens
-on, and the anchor fans each account change into it. A member with nowhere to be reached would hold
+on, `Cluster:GossipUrl` is the address the other members reach it at, and the anchor fans each account
+change into that. **Both are needed.** A member that binds but states no address is learned by the mesh
+with no address at all — a loopback bind is never advertised, because a loopback address means "me" to
+whoever reads it — and is then never pushed to. A member with nowhere to be reached would hold
 whatever it copied on joining and never hear that somebody was demoted. A machine standing alone has no
 anchor and no replica — it reads the accounts on its own host, exactly as it always has.
 

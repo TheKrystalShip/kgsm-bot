@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — the bot holds its own copy of the cluster's accounts (3.49.0)
 
+`Cluster:GossipUrl` states the address the other members reach this bot at. A member cannot work out
+for itself what name it is reached by, and a loopback bind is never advertised — a loopback address
+means "me" to whoever reads it — so a member that states nothing is learned by the mesh with no address
+at all and is never pushed to. It is a members-only address: this bot serves no browser surface, so it
+is never handed to one.
+
 The auth anchor is the single authority in a cluster, and this bot is now given a copy directly, like
 every node and anchor: it serves the member-to-member wire on `Cluster:Urls`, applies the `account.*`
 changes the anchor pushes into it, and takes a full snapshot on joining.

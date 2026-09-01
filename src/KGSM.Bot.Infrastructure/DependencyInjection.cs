@@ -74,6 +74,9 @@ public static class DependencyInjection
             StorePath = Path.Combine(StatePaths.DefaultDirectory, "cluster.db"),
             // A chat surface, not a node: it runs no game servers and hosts no leaves.
             Kind = MemberKind.Anchor,
+            // Members only. This bot has no browser surface, so the address it states is never one a
+            // browser is handed — it exists so the anchor has somewhere to push an account change to.
+            GossipUrl = clusterSettings.GossipUrl.Trim(),
         });
 
         // Which Discord servers this host announces into. A singleton because it holds the open

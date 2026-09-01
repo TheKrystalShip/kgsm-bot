@@ -852,6 +852,15 @@
       "type": "string",
       "default": "http://127.0.0.1:5182",
       "risk": "wiring"
+    },
+    {
+      "key": "clusterGossipUrl",
+      "env": "Cluster__GossipUrl",
+      "label": "Address other members use",
+      "description": "The address the rest of the cluster reaches this bot at. Blank leaves it reachable only by members on this same machine, which means the accounts it holds stop being updated.",
+      "group": "cluster",
+      "type": "string",
+      "risk": "wiring"
     }
   ]
 }
