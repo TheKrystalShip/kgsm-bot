@@ -267,6 +267,23 @@ here, which an admin granted — strictly narrower than being in the Discord ser
 slash commands are safe registered globally. `/etc/kgsm/kgsm-auth.env` carries the sign-in
 application and nothing else.
 
+**In a cluster the accounts are a level-1 replica, given to this bot by the auth anchor.** The anchor is
+the single authority; every member holds its own copy, pushed to it, and answers from that. This bot
+therefore identifies a Discord user itself and never asks another member — the assistant it forwards a
+turn to resolves the same person against *its* copy of the same source, and neither takes the other's
+word for who somebody is. A copy of a copy would put a second member's freshness between a person and
+what they may do here.
+
+Receiving that copy is what the member wire is for: `Cluster:Urls` is the only thing this bot listens
+on, and the anchor fans each account change into it. A member with nowhere to be reached would hold
+whatever it copied on joining and never hear that somebody was demoted. A machine standing alone has no
+anchor and no replica — it reads the accounts on its own host, exactly as it always has.
+
+**A member holding no copy yet refuses everybody, and says so.** Until the first snapshot lands there is
+nothing to identify anyone against, and an empty store answers a real person and a stranger identically —
+so it is reported as *the accounts could not be read*, never as *you have no account*. That is the same
+distinction `Unreadable` already draws, applied to the one state only a member can be in.
+
 The store is opened **directly off the file**, not asked for over HTTP: a file cannot be down, so the
 bot keeps authorizing people with every other leaf stopped. Reads are **uncached** — a point query
 against a local file, at Discord typing speed — so an admin changing somebody's tier in the panel

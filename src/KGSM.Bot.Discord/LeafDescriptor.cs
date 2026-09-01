@@ -36,6 +36,10 @@ using TheKrystalShip.KGSM.ComponentConfig;
 [assembly: ConfigGroup("cache", "Inventory cache", 10)]
 [assembly: ConfigGroup("assistant", "Assistant", 11)]
 [assembly: ConfigGroup("voice", "Voice", 12)]
+// What this bot is in a cluster. Last because it is the one section that says nothing about Discord:
+// it is how the host's accounts reach this member, which is what every other section then authorizes
+// against.
+[assembly: ConfigGroup("cluster", "Cluster", 13)]
 
 // Lowest precedence first — the same order Program.cs registers them in.
 [assembly: ConfigFloorSource("appsettings", "/opt/kgsm-bot/kgsm-bot.settings.json")]

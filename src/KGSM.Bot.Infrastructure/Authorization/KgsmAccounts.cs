@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Auth.Cluster;
+using TheKrystalShip.KGSM.Cluster;
 using TheKrystalShip.KGSM.Auth.Users;
 
 namespace KGSM.Bot.Infrastructure.Authorization;
@@ -116,17 +118,33 @@ public interface IKgsmAccounts
 /// order decide whether Discord has a bot at all.
 /// </para>
 /// </remarks>
-public sealed class KgsmAccounts : IKgsmAccounts
+public sealed class KgsmAccounts : IKgsmAccounts, IReplicatedAccounts
 {
     private readonly UserStoreAuthority? _authority;
+    private readonly SqliteUserStore? _store;
+    private readonly AccountReplica? _replica;
+    private readonly bool _clustered;
+    private readonly ILogger<KgsmAccounts> _logger;
 
-    public KgsmAccounts(IOptions<AuthOptions> options, ILogger<KgsmAccounts> logger)
+    /// <summary>Whether this member has been seen holding accounts. Latched: once it holds any, it has
+    /// a replica, and nothing later empties it back into a cold start.</summary>
+    private volatile bool _replicaSeen;
+
+    public KgsmAccounts(IOptions<AuthOptions> options, ClusterOptions cluster, ILogger<KgsmAccounts> logger)
     {
         string path = options.Value.UsersDbPath;
+        _clustered = cluster.Enabled;
+        _logger = logger;
 
         try
         {
-            _authority = new UserStoreAuthority(new SqliteUserStore(new UserStoreOptions { Path = path }));
+            var storeOptions = new UserStoreOptions { Path = path };
+            _store = new SqliteUserStore(storeOptions);
+            _authority = new UserStoreAuthority(_store);
+            // The same file, read as this member's copy of the cluster's accounts. The anchor is the
+            // only authority; what lands here is what it published, and this bot answers every
+            // authority question from it rather than by asking anybody.
+            _replica = new AccountReplica(_store, new SqliteAccountVersions(storeOptions));
             logger.LogInformation("KGSM account store opened at {Path}.", path);
         }
         catch (UserStoreSchemaException e)
@@ -152,11 +170,65 @@ public sealed class KgsmAccounts : IKgsmAccounts
     /// <inheritdoc />
     public string? UnavailableReason { get; }
 
+    /// <summary>
+    /// This member's copy of the cluster's accounts, for the handlers that apply what the anchor
+    /// publishes.
+    /// </summary>
+    /// <remarks>
+    /// The replica is a <b>level-1</b> copy: it comes from the auth anchor and from nowhere else. This
+    /// bot never reads authority off another member's answer — the assistant it forwards a turn to
+    /// resolves the same person against its own copy of the same source, and neither defers to the
+    /// other. A copy of a copy would put a second member's freshness and correctness between a person
+    /// and what they may do here.
+    /// </remarks>
+    public AccountReplica? Replica => _replica;
+
+    /// <summary>
+    /// Whether this member holds any account at all — the one question that tells a replica that has
+    /// not arrived from a cluster that genuinely has nobody in it.
+    /// </summary>
+    /// <remarks>
+    /// Asked only until the answer is yes, and latched then: a member that has ever held accounts has
+    /// its copy, and a query per command afterwards would buy nothing. Both cases refuse in the same
+    /// words, which is correct — neither can identify anybody, and telling them apart is not this
+    /// bot's to do.
+    /// </remarks>
+    private async Task<bool> HoldsAnyAccountAsync(CancellationToken ct)
+    {
+        if (_store is null) return false;
+
+        try
+        {
+            return (await _store.ListAsync(ct).ConfigureAwait(false)).Count > 0;
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e, "could not read this host's copy of the cluster's accounts");
+            return false;
+        }
+    }
+
     /// <inheritdoc />
     public async Task<AccountAnswer> ResolveAsync(ulong discordUserId, CancellationToken ct = default)
     {
         if (_authority is null)
             return new AccountAnswer(AccountOutcome.Unreadable, KgsmTier.None, Reason: UnavailableReason);
+
+        // A member of a cluster that holds no accounts has not been given its copy yet — the anchor
+        // may be unreachable, or the assignment not made. That is "we could not ask", never "you hold
+        // nothing": an empty replica would answer every person alive with the same refusal an unknown
+        // one gets, and demote an admin mid-incident on the strength of an outage.
+        if (_clustered && !_replicaSeen)
+        {
+            if (!await HoldsAnyAccountAsync(ct).ConfigureAwait(false))
+                return new AccountAnswer(
+                    AccountOutcome.Unreadable, KgsmTier.None,
+                    Reason: "This host has no copy of the cluster's accounts yet, so nobody can be "
+                        + "identified here. It is taken from whichever member holds the auth capability; "
+                        + "check that one is assigned and reachable.");
+
+            _replicaSeen = true;
+        }
 
         // Only the subject identifies. The username on the identity is display, and the store keys a
         // credential by provider:subject precisely because a Discord handle is renameable.

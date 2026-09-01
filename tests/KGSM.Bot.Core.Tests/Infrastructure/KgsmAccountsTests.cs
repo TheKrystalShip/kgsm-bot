@@ -10,6 +10,8 @@ using TheKrystalShip.KGSM.Auth;
 using TheKrystalShip.KGSM.Auth.Users;
 
 using Xunit;
+using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.Cluster.Membership;
 
 namespace KGSM.Bot.Core.Tests.Infrastructure;
 
@@ -31,10 +33,65 @@ public sealed class KgsmAccountsTests : IDisposable
     {
         string path = Path.Combine(_dir, "users.db");
         _store = new SqliteUserStore(new UserStoreOptions { Path = path });
+        // Standalone: a host in no cluster reads the accounts on it, and the empty-replica refusal
+        // that only a member can be in does not apply. The clustered case has its own tests.
         _accounts = new KgsmAccounts(
             Options.Create(new AuthOptions { UsersDbPath = path }),
+            Standalone(),
             NullLogger<KgsmAccounts>.Instance);
     }
+
+    /// <summary>
+    /// A member of a cluster that has not been given its copy of the accounts yet cannot identify
+    /// anybody, and says so rather than answering that nobody is connected.
+    /// </summary>
+    /// <remarks>
+    /// This is the cold start every member has: the copy is taken from whichever member holds the auth
+    /// capability, and until it lands the store is empty. An empty store answers a real person and a
+    /// stranger identically, so reading it as "no account" would refuse everybody on the host with the
+    /// one message that tells them to go and connect an account they already have.
+    /// </remarks>
+    [Fact]
+    public async Task AMemberWithNoReplicaYetRefusesWithoutDenying()
+    {
+        string path = Path.Combine(_dir, "empty-replica.db");
+        // Opening it is what creates the file, so the store exists and holds nobody.
+        _ = new SqliteUserStore(new UserStoreOptions { Path = path });
+        KgsmAccounts cold = new(
+            Options.Create(new AuthOptions { UsersDbPath = path }), Clustered(),
+            NullLogger<KgsmAccounts>.Instance);
+
+        AccountAnswer answer = await cold.ResolveAsync(Snowflake);
+
+        answer.Outcome.Should().Be(AccountOutcome.Unreadable);
+        answer.Tier.Should().Be(KgsmTier.None);
+        answer.Reason.Should().Contain("auth capability");
+    }
+
+    /// <summary>
+    /// The same host standing alone reads its own accounts and refuses an unknown person as unknown —
+    /// an empty store there is a host nobody has been given an account on, not a copy that has not
+    /// arrived.
+    /// </summary>
+    [Fact]
+    public async Task AStandaloneHostWithNoAccountsSaysTheCallerIsNotLinked()
+    {
+        AccountAnswer answer = await _accounts.ResolveAsync(Snowflake);
+
+        answer.Outcome.Should().Be(AccountOutcome.NotLinked);
+    }
+
+    /// <summary>Cluster options carrying a secret — what a member of a cluster holds.</summary>
+    private static ClusterOptions Clustered() => Standalone() with { Secret = "cluster-secret-for-tests" };
+
+    /// <summary>Cluster options with no secret — what a bot on a machine standing alone holds.</summary>
+    private static ClusterOptions Standalone() => new()
+    {
+        MemberId = "test-bot",
+        Secret = string.Empty,
+        StorePath = Path.Combine(Path.GetTempPath(), $"kgsm-bot-accounts-{Guid.NewGuid():N}.db"),
+        Kind = MemberKind.Anchor,
+    };
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
@@ -126,6 +183,7 @@ public sealed class KgsmAccountsTests : IDisposable
     {
         KgsmAccounts broken = new(
             Options.Create(new AuthOptions { UsersDbPath = "/proc/kgsm-cannot-exist/users.db" }),
+            Standalone(),
             NullLogger<KgsmAccounts>.Instance);
 
         broken.Available.Should().BeFalse();

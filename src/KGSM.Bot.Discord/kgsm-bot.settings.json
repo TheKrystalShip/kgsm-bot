@@ -48,6 +48,18 @@
     "DbPath": "/var/lib/kgsm-bot/bot.db"
   },
 
+  // What this bot states about itself as a member of a cluster. Whether it IS one is the shared secret
+  // in /etc/kgsm/kgsm-cluster.env, which is host-level and deliberately not declared here: one value
+  // shared by every member on the machine, and a second place to set it is where one blank and one
+  // filled look identical from the outside.
+  //
+  // Being a member is what gives this bot its own copy of the cluster's accounts, pushed to it by the
+  // auth anchor. Standing alone it reads the accounts on its own host, exactly as it always has.
+  "Cluster": {
+    "MemberId": "",
+    "Urls": "http://127.0.0.1:5182"
+  },
+
   "Discord": {
     "Token": "",
     "RemoveChannelOnInstanceDeletion": false,

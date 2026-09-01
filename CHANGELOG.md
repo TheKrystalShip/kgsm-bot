@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the bot holds its own copy of the cluster's accounts (3.49.0)
+
+The auth anchor is the single authority in a cluster, and this bot is now given a copy directly, like
+every node and anchor: it serves the member-to-member wire on `Cluster:Urls`, applies the `account.*`
+changes the anchor pushes into it, and takes a full snapshot on joining.
+
+Every person is identified against that copy and against nothing else. The assistant a turn is forwarded
+to resolves the same person against its own copy of the same source — two members reading one authority,
+neither vouching for the other. A copy of a copy would put a second member's freshness and correctness
+between somebody and what they may do here.
+
+A member holding no copy yet refuses everybody and says why. An empty store answers a real person and a
+stranger identically, so it is reported as accounts that could not be read rather than as an account
+nobody has — the same distinction `Unreadable` already draws, applied to the one state only a member can
+be in.
+
+A machine standing alone is unchanged: no anchor, no replica, and the accounts on its own host read
+exactly as they always were.
+
 ### Changed — the bot asks the assistant as a member of the cluster (3.48.0)
 
 Asking on somebody's behalf is a member-to-member call. This bot authenticates as itself with a cluster

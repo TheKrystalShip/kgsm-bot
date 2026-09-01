@@ -80,6 +80,11 @@
       "id": "voice",
       "label": "Voice",
       "order": 12
+    },
+    {
+      "id": "cluster",
+      "label": "Cluster",
+      "order": 13
     }
   ],
   "fields": [
@@ -827,6 +832,26 @@
       "default": "",
       "risk": "wiring",
       "dependsOn": "voiceEnabled"
+    },
+    {
+      "key": "clusterMemberId",
+      "env": "Cluster__MemberId",
+      "label": "Member id",
+      "description": "What this bot is called in the cluster. Left blank it is named after the machine. Per member, never per host — a machine running a node and an assistant beside this bot holds three members and they cannot share a name.",
+      "group": "cluster",
+      "type": "string",
+      "default": "",
+      "risk": "safe"
+    },
+    {
+      "key": "clusterUrls",
+      "env": "Cluster__Urls",
+      "label": "Member wire address",
+      "description": "Where this bot listens for the other members of its cluster. The default is loopback, which is right when the auth anchor runs on this machine; a bot on a machine of its own is reached through the same TLS front end every other member sits behind.",
+      "group": "cluster",
+      "type": "string",
+      "default": "http://127.0.0.1:5182",
+      "risk": "wiring"
     }
   ]
 }

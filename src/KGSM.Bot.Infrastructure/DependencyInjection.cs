@@ -18,7 +18,9 @@ using Discord.Interactions;
 using TheKrystalShip.KGSM.Extensions;
 using TheKrystalShip.KGSM.Lifecycle;
 using System.Reflection;
+using TheKrystalShip.KGSM.Auth.Cluster;
 using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.Cluster.Messaging;
 using TheKrystalShip.KGSM.Cluster.Membership;
 
 namespace KGSM.Bot.Infrastructure;
@@ -56,11 +58,15 @@ public static class DependencyInjection
         //
         // The store sits inside this bot's own StateDirectory=, because two members sharing one would
         // share a roster and an outbox.
+        var clusterSettings = configuration.GetSection(BotClusterOptions.Section)
+            .Get<BotClusterOptions>() ?? new BotClusterOptions();
+        services.Configure<BotClusterOptions>(configuration.GetSection(BotClusterOptions.Section));
+
         services.AddKgsmCluster(new ClusterOptions
         {
             // Named per MEMBER, never per host: a machine running a node and an assistant beside this
             // bot holds three members, and they cannot share a name. Blank names it after the machine.
-            MemberId = configuration["Cluster:MemberId"] is { Length: > 0 } id
+            MemberId = clusterSettings.MemberId is { Length: > 0 } id
                 ? id.Trim()
                 : Environment.MachineName.Trim().ToLowerInvariant() + "-bot",
             Secret = ClusterConfiguration.Secret(configuration),
@@ -85,7 +91,23 @@ public static class DependencyInjection
         // and the assistant. A singleton because it holds the open store; opening it is what can
         // fail, and it fails into an unavailable directory rather than out of the constructor.
         services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.Section));
-        services.AddSingleton<IKgsmAccounts, KgsmAccounts>();
+        services.AddSingleton<KgsmAccounts>();
+        services.AddSingleton<IKgsmAccounts>(sp => sp.GetRequiredService<KgsmAccounts>());
+
+        // This member's own copy of the cluster's accounts, and the only thing it resolves a person
+        // against. The auth anchor is the single authority in a cluster; every member holds a copy it
+        // was given directly and answers from that.
+        //
+        // A copy of a copy is deliberately not a thing here. This bot forwards a question to the
+        // assistant, and the assistant resolves the same person against ITS copy of the same source —
+        // two members reading one authority, neither taking the other's word for who somebody is.
+        services.AddSingleton<IReplicatedAccounts>(sp => sp.GetRequiredService<KgsmAccounts>());
+        services.AddSingleton<IClusterMessageHandler, AccountReplicationHandler>();
+        services.AddSingleton<IClusterMessageHandler, AccountRemovalHandler>();
+
+        // The first full copy. The stream alone would leave this member holding only what changed after
+        // it joined, resolving everybody who existed before that as a stranger.
+        services.AddHostedService<AccountSnapshotWorker>();
 
         // Register Discord services
         services.AddDiscordServices();

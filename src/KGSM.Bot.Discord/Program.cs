@@ -2,10 +2,14 @@ using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Infrastructure;
 using KGSM.Bot.Application;
 
+using KGSM.Bot.Infrastructure.Configuration;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using TheKrystalShip.KGSM.Cluster;
 using TheKrystalShip.KGSM.Lifecycle;
 
 namespace KGSM.Bot.Discord;
@@ -91,7 +95,31 @@ public class Program
                 {
                     config.AddCommandLine(args);
                 }
+
+                // The listener reads its addresses from "urls", and this bot states where it answers
+                // the member wire under Cluster:Urls with every other fact about its membership.
+                // Joined here, once, so the two cannot disagree — and added last, after the file and
+                // the environment, so it is the resolved value that is joined rather than a default.
+                string clusterUrls =
+                    config.Build()[$"{BotClusterOptions.Section}:{nameof(BotClusterOptions.Urls)}"]
+                        is { Length: > 0 } urls ? urls : new BotClusterOptions().Urls;
+                config.AddInMemoryCollection(
+                    new Dictionary<string, string?> { [WebHostDefaults.ServerUrlsKey] = clusterUrls });
             })
+            // The member-to-member wire, and the only thing this bot listens on. A member of a cluster
+            // is pushed to rather than polling: the auth anchor fans an account change out to every
+            // member's inbox, and a member with nowhere to be reached would hold whatever it copied
+            // when it joined and never hear that somebody was demoted.
+            //
+            // The address is read from the same configuration every other key comes from. Registered
+            // AFTER the configuration sources above, because these callbacks run in the order they were
+            // added: ahead of them it would read a configuration that does not yet hold the settings
+            // file or the unit's environment, and bind the default while looking configured.
+            .ConfigureWebHostDefaults(web => web.Configure(app =>
+            {
+                app.UseRouting();
+                app.UseEndpoints(endpoints => endpoints.MapClusterEndpoints());
+            }))
             .ConfigureLogging((context, logging) =>
             {
                 logging.ClearProviders();
