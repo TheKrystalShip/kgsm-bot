@@ -602,9 +602,15 @@ The path is **hear → recognise → match the trigger → assistant → speak**
 deliberately separable: capture knows nothing about recognition, and recognition nothing about who
 answers.
 
+- **Everything between the connection and a finished sentence is `TheKrystalShip.Discord.Voice`**,
+  registered by `AddDiscordVoice`. None of it is about game servers, so none of it is in this repo.
+  What is here is the half only this bot can answer: `HostSpeech` and `LeafSpeechToText` for where
+  the models are, `SpokenVocabulary` priming for what this host's servers are called, and
+  `AssistantVoiceCommandHandler` for what a spoken request means. `VoiceOptions.ForVoice()` hands the
+  transport settings over, and the five it does not hand over are the ones the answering half reads.
 - **DAVE is not optional.** Discord refuses a voice connection from a client that cannot negotiate its
-  MLS encryption (close code 4017). `libdave` is packaged in `packaging/libdave/`, and
-  `EnableVoiceDaveEncryption` plus `GuildVoiceStates` are required. Identity and segmentation come
+  MLS encryption (close code 4017). `libdave` is packaged in tks-agent, beside the pipeline that
+  needs it, and `EnableVoiceDaveEncryption` plus `GuildVoiceStates` are required. Identity and segmentation come
   free — streams are keyed by Discord account id — so there is no diarization and no echo problem.
 - **Answering must not run on the audio path.** A turn takes seconds, and run inside the tick that
   closes utterances it froze every other speaker's sentence for the whole time. `VoiceCommandQueue` is
@@ -643,7 +649,7 @@ answers.
   a server is called `Ketchup`. Nothing downstream rewrites what was said — see the CHANGELOG for why
   correcting a misheard name afterwards is not merely risky but unachievable at any threshold.
   **How the names are written down is the speech package's answer, not this repo's.**
-  `TheKrystalShip.KGSM.Speech.SpokenVocabulary` composes the context and owns `IsEchoOf`, the guard
+  `TheKrystalShip.Speech.SpokenVocabulary` composes the context and owns `IsEchoOf`, the guard
   against whisper handing that context back as though somebody had read it aloud. What stays here is
   *reading the inventory* and how often — a browser voice note and a spoken request are the same host
   being asked about the same servers, and a second composer here is a second set of names misheard.
@@ -659,7 +665,7 @@ answers.
   turn. So the room hears the opening of a long answer while the model is still producing the end of
   it, and what is spoken is unchanged — the whole reply, in order.
   - **Where a reply is cut is the speech package's answer, not this repo's.**
-    `TheKrystalShip.KGSM.Speech.SpokenSentences` holds the rules — a fenced block dropped rather than
+    `TheKrystalShip.Speech.SpokenSentences` holds the rules — a fenced block dropped rather than
     read line by line, a sentence ending only at punctuation *followed by whitespace* so `kgsm.sh` and
     `2.0.58` survive, a short sentence riding out with the next, and whatever is left said by the
     flush. `SpokenSentences.Whole` applies the same rules to a string this surface writes itself.

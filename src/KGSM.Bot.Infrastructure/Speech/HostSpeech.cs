@@ -1,10 +1,10 @@
-using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using TheKrystalShip.KGSM.Speech;
+using TheKrystalShip.Discord.Voice;
+using TheKrystalShip.Speech;
 
 namespace KGSM.Bot.Infrastructure.Speech;
 
@@ -15,7 +15,7 @@ namespace KGSM.Bot.Infrastructure.Speech;
 /// <para>
 /// <b>The models are not in this process and are not this process's to manage.</b> They live in the
 /// kgsm-speech leaf — one daemon per host, serving every surface that listens or speaks — because
-/// 1.6GB of models and the CUDA runtime behind them cannot be given back by anything short of a
+/// the models and the accelerator runtime behind them cannot be given back by anything short of a
 /// process ending. The bot connects to a socket; systemd starts the daemon on that connection and
 /// stops it when nobody has needed it for a while.
 /// </para>
@@ -34,7 +34,10 @@ internal sealed class HostSpeech : ISpeechEngine, IDisposable
         VoiceOptions voice = options.Value.Voice;
 
         _client = new SpeechClient(
-            string.IsNullOrWhiteSpace(voice.SpeechSocket) ? null : voice.SpeechSocket, logger);
+            string.IsNullOrWhiteSpace(voice.SpeechSocket)
+                ? VoiceOptions.DefaultSpeechSocket
+                : voice.SpeechSocket,
+            logger);
 
         Enabled = voice.Enabled;
         Speaks = voice.Enabled && voice.Speak;

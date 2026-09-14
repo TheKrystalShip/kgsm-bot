@@ -2,6 +2,8 @@ using FluentAssertions;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
+
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Discord.Voice;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,7 +35,7 @@ public class SpokenRecitalTests
 
         public void CutOff() => Current = false;
 
-        public async Task<Result> SayAsync(byte[] pcm, CancellationToken ct = default)
+        public async Task<VoiceResult> SayAsync(byte[] pcm, CancellationToken ct = default)
         {
             lock (Said) Said.Add(FakeSpeech.Read(pcm));
 
@@ -43,7 +45,7 @@ public class SpokenRecitalTests
                 await Hold.Task;
             }
 
-            return Result.Success();
+            return VoiceResult.Success();
         }
 
         public void Dispose() => Disposed = true;

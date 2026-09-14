@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
-using KGSM.Bot.Core.Voice;
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
 
 namespace KGSM.Bot.Discord;

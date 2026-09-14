@@ -4,7 +4,7 @@ using Discord.WebSocket;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
-using KGSM.Bot.Core.Voice;
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
@@ -65,7 +65,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
-        Result<VoiceSession> result = await _voice.JoinAsync(Context.Guild.Id, user.VoiceChannel.Id);
+        VoiceResult<VoiceSession> result = await _voice.JoinAsync(Context.Guild.Id, user.VoiceChannel.Id);
         if (result.IsFailure)
         {
             await FollowupAsync(result.Error, ephemeral: true);
@@ -89,7 +89,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     {
         await DeferAsync(ephemeral: true);
 
-        Result result = await _voice.LeaveAsync(Context.Guild.Id);
+        VoiceResult result = await _voice.LeaveAsync(Context.Guild.Id);
         await FollowupAsync(
             result.IsSuccess ? "Left the voice channel." : result.Error, ephemeral: true);
     }

@@ -3,9 +3,11 @@ using System.Threading.Channels;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 
+using TheKrystalShip.Discord.Voice;
+
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Speech;
+using TheKrystalShip.Speech;
 
 namespace KGSM.Bot.Discord.Voice;
 
@@ -149,7 +151,7 @@ internal sealed class SpokenRecital : IProgress<string>, IAsyncDisposable
                 byte[]? audio = await _speech.SynthesizeAsync(sentence, ct);
                 if (audio is null) continue;
 
-                Result said = await _recital.SayAsync(audio, ct);
+                VoiceResult said = await _recital.SayAsync(audio, ct);
                 if (said.IsFailure)
                     _logger.LogDebug(
                         "Voice: could not say part of the answer to {Speaker}: {Reason}",

@@ -5,7 +5,7 @@ using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
-using KGSM.Bot.Core.Voice;
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 
@@ -14,7 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM.Auth;
-using TheKrystalShip.KGSM.Speech;
+using TheKrystalShip.Speech;
 
 namespace KGSM.Bot.Discord.Voice;
 
@@ -696,7 +696,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
         // No wait limit: an answer is worth having whenever it lands, unlike a tone whose meaning is
         // the moment it plays.
-        Result said = await _sessions.SpeakAsync(command.GuildId, audio, ct: ct);
+        VoiceResult said = await _sessions.SpeakAsync(command.GuildId, audio, ct: ct);
         if (said.IsFailure)
             _logger.LogDebug("Voice: could not say the answer to {Speaker}: {Reason}",
                 command.SpeakerName, said.Error);

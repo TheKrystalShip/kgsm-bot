@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the voice pipeline is a package (3.51.0)
+
+Listening and speaking in a voice channel is about Discord and speech, not about game servers, so it
+is `TheKrystalShip.Discord.Voice` and this bot consumes it. What stays here is what only this bot can
+answer: where the models are, what this host's servers are called, and what a spoken request means.
+`AssistantVoiceCommandHandler` is the last of those and is the reason the seam is where it is.
+
+`AddDiscordVoice` registers the pipeline, so the seventy lines of factories that broke a cycle in
+`DependencyInjection` are the package's to keep correct rather than this repo's to keep copying.
+
+`VoiceOptions` keeps every knob and its `[ConfigField]`, and `ForVoice()` hands the transport half
+over. Five settings are not in that half — `Acknowledge`, `ConfirmByVoice`, `PrimeWithServerNames`,
+`ReplyWindowSeconds` and `SpeechSocket` — and that is the seam stated in configuration: priming a
+recogniser with this host's server names and knowing which socket the models are behind are things
+about KGSM, read by the handler that answers rather than the one that hears.
+
+`VoiceOptions.SpeechSocket` now names `/run/kgsm-speech/speech.sock` as its default rather than
+leaving it blank. The speech client serves whatever daemon is on the other end and cannot know which,
+so the caller supplies the path — and the one host that knows it is this one.
+
 ### Added — this bot holds the cluster's `bot` capability (3.50.0)
 
 `BotCapabilityWorker` claims `bot` and follows it, so the member carrying the chat surface is named

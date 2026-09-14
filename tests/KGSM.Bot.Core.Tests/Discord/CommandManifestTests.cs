@@ -6,6 +6,8 @@ using FluentAssertions;
 using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
+
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Discord.Commands;
 using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
@@ -59,7 +61,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IServerHistory>());
         services.AddSingleton(Substitute.For<IBotHealth>());
         services.AddSingleton(Substitute.For<IVoiceSessions>());
-        services.AddSingleton(Substitute.For<KGSM.Bot.Core.Voice.IVoiceTally>());
+        services.AddSingleton(Substitute.For<IVoiceTally>());
         return services.BuildServiceProvider();
     }
 

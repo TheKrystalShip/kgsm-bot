@@ -1,6 +1,6 @@
 using TheKrystalShip.KGSM.Auth;
 using KGSM.Bot.Core.Interfaces;
-using KGSM.Bot.Core.Voice;
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 using Internal = KGSM.Bot.Infrastructure.Configuration;
@@ -199,72 +199,26 @@ public static class DependencyInjection
         // is the only way an answer about right now can be one.
         services.AddSingleton<IBotHealth, BotHealthService>();
 
-        // What became of everything heard, as counts and never as content. Registered before the
-        // recogniser because both it and the sink report into it, and the numbers are only worth
-        // reading as one sequence: heard, recognised, addressed, answered.
-        services.AddSingleton<IVoiceTally, global::KGSM.Bot.Core.Voice.VoiceTally>();
-
-        // Who the bot is waiting to hear back from. A singleton and its own registration for the same
-        // reason the queue is one: the sink reads it and the handler writes it, and wiring those two
-        // to each other directly is the circle the container refuses.
-        services.AddSingleton<VoiceAttention>();
-
-        // Whether the encrypted session is still carrying anything. A singleton because the two
-        // halves of the signal come from opposite ends of the process: failures are only visible in
-        // Discord.Net's log stream, and successes only in the loop reading frames.
-        services.AddSingleton<VoiceDecryptHealth>();
-
-        // This host's speech engine — the kgsm-speech leaf, reached over its socket. A singleton
-        // because it owns the connection, and registered as itself and as the hint the voice sessions
-        // give it, so nothing else has to know there is another process involved. A host without that
-        // leaf installed costs nothing here: the bot listens to nothing and answers in the chat.
+        // Listening and speaking in a voice channel, which the package wires itself: most of that
+        // graph is factories breaking a cycle, and the reasons live with the code they constrain.
+        // What stays here is what only this bot can answer — where the models are, what this host's
+        // servers are called, and what a spoken request means.
         services.AddSingleton<global::KGSM.Bot.Infrastructure.Speech.HostSpeech>();
         services.AddSingleton<ISpeechEngine>(sp =>
             sp.GetRequiredService<global::KGSM.Bot.Infrastructure.Speech.HostSpeech>());
-
-        // Hearing and speaking, as everything above asks for them. Both are thin: the models are in
-        // the leaf, and what lives on this side is what the bot knows and the engine does not — this
-        // host's server names, the phrases worth caching, and Discord's audio format.
         services.AddSingleton<ISpeechToText, global::KGSM.Bot.Infrastructure.Speech.LeafSpeechToText>();
         services.AddSingleton<ITextToSpeech, global::KGSM.Bot.Infrastructure.Speech.LeafTextToSpeech>();
 
-        // Hearing a request and acting on one are separate registrations on purpose: only the second
-        // needs to know the assistant exists. IVoiceCommandHandler is registered by the Discord layer
-        // (Program.cs) rather than here, because answering means posting to Discord and offering the
-        // same confirmation buttons the @-mention surface does.
-        // The handoff between hearing and answering. A singleton because it IS the queue, and the
-        // thing that makes the voice wiring acyclic: the session owns the connection, so answering
-        // out loud goes back through it, which wired directly would be a circle.
-        services.AddSingleton<global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceCommandQueue>();
-        // The session is handed over as a factory for the same reason the tones get one: the session
-        // is built with the recogniser, so asking for it here would close a circle the container
-        // refuses. It is needed because the trigger, recognised in here, is also what stops an answer
-        // the session is part-way through saying.
-        services.AddSingleton<IVoiceUtteranceSink>(sp =>
-            new global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink(
-                sp.GetRequiredService<ISpeechToText>(),
-                sp.GetRequiredService<global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceCommandQueue>(),
-                sp.GetRequiredService<IVoiceTally>(),
-                sp.GetRequiredService<global::KGSM.Bot.Core.Voice.VoiceAttention>(),
-                sp.GetRequiredService<IVoiceChimes>(),
-                sp.GetRequiredService<IVoiceSessions>,
-                sp.GetRequiredService<IOptions<DiscordOptions>>(),
-                sp.GetRequiredService<ILogger<global::KGSM.Bot.Infrastructure.Discord.Voice.RecognisingUtteranceSink>>()));
+        // The transport half of the voice settings, as the package asks for them. The Control Panel
+        // describes the whole of VoiceOptions; only these reach the pipeline.
+        services.AddSingleton<IOptions<DiscordVoiceOptions>>(sp =>
+            Options.Create(sp.GetRequiredService<IOptions<DiscordOptions>>().Value.Voice.ForVoice()));
 
-        // The bot's voice connections. A singleton because it owns them: Discord allows one per
-        // guild, and a second instance would hold a connection the first one does not know about and
-        // cannot be told to leave.
-        services.AddSingleton<IVoiceSessions, global::KGSM.Bot.Infrastructure.Discord.Voice.VoiceSessionService>();
+        services.AddDiscordVoice();
 
-        // The tones marking whose turn it is to talk. The session is handed over as a factory rather
-        // than as an instance because the recogniser plays tones and the session is built with the
-        // recogniser: asking for it here would close a circle the container refuses. Resolved on the
-        // first tone, by which point everything exists.
-        services.AddSingleton<IVoiceChimes>(sp =>
-            new global::KGSM.Bot.Infrastructure.Discord.Voice.SessionVoiceChimes(
-                sp.GetRequiredService<IVoiceSessions>,
-                sp.GetRequiredService<IOptions<DiscordOptions>>(),
-                sp.GetRequiredService<ILogger<global::KGSM.Bot.Infrastructure.Discord.Voice.SessionVoiceChimes>>()));
+        // IVoiceCommandHandler is registered by the Discord layer (Program.cs) rather than here:
+        // answering means posting to Discord and offering the same confirmation buttons the
+        // @-mention surface does.
 
         return services;
     }

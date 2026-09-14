@@ -1,14 +1,14 @@
 using System.Diagnostics;
 
 using KGSM.Bot.Core.Interfaces;
-using KGSM.Bot.Core.Voice;
+using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using TheKrystalShip.KGSM.Core.Models;
-using TheKrystalShip.KGSM.Speech;
+using TheKrystalShip.Speech;
 
 namespace KGSM.Bot.Infrastructure.Speech;
 

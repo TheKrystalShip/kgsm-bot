@@ -2,6 +2,8 @@ using KGSM.Bot.Core.Models;
 
 using TheKrystalShip.KGSM.ComponentConfig;
 
+using TheKrystalShip.Discord.Voice;
+
 namespace KGSM.Bot.Infrastructure.Configuration;
 
 /// <summary>
@@ -622,5 +624,50 @@ public class VoiceOptions
     /// joins voice channels; it just cannot hear or speak, and answers in the channel instead.</panel>
     [ConfigField("voiceSpeechSocket", "Speech engine socket", Group = "voice", Type = ConfigType.Path,
         Risk = ConfigRisk.Wiring, DependsOn = "voiceEnabled")]
-    public string SpeechSocket { get; set; } = string.Empty;
+    public string SpeechSocket { get; set; } = DefaultSpeechSocket;
+
+    /// <summary>
+    /// Where kgsm-speech listens on this host.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named here because it is KGSM's path.</b> The speech client is shared with anything else
+    /// that listens or speaks and cannot know which daemon is on the other end, so whoever is doing
+    /// the connecting is the one that knows where to connect — and a socket path nobody states is
+    /// one every surface guesses differently.
+    /// </remarks>
+    public const string DefaultSpeechSocket = "/run/kgsm-speech/speech.sock";
+
+    /// <summary>
+    /// These settings as the voice pipeline asks for them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The pipeline belongs to no product, so it is configured with plain properties and this
+    /// class is what describes them here.</b> The Control Panel's knobs, their groups, their bounds
+    /// and the sentences an operator reads are KGSM's way of presenting settings, and a library
+    /// shared with anything else cannot carry them.
+    /// </para>
+    /// <para>
+    /// <b>What is not mapped is the tell.</b> Acknowledge, ConfirmByVoice, PrimeWithServerNames,
+    /// ReplyWindowSeconds and SpeechSocket never reach the pipeline: priming a recogniser with this
+    /// host's server names, deciding a staged action may be approved out loud, and knowing which
+    /// socket the models are behind are all things about KGSM, and they are read by the handler that
+    /// answers rather than by the one that hears.
+    /// </para>
+    /// </remarks>
+    public DiscordVoiceOptions ForVoice() => new()
+    {
+        Enabled = Enabled,
+        SilenceGapMs = SilenceGapMs,
+        MinUtteranceMs = MinUtteranceMs,
+        MaxUtteranceSeconds = MaxUtteranceSeconds,
+        LeaveWhenAlone = LeaveWhenAlone,
+        Triggers = Triggers,
+        EarlyTriggerMs = EarlyTriggerMs,
+        FollowUpSeconds = FollowUpSeconds,
+        Chimes = Chimes,
+        Speak = Speak,
+        Interruptible = Interruptible,
+        LogTranscripts = LogTranscripts,
+    };
 }

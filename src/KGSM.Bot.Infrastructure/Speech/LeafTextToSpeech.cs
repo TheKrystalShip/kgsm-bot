@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
-using KGSM.Bot.Core.Voice;
+using TheKrystalShip.Discord.Voice;
 
 using Microsoft.Extensions.Logging;
 
