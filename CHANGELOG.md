@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a stray bracket no longer loses a spoken request (3.52.0)
+
+Whisper does not always balance its brackets, and an opener with nothing to close it hid the rest of
+the sentence: "Hey assistant [restart factorio" was heard as a bare trigger, which opens the
+follow-up window instead of doing anything, and nothing said a request had been dropped. Which parts
+of a transcript are speech is now `SpokenTranscript.Clean` in `TheKrystalShip.Speech` 1.1.0, shared
+with every other surface that listens, and it removes a note only when the note closes.
+
 ### Changed — the voice pipeline is a package (3.51.0)
 
 Listening and speaking in a voice channel is about Discord and speech, not about game servers, so it

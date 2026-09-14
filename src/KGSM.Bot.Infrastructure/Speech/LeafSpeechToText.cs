@@ -105,7 +105,7 @@ internal sealed class LeafSpeechToText : ISpeechToText
 
         if (outcome != SpeechProtocol.Outcome.Done) return null;
 
-        string transcript = Spoken(text);
+        string transcript = SpokenTranscript.Clean(text);
 
         _logger.LogDebug(
             "Voice: recognised {Spoken:F1}s{Partial} from {Speaker} in {Elapsed}ms",
@@ -172,37 +172,5 @@ internal sealed class LeafSpeechToText : ISpeechToText
         }
 
         return _vocabulary;
-    }
-
-    /// <summary>
-    /// Strips whisper's annotations for sound that is not speech, leaving what was actually said.
-    /// </summary>
-    /// <remarks>
-    /// Whisper describes non-speech rather than returning nothing for it: a breath, a keyboard or a
-    /// held microphone comes back as <c>[BLANK_AUDIO]</c>, <c>[MUSIC]</c> or <c>(wind blowing)</c>.
-    /// Those are notes about the audio, not words, and a caller that cannot tell the difference will
-    /// hand <c>[BLANK_AUDIO]</c> to the assistant as a request. Everything bracketed goes, and what is
-    /// left over is speech — which also means a whole utterance of nothing at all comes back empty, as
-    /// it should.
-    /// </remarks>
-    internal static string Spoken(string raw)
-    {
-        var builder = new System.Text.StringBuilder(raw.Length);
-        int square = 0, round = 0;
-
-        foreach (char c in raw)
-        {
-            switch (c)
-            {
-                case '[': square++; continue;
-                case ']': if (square > 0) square--; continue;
-                case '(': round++; continue;
-                case ')': if (round > 0) round--; continue;
-            }
-
-            if (square == 0 && round == 0) builder.Append(c);
-        }
-
-        return builder.ToString().Trim();
     }
 }
