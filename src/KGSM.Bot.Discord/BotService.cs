@@ -154,14 +154,9 @@ public class BotService : BackgroundService
             _ => LogLevel.Information
         };
 
-        // Discord.Net reports a failed decrypt as a log line and nothing else — there is no event and
-        // no counter — so the log is the only place this fact exists. Read here rather than parsed
-        // anywhere else, because this is already the one handler every library message passes through.
-        if (log.Message is { Length: > 0 } message
-            && message.Contains("Failed to decrypt", StringComparison.Ordinal))
-        {
-            _decryptHealth.Failed();
-        }
+        // Discord.Net reports a failed decrypt as a log line and nothing else, so it is read here, where
+        // every library message already passes through.
+        _decryptHealth.Observe(log);
 
         _logger.Log(logLevel, log.Exception, "{Source}: {Message}", log.Source, log.Message);
 

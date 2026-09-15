@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — libdave's output goes through the bot's logging (3.52.1)
+
+libdave writes its log to standard output unless handed a sink, and it logs every silent frame it
+skips, several a second. `TheKrystalShip.Discord.Voice` 1.3.0 routes its messages under
+`Discord.LibDave`, so a voice session no longer fills the journal and only libdave's warnings and
+errors show at the default level.
+
+A decrypt failure on Discord.Net's log is counted by `VoiceDecryptHealth.Observe`, which holds the one
+match against that library's wording, rather than by a copy of the match in `BotService`.
+
 ### Fixed — a stray bracket no longer loses a spoken request (3.52.0)
 
 Whisper does not always balance its brackets, and an opener with nothing to close it hid the rest of
