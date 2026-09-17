@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — the listening tone plays whole, in a busy room too (3.53.0)
+
+`TheKrystalShip.Discord.Voice` 2.0.0. The listening tone is no longer cut off by the whole-sentence
+reading of the trigger it answers, and an opening the recogniser was too busy to read is read on a
+later offer rather than lost — measured with two bots in a channel, a held recogniser went from no
+tone in 5 of 5 to a tone in 5 of 5. The listening tone is a short recorded notification that sounds
+in its first frame. `LeafSpeechToText.TranscribeIfIdleAsync` answers `IdleReading`, so a busy
+recogniser is told apart from an opening that held nothing.
+
 ### Fixed — libdave's output goes through the bot's logging (3.52.1)
 
 libdave writes its log to standard output unless handed a sink, and it logs every silent frame it

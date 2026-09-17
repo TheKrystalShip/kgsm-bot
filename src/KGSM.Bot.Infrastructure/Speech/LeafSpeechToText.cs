@@ -73,16 +73,16 @@ internal sealed class LeafSpeechToText : ISpeechToText
 
     public bool IsAvailable => _speech.Enabled && _speech.Installed;
 
-    public Task<string?> TranscribeAsync(VoiceUtterance utterance, CancellationToken ct = default) =>
-        RecogniseAsync(utterance, ifIdle: false, ct);
+    public async Task<string?> TranscribeAsync(VoiceUtterance utterance, CancellationToken ct = default) =>
+        (await RecogniseAsync(utterance, ifIdle: false, ct)).Transcript;
 
-    public Task<string?> TranscribeIfIdleAsync(VoiceUtterance utterance, CancellationToken ct = default) =>
+    public Task<IdleReading> TranscribeIfIdleAsync(VoiceUtterance utterance, CancellationToken ct = default) =>
         RecogniseAsync(utterance, ifIdle: true, ct);
 
-    private async Task<string?> RecogniseAsync(
+    private async Task<IdleReading> RecogniseAsync(
         VoiceUtterance utterance, bool ifIdle, CancellationToken ct)
     {
-        if (!IsAvailable) return null;
+        if (!IsAvailable) return IdleReading.Of(null);
 
         string vocabulary = await PrimingAsync(ct);
 
@@ -94,16 +94,16 @@ internal sealed class LeafSpeechToText : ISpeechToText
         if (outcome == SpeechProtocol.Outcome.Busy)
         {
             // Said out loud in the log because from inside a channel this is invisible: a busy room is
-            // exactly when the recogniser is occupied, so being addressed goes unnoticed until the
-            // sentence finishes and the only symptom is a tone that seems late. Counting these is how
-            // an operator tells contention apart from a trigger that is not matching.
+            // exactly when the recogniser is occupied, and the opening is read on a later offer, so
+            // the only symptom is a tone that seems late. Counting these is how an operator tells
+            // contention apart from a trigger that is not matching.
             _logger.LogDebug(
                 "Voice: skipped reading {Speaker} early — the recogniser was busy", utterance.SpeakerName);
 
-            return null;
+            return IdleReading.Busy;
         }
 
-        if (outcome != SpeechProtocol.Outcome.Done) return null;
+        if (outcome != SpeechProtocol.Outcome.Done) return IdleReading.Of(null);
 
         string transcript = SpokenTranscript.Clean(text);
 
@@ -126,10 +126,10 @@ internal sealed class LeafSpeechToText : ISpeechToText
                 "Voice: discarded a transcript from {Speaker} that was the primed vocabulary coming back",
                 utterance.SpeakerName);
 
-            return null;
+            return IdleReading.Of(null);
         }
 
-        return transcript.Length == 0 ? null : transcript;
+        return IdleReading.Of(transcript.Length == 0 ? null : transcript);
     }
 
     /// <summary>

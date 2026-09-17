@@ -623,23 +623,27 @@ answers.
   one breath, therefore one utterance. Accepted cost: quoting the phrase fires it.
 - **The listening state is two tones, and it is a state rather than a message.** Waiting for you to
   speak and having taken your request are the surface's only two contentless moments, so they are
-  marked by `VoiceChimes` — rising to open, falling to close, the same two notes reversed, which is
-  the convention every device already teaches. A tone costs no synthesis, so it arrives immediately,
-  and it does not wear out the way a fixed phrase does. **Anything with something to *tell* you stays
+  marked by `VoiceChimes` — a short notification cut to sound in its first frame to open, a falling
+  note to close. A tone costs no synthesis, so it arrives immediately, and it does not wear out the
+  way a fixed phrase does. **Tones play through `PlayToneAsync`, which `StopSpeaking` cannot reach**:
+  the listening tone answers the trigger, and the whole sentence's reading of that same trigger would
+  otherwise cut it off. **Anything with something to *tell* you stays
   spoken**: a tone cannot say why, and a rising tone after a confirmation that could not be made out
   reads as "go ahead" when the opposite happened.
 - **A sentence's opening is read before it is finished, and that reading may only make a sound.**
   Recognition runs on a *closed* utterance, so being addressed could otherwise only be known after the
   speaker stopped — putting the "go ahead" tone after the words it was meant to encourage.
-  `UtteranceAssembler.Peek` hands out a copy at `EarlyTriggerMs`, and `RecognisingUtteranceSink`
+  `UtteranceAssembler.Peek` offers a copy from `EarlyTriggerMs`, and `RecognisingUtteranceSink`
   matches the trigger in it. **Nothing is dispatched, counted, or opened from a partial**: it is half
   an instruction, and the complete copy arrives moments later. That is exactly what makes it safe for
   the recogniser to be wrong about a fragment. The one thing it may do besides sounding a tone is **stop an
   answer being spoken** — that undoes nothing, since the reply is in the chat and the turn behind it
   has finished, and being slow about it is the whole failure. It is **skipped, never queued**, when the recogniser is busy
-  (`TranscribeIfIdleAsync`) — a look ahead at an unfinished sentence must never delay a finished one —
-  and it costs a full recognition pass on most of what a room says, since recognition pads to a fixed
-  window. `0` turns it off.
+  (`TranscribeIfIdleAsync` answers `IdleReading.Busy`) — a look ahead at an unfinished sentence must
+  never delay a finished one — and the opening is offered again every 250 ms of speech for two seconds,
+  so a busy room delays the tone rather than losing it. Each sentence's opening is read at most
+  once, and that costs a full recognition pass on most of what a room says, since recognition pads to a
+  fixed window. `0` turns it off.
 - **The tone player is its own seam.** The recogniser plays tones and is a dependency of the session
   that owns the connection, so `IVoiceChimes` resolves the session on first use rather than taking it
   in a constructor — the same circle `VoiceCommandQueue` exists to break. The same tone twice within
