@@ -598,11 +598,11 @@ engine, the event journal, the KGSM account store, the guild store and the assis
 
 `/voice join|leave|status` at operator (not `[Mutating]` — the gate is on what it exposes, since
 everybody in the channel is heard, not only whoever invited it). `Discord:Voice` is off by default.
-The path is **hear → recognise → match the trigger → assistant → speak**, and the pieces are
-deliberately separable: capture knows nothing about recognition, and recognition nothing about who
-answers.
+The path is **hear → scan for the trigger → capture the request → recognise → assistant → speak**,
+and the pieces are deliberately separable: capture knows nothing about recognition, and recognition
+nothing about who answers.
 
-- **Everything between the connection and a finished sentence is `TheKrystalShip.Discord.Voice`**,
+- **Everything between the connection and a finished request is `TheKrystalShip.Discord.Voice`**,
   registered by `AddDiscordVoice`. None of it is about game servers, so none of it is in this repo.
   What is here is the half only this bot can answer: `HostSpeech` and `LeafSpeechToText` for where
   the models are, `SpokenVocabulary` priming for what this host's servers are called, and
@@ -613,42 +613,35 @@ answers.
   needs it, and `EnableVoiceDaveEncryption` plus `GuildVoiceStates` are required. Identity and segmentation come
   free — streams are keyed by Discord account id — so there is no diarization and no echo problem.
 - **Answering must not run on the audio path.** A turn takes seconds, and run inside the tick that
-  closes utterances it froze every other speaker's sentence for the whole time. `VoiceCommandQueue` is
+  closes requests it would freeze every other speaker for the whole time. `VoiceCommandQueue` is
   the handoff, and it is also what makes the wiring acyclic: session → sink → handler → session is a
   circle the container refuses.
-- **The silence that ends a sentence has to be looked for.** Frames stop arriving when somebody stops
-  talking, so the read loop cannot notice the gap it is sitting in — a ticker closes utterances.
-- **The trigger is matched anywhere in an utterance, not at the start.** Requiring it first was
-  measured refusing real requests: people lead in ("okay let me try — hey assistant, …") and that is
-  one breath, therefore one utterance. Accepted cost: quoting the phrase fires it.
+- **The trigger is heard mid-conversation, because nobody pauses for it.** Microphones are open and a
+  channel keeps talking, so each speaker's last `ScanWindowMs` is scanned for the trigger every
+  `ScanStrideMs` of new speech, on kgsm-speech's scan lane: unprimed, never waiting, always behind
+  any command read. Finding it plays the listening tone, stops the bot mid-answer, and starts capturing
+  the request from the end of the word before the trigger. The request ends after `CommandQuietMs` of
+  quiet audio or at `MaxCommandSeconds`, and is then read primed with this host's names. Nothing
+  outside a request is ever read as one. **This bot registers no `IVoiceCommandCompleteness`**:
+  requests go to a model, which cannot be judged whole early, so they end on quiet.
+- **The trigger is matched anywhere in a scan or a request, not at the start.** People lead in
+  ("okay let me try — hey assistant, …"). Accepted cost: quoting the phrase fires it.
 - **The listening state is two tones, and it is a state rather than a message.** Waiting for you to
   speak and having taken your request are the surface's only two contentless moments, so they are
   marked by `VoiceChimes` — a short notification cut to sound in its first frame to open, a falling
   note to close. A tone costs no synthesis, so it arrives immediately, and it does not wear out the
-  way a fixed phrase does. **Tones play through `PlayToneAsync`, which `StopSpeaking` cannot reach**:
-  the listening tone answers the trigger, and the whole sentence's reading of that same trigger would
-  otherwise cut it off. **Anything with something to *tell* you stays
+  way a fixed phrase does. **Tones play through `PlayToneAsync`, which `StopSpeaking` cannot reach**,
+  so a trigger never cuts off the tone that answers it. **Anything with something to *tell* you stays
   spoken**: a tone cannot say why, and a rising tone after a confirmation that could not be made out
   reads as "go ahead" when the opposite happened.
-- **A sentence's opening is read before it is finished, and that reading may only make a sound.**
-  Recognition runs on a *closed* utterance, so being addressed could otherwise only be known after the
-  speaker stopped — putting the "go ahead" tone after the words it was meant to encourage.
-  `UtteranceAssembler.Peek` offers a copy from `EarlyTriggerMs`, and `RecognisingUtteranceSink`
-  matches the trigger in it. **Nothing is dispatched, counted, or opened from a partial**: it is half
-  an instruction, and the complete copy arrives moments later. That is exactly what makes it safe for
-  the recogniser to be wrong about a fragment. The one thing it may do besides sounding a tone is **stop an
-  answer being spoken** — that undoes nothing, since the reply is in the chat and the turn behind it
-  has finished, and being slow about it is the whole failure. It is **skipped, never queued**, when the recogniser is busy
-  (`TranscribeIfIdleAsync` answers `IdleReading.Busy`) — a look ahead at an unfinished sentence must
-  never delay a finished one — and the opening is offered again every 250 ms of speech for two seconds,
-  so a busy room delays the tone rather than losing it. Each sentence's opening is read at most
-  once, and that costs a full recognition pass on most of what a room says, since recognition pads to a
-  fixed window. `0` turns it off.
+- **A scan the speech engine was too busy for is offered again, never queued.** `LeafSpeechToText.ScanAsync`
+  answers `VoiceScan.Busy`, the session backs off a tenth of a second and offers that speaker again
+  with more audio in the window, so a busy room delays the tone rather than losing it, and a scan never
+  stands in front of somebody's request. `/voice status` shows the skips.
 - **The tone player is its own seam.** The recogniser plays tones and is a dependency of the session
   that owns the connection, so `IVoiceChimes` resolves the session on first use rather than taking it
   in a constructor — the same circle `VoiceCommandQueue` exists to break. The same tone twice within
-  two seconds is played once, because the trigger spotted early and the same trigger read again on
-  close are both correct and the room only needs to hear it once.
+  two seconds is played once.
 - **The recogniser is primed with this host's names**, because a recogniser knows English and not that
   a server is called `Ketchup`. Nothing downstream rewrites what was said — see the CHANGELOG for why
   correcting a misheard name afterwards is not merely risky but unachievable at any threshold.
@@ -730,7 +723,7 @@ answers.
   `SpokenConversationCommands` → `IAssistantTurnClient.RunCommandAsync` → the assistant's own
   `/commands/{name}`. These act on the stored conversation, so they can never be a question: a model
   told to forget replies that it has and remembers every word. The phrase list is matched
-  deterministically against the **whole utterance** — containment would turn *"the server didn't start
+  deterministically against the **whole request** — containment would turn *"the server didn't start
   over the weekend"* into a wipe — and the assistant owns what each command does and who may run it,
   including the operator gate on clearing a shared room. Its wording is shown and spoken verbatim;
   nothing here forms a second opinion about what happened.
@@ -746,9 +739,10 @@ answers.
   hits this too — it is a property of the writer, not of tones.
 - **Speaking is best-effort throughout.** No model, no card, or a broken output stream costs the audio
   and nothing else — the answer is already in the channel.
-- **Nothing is written to disk.** An utterance is bytes in memory handed to a sink and released. This
-  is a bot that hears a room, not one that records it, and the difference is structural rather than a
-  setting. `LogTranscripts` is the one exception, opt-in, and warns while it is on.
+- **Nothing is written to disk.** Audio is bytes in memory, held per speaker only as long as a request
+  could still need it. This is a bot that hears a room, not one that records it, and the difference is
+  structural rather than a setting. `LogTranscripts` is the one exception, opt-in, and warns while it
+  is on: requests at information, everything scanned at debug.
 
 ### Read commands answer one person
 

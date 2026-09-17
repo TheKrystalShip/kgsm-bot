@@ -160,27 +160,23 @@
     // Whether the bot may sit in a voice channel and listen. OFF by default and deliberately so:
     // every other surface acts on what somebody typed at it, while this one takes in everybody in the
     // room — including people who never addressed the bot and cannot see that it is listening.
-    // Nothing is written to disk either way; an utterance lives in memory only as long as it takes to
-    // hand it on.
+    // Nothing is written to disk either way; audio lives in memory only as long as a request could
+    // still need it.
     //
-    // The three durations decide where one person's sentence ends. The silence gap is the one worth
-    // tuning: too short cuts people off mid-thought, too long makes every answer wait for it. The
-    // ceiling is not a limit on how long somebody may talk, it is a limit on how much audio is held
-    // for one of them at a time.
+    // Nobody pauses before addressing the bot in a channel of open microphones, so each person's last
+    // ScanWindowMs is looked through for the trigger every ScanStrideMs of new speech. Finding it plays
+    // the tone and starts taking the request, which ends after CommandQuietMs of quiet or at
+    // MaxCommandSeconds, whichever is first.
     // The trigger is matched against the TRANSCRIPT, not against a sound — there is no wake-word
-    // model, everything said is recognised anyway and the phrase is found in the text. So the
-    // property a good trigger needs is that the recogniser renders it the same way every time,
-    // which is why it is a list: an operator who sees a variant in the log adds it here, with
-    // nothing to retrain. It has to open the sentence, which is what stops the bot answering a
-    // conversation that merely mentions it.
-    //
-    // The model file lives under the state directory and not the install prefix, because deploy.sh
-    // syncs the prefix with rsync --delete and would take it on every deploy.
+    // model, and the phrase is found in the text of each scan. So the property a good trigger needs is
+    // that the recogniser renders it the same way every time, which is why it is a list: an operator
+    // who sees a variant in the log adds it here, with nothing to retrain.
     "Voice": {
       "Enabled": false,
-      "SilenceGapMs": 800,
-      "MinUtteranceMs": 400,
-      "MaxUtteranceSeconds": 20,
+      "ScanWindowMs": 3000,
+      "ScanStrideMs": 500,
+      "CommandQuietMs": 600,
+      "MaxCommandSeconds": 8,
       "LeaveWhenAlone": true,
       "Triggers": "hey assistant",
       "FollowUpSeconds": 10,
@@ -194,7 +190,7 @@
       "PrimeWithServerNames": true,
 
       // Answering a question the bot just asked you should not require re-addressing it. The window
-      // belongs to the one speaker who was asked, is spent by a single utterance, and never opens
+      // belongs to the one speaker who was asked, is spent by a single request, and never opens
       // while an action is staged — approving is the buttons' job and stays there. 0 disables.
       "ReplyWindowSeconds": 20,
 
@@ -219,19 +215,6 @@
       // instead. Anything with something to TELL you — a long job, a yes it could not make out — is
       // always spoken, because a tone cannot say why.
       "Chimes": true,
-
-      // Recognition normally runs on a FINISHED sentence, which puts the "go ahead" tone after the
-      // words it was meant to encourage. This reads the opening of a sentence while the rest is still
-      // being spoken, purely to find out early that the bot is being addressed.
-      //
-      // A partial reading may only make a SOUND — never a decision. It is the first second and a half
-      // of a sentence nobody has finished, and the same audio arrives again complete a moment later;
-      // that copy is the one that is read and acted on.
-      //
-      // It costs a whole recognition pass (the recogniser pads to a fixed window, so 1.5s costs about
-      // what the sentence costs) on most of what is said in the channel, addressed or not. It is
-      // skipped outright whenever the recogniser is busy, so it can never delay a real answer. 0 off.
-      "EarlyTriggerMs": 1500,
 
       // Answering out loud. Whether this host CAN — the models, the card, the voice — is the speech
       // leaf's business, not this file's; this only says whether the bot asks it to.

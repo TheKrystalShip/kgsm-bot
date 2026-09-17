@@ -195,20 +195,26 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
             return;
         }
 
-        // The four numbers in the order speech passes through them, so the one that drops to zero is
-        // the stage that is failing. A single "heard" count cannot distinguish a bot that understands
+        // The numbers in the order speech passes through them, so the one that drops to zero is the
+        // stage that is failing. A single "heard" count cannot distinguish a bot that understands
         // nobody from one that understands everybody and is never addressed.
         var embed = new EmbedBuilder()
             .WithTitle("🎙️ Voice")
             .WithColor(Color.Green)
             .AddField("Channel", session.ChannelName, inline: true)
             .AddField("Speakers", session.Speakers.ToString(), inline: true)
-            .AddField("Heard here", $"{session.Utterances} utterance(s)", inline: true)
+            .AddField("Requests here", $"{session.Captures} captured", inline: true)
             .AddField("Audio received", $"{session.Frames:N0} frame(s)", inline: true)
             .AddField(
                 "Since the bot started",
-                $"**{counts.Heard}** heard → **{counts.Recognised}** recognised → "
-                + $"**{counts.Addressed}** addressed → **{counts.Answered}** answered");
+                $"**{counts.Scanned}** scanned → **{counts.Triggered}** triggered → "
+                + $"**{counts.Captured}** captured → **{counts.Addressed}** addressed → "
+                + $"**{counts.Answered}** answered");
+
+        if (counts.ScanBusy > 0)
+            embed.AddField(
+                "Skipped",
+                $"{counts.ScanBusy} scan(s) waited for the speech engine to finish something else.");
 
         if (counts.Echoed > 0)
             embed.AddField(

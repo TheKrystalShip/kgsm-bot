@@ -12,7 +12,7 @@
     <!-- Listening and speaking in a Discord voice channel, which is about Discord and speech and
          not about game servers. The interfaces the bot implements to plug KGSM into it — recognition,
          the speech engine, what a spoken command means — are declared there. -->
-    <PackageReference Include="TheKrystalShip.Discord.Voice" Version="2.0.0" />
+    <PackageReference Include="TheKrystalShip.Discord.Voice" Version="3.0.0" />
   </ItemGroup>
 
   <ItemGroup>

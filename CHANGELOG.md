@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the trigger is heard mid-conversation (3.54.0)
+
+`TheKrystalShip.Discord.Voice` 3.0.0, against kgsm-speech's scan lane. In a channel of open
+microphones nobody pauses before "hey assistant", and a sentence ended by silence ran to its ceiling
+before anything was read. Each speaker's last three seconds are now read for the trigger every half
+second of new speech. Finding it plays the listening tone and stops the bot at once, and the request
+is taken from the word before the trigger until the speaker has been quiet for a moment. Nothing
+else anybody says is read as a request. `LeafSpeechToText.ScanAsync` asks for scans unprimed. The
+voice settings that tuned the old silence gap — `SilenceGapMs`, `MinUtteranceMs`,
+`MaxUtteranceSeconds`, `EarlyTriggerMs` — are replaced by `ScanWindowMs`, `ScanStrideMs`,
+`CommandQuietMs` and `MaxCommandSeconds`, and `/voice status` shows scans, triggers, captures and
+skipped scans. Measured with two bots in a channel: a trigger said five seconds into talk that never
+paused got its tone within half a second, and seventeen seconds of chat produced no false trigger.
+
 ### Fixed — the listening tone plays whole, in a busy room too (3.53.0)
 
 `TheKrystalShip.Discord.Voice` 2.0.0. The listening tone is no longer cut off by the whole-sentence

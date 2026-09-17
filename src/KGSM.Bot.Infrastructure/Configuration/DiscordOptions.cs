@@ -372,8 +372,8 @@ public class StatusOptions
 }
 
 /// <summary>
-/// The voice surface: whether the bot may sit in a voice channel and listen, and how it decides
-/// where one person's speech ends.
+/// The voice surface: whether the bot may sit in a voice channel and listen, how it hears its name
+/// while people keep talking, and where a request ends.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -383,8 +383,8 @@ public class StatusOptions
 /// inherit from a default.
 /// </para>
 /// <para>
-/// Nothing is written to disk and nothing is kept: an utterance exists as bytes in memory for as
-/// long as it takes to hand it on, and no configuration here can turn that into recording.
+/// Nothing is written to disk and nothing is kept: audio exists as bytes in memory for as long as a
+/// request could still need it, and no configuration here can turn that into recording.
 /// </para>
 /// </remarks>
 public class VoiceOptions
@@ -395,23 +395,33 @@ public class VoiceOptions
     [ConfigField("voiceEnabled", "Voice listening", Group = "voice", Risk = ConfigRisk.Wiring)]
     public bool Enabled { get; set; } = false;
 
-    /// <panel>How long somebody has to stop talking before the bot treats their sentence as
-    /// finished. Too short cuts people off mid-sentence; too long makes every answer wait.</panel>
-    [ConfigField("voiceSilenceGapMs", "End-of-speech silence", Group = "voice",
-        Min = 100, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
-    public int SilenceGapMs { get; set; } = 800;
+    /// <panel>How much of what each person has just said the bot reads at a time, looking for the
+    /// trigger phrase. People keep talking in a voice channel, so the bot listens for its name in the
+    /// middle of conversation rather than waiting for a pause. Three seconds holds the phrase wherever
+    /// it falls; much shorter and it is misheard. The speech engine reads these in a four-second
+    /// window, and audio that nearly fills it makes recognition run away, so it stops short of that.</panel>
+    [ConfigField("voiceScanWindowMs", "Trigger listening window", Group = "voice",
+        Min = 1500, Max = 3500, Unit = "ms", DependsOn = "voiceEnabled")]
+    public int ScanWindowMs { get; set; } = 3000;
 
-    /// <panel>The shortest sound worth passing on. Below this it is a cough or a keyboard, not
-    /// speech.</panel>
-    [ConfigField("voiceMinUtteranceMs", "Shortest utterance", Group = "voice",
-        Min = 100, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
-    public int MinUtteranceMs { get; set; } = 400;
+    /// <panel>How much more somebody has to say before the bot looks again for the trigger phrase —
+    /// roughly how long after you say it the tone plays. Shorter reacts sooner and asks more of the
+    /// speech engine when several people talk at once.</panel>
+    [ConfigField("voiceScanStrideMs", "Look for the trigger every", Group = "voice",
+        Min = 200, Max = 2000, Unit = "ms", DependsOn = "voiceEnabled")]
+    public int ScanStrideMs { get; set; } = 500;
 
-    /// <panel>The longest one person may talk before the bot cuts it and takes what it has. Somebody
-    /// talking without pausing is normal; an unbounded buffer is not.</panel>
-    [ConfigField("voiceMaxUtteranceSeconds", "Longest utterance", Group = "voice",
-        Min = 1, Max = 120, Unit = "s", DependsOn = "voiceEnabled")]
-    public int MaxUtteranceSeconds { get; set; } = 20;
+    /// <panel>How long you have to stop talking after the trigger phrase before the bot takes your
+    /// request as finished. Too short cuts you off mid-request; too long makes every answer wait.</panel>
+    [ConfigField("voiceCommandQuietMs", "End of a request", Group = "voice",
+        Min = 200, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
+    public int CommandQuietMs { get; set; } = 600;
+
+    /// <panel>The longest a request may run before the bot cuts it and takes what it has. What you say
+    /// next is taken as the rest of it.</panel>
+    [ConfigField("voiceMaxCommandSeconds", "Longest request", Group = "voice",
+        Min = 2, Max = 28, Unit = "s", DependsOn = "voiceEnabled")]
+    public int MaxCommandSeconds { get; set; } = 8;
 
     /// <panel>Whether the bot leaves once it is the only one left in the channel. Off, it stays until
     /// somebody tells it to leave.</panel>
@@ -428,8 +438,8 @@ public class VoiceOptions
     /// variant in the log adds it here with nothing to retrain.
     /// </remarks>
     /// <panel>What somebody says to get the bot's attention, like <code>hey assistant</code>. It is
-    /// found anywhere in a sentence, so leading into a request works — and so does quoting the
-    /// phrase, which will get you an answer. Several may be given, separated by commas.</panel>
+    /// heard in the middle of conversation, so nobody has to pause first — and quoting the phrase will
+    /// get you an answer. Several may be given, separated by commas.</panel>
     [ConfigField("voiceTriggers", "Trigger phrase", Group = "voice", DependsOn = "voiceEnabled")]
     public string Triggers { get; set; } = "hey assistant";
 
@@ -518,38 +528,6 @@ public class VoiceOptions
         DependsOn = "voiceEnabled")]
     public bool Chimes { get; set; } = true;
 
-    /// <summary>
-    /// How much of a sentence to read before it is finished, looking for the trigger. 0 waits for the
-    /// whole sentence.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Recognition normally runs on a finished sentence, so the earliest the bot can know it is being
-    /// addressed is after the person has stopped talking — which puts the tone that says "go ahead"
-    /// after the words it was meant to encourage. Reading the opening of the sentence while the rest
-    /// is still being said moves it to where a person expects it.
-    /// </para>
-    /// <para>
-    /// <b>It costs a whole recognition pass.</b> Whisper pads what it is given to a fixed window, so
-    /// reading a second and a half costs about what reading the sentence costs — and it is spent on
-    /// every utterance long enough to qualify, including the ones nobody addressed to the bot. It is
-    /// skipped outright whenever the recogniser is busy, so it can never delay a real answer, and what
-    /// it buys when it is skipped is nothing at all.
-    /// </para>
-    /// <para>
-    /// Long enough to contain the trigger and the speaker's run-up to it; shorter, and it reads a
-    /// fragment of the first word.
-    /// </para>
-    /// </remarks>
-    /// <panel>How much of a sentence the bot reads before you have finished saying it, to work out
-    /// early that you are talking to it — which is what lets the "go ahead" tone arrive while you are
-    /// still speaking rather than afterwards. It costs a full recognition pass on most of what is said
-    /// in the channel, so set it to 0 on a busy host or a slow one. It never delays an answer: it is
-    /// skipped whenever the recogniser is already working.</panel>
-    [ConfigField("voiceEarlyTriggerMs", "Spot the trigger early", Group = "voice",
-        Min = 0, Max = 5000, Unit = "ms", DependsOn = "voiceEnabled")]
-    public int EarlyTriggerMs { get; set; } = 1500;
-
     /// <panel>How long after somebody says the trigger on its own the bot keeps listening for what
     /// they actually wanted. It covers saying "hey assistant", pausing, and then asking.</panel>
     [ConfigField("voiceFollowUpSeconds", "Wait after the trigger", Group = "voice",
@@ -557,19 +535,19 @@ public class VoiceOptions
     public int FollowUpSeconds { get; set; } = 10;
 
     /// <summary>
-    /// Whether everything recognised is written to the log, including what was not addressed to the
-    /// bot.
+    /// Whether what is recognised is written to the log: requests at information level, and everything
+    /// scanned for the trigger at debug.
     /// </summary>
     /// <remarks>
-    /// Off, the bot logs only what somebody said to it, which is the right default and also makes a
-    /// trigger that is not matching impossible to diagnose — the operator is asked to tune a phrase
-    /// against evidence they cannot see. This is that evidence, and it is opt-in because switching it
-    /// on writes down a room's private conversation.
+    /// Off, the bot logs nothing anybody said, which is the right default and also makes a trigger that
+    /// is not matching impossible to diagnose — the operator is asked to tune a phrase against evidence
+    /// they cannot see. This is that evidence, and it is opt-in because at debug level it writes down a
+    /// room's private conversation.
     /// </remarks>
-    /// <panel>Whether the log records everything said in the channel, not only what was addressed to
-    /// the bot. Switch it on to find out how the recogniser is hearing your trigger phrase, and off
-    /// again afterwards — while it is on, everything anybody says in the channel is written to this
-    /// host's log.</panel>
+    /// <panel>Whether the log records what the bot hears. Requests made to the bot are logged; with the
+    /// log level at debug, so is everything said in the channel while the bot looks for its trigger
+    /// phrase. Switch it on to find out how your trigger phrase is being heard, and off again
+    /// afterwards.</panel>
     [ConfigField("voiceLogTranscripts", "Log everything heard", Group = "voice",
         Risk = ConfigRisk.Wiring, DependsOn = "voiceEnabled")]
     public bool LogTranscripts { get; set; } = false;
@@ -658,12 +636,12 @@ public class VoiceOptions
     public DiscordVoiceOptions ForVoice() => new()
     {
         Enabled = Enabled,
-        SilenceGapMs = SilenceGapMs,
-        MinUtteranceMs = MinUtteranceMs,
-        MaxUtteranceSeconds = MaxUtteranceSeconds,
+        ScanWindowMs = ScanWindowMs,
+        ScanStrideMs = ScanStrideMs,
+        CommandQuietMs = CommandQuietMs,
+        MaxCommandSeconds = MaxCommandSeconds,
         LeaveWhenAlone = LeaveWhenAlone,
         Triggers = Triggers,
-        EarlyTriggerMs = EarlyTriggerMs,
         FollowUpSeconds = FollowUpSeconds,
         Chimes = Chimes,
         Speak = Speak,
