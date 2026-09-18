@@ -22,6 +22,7 @@ using TheKrystalShip.KGSM.Auth.Cluster;
 using TheKrystalShip.KGSM.Cluster;
 using TheKrystalShip.KGSM.Cluster.Messaging;
 using TheKrystalShip.KGSM.Cluster.Membership;
+using TheKrystalShip.KGSM.Dns.Member;
 
 namespace KGSM.Bot.Infrastructure;
 
@@ -78,6 +79,12 @@ public static class DependencyInjection
             // browser is handed — it exists so the anchor has somewhere to push an account change to.
             GossipUrl = clusterSettings.GossipUrl.Trim(),
         });
+
+        // The chat capability's name, when a DNS anchor holds the cluster's zone: this bot says where it
+        // is reached, and while it holds the capability it keeps a certificate for the name and serves it
+        // — the member wire, which is all this bot serves. Inert with no cluster and with nobody holding
+        // dns.
+        services.AddKgsmDnsMember(clusterSettings.PublicHost, "kgsm-bot");
 
         // Which Discord servers this host announces into. A singleton because it holds the open
         // store, and — like the account store — opening it is what can fail, so it fails into an

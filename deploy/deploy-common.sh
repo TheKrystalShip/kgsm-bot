@@ -65,12 +65,64 @@ health_probe() {
 # Anything else one-shot and privileged this project needs provisioned. setup.sh calls it once the
 # units are live; deploy.sh never does.
 #
-# Nothing. The bot's own state — the guild store — is created by the bot, written by /setup, and
-# lives in the unit's StateDirectory, which systemd makes before ExecStart. The speech models used to
-# be fetched here and are not this project's any more: hearing and speaking are the kgsm-speech leaf's,
-# one engine per host serving every surface, and that repo's setup.sh provisions them (adopting the
-# files this one left in /var/lib/kgsm-bot/models rather than downloading them again).
-setup_project_extras() { :; }
+# The bot's own state — the guild store — is created by the bot, written by /setup, and lives in the
+# unit's StateDirectory, which systemd makes before ExecStart. Hearing and speaking are the kgsm-speech
+# leaf's, provisioned by that repo. What is provisioned here is the member wire's web front: the vhost
+# the other members reach this bot through, and the pieces that serve the name the cluster's DNS anchor
+# gives the chat capability — the bot's keys, the site it generates, its proxy rules (which the vhost
+# includes too), the include that loads the site, and the grant to reload the web server after writing
+# it.
+NGINX_FRAGMENT="${REPO_DIR}/deploy/nginx/${PROJECT}.conf"
+TLS_DIR="/var/lib/kgsm/tls/${PROJECT}"
+SITES_DIR="/var/lib/kgsm/nginx"
+LOCATIONS_SRC="${REPO_DIR}/deploy/nginx/${PROJECT}.locations"
+SITES_INCLUDE_SRC="${REPO_DIR}/deploy/nginx/${PROJECT}.sites.conf"
+NGINX_RELOAD_TEMPLATE="${REPO_DIR}/deploy/polkit/47-${PROJECT}-nginx-reload.rules.in"
+NGINX_RELOAD_DST="/etc/polkit-1/rules.d/47-${PROJECT}-nginx-reload.rules"
+
+setup_project_extras() {
+    if [[ ! -d /etc/nginx/conf.d ]]; then
+        log "nginx is not installed on this host — the member wire is reached some other way, and the chat capability's name is served by nothing here"
+        return 0
+    fi
+
+    # Keys live here, readable by this component alone; the web server reads them as root.
+    if [[ ! -d /var/lib/kgsm/tls ]]; then
+        $SUDO install -d -m 0755 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" /var/lib/kgsm/tls
+    fi
+    $SUDO install -d -m 0700 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$TLS_DIR"
+
+    # Shared by every component on the machine, each writing and including only its own file. Setgid so
+    # a file keeps the directory's group whichever component writes it.
+    if [[ ! -d "$SITES_DIR" ]]; then
+        log "creating ${SITES_DIR} — the sites KGSM components generate"
+        $SUDO install -d -m 2775 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" "$SITES_DIR"
+    fi
+
+    $SUDO install -D -m 0644 -o root -g root "$LOCATIONS_SRC" "/etc/nginx/kgsm/${PROJECT}.locations"
+    # This component's own include, one per component, so two components on one machine never claim
+    # the same file.
+    $SUDO install -m 0644 -o root -g root "$SITES_INCLUDE_SRC" "/etc/nginx/conf.d/00-${PROJECT}-sites.conf"
+
+    local rendered
+    rendered="$(mktemp)"
+    sed -e "s|@PROJECT@|${PROJECT}|g" -e "s|@SVC_USER@|${DEPLOY_USER}|g" "$NGINX_RELOAD_TEMPLATE" > "$rendered"
+    if ! $SUDO cmp -s "$rendered" "$NGINX_RELOAD_DST" 2>/dev/null; then
+        log "installing the web-server reload grant → ${NGINX_RELOAD_DST}"
+        $SUDO install -D -m 0644 "$rendered" "$NGINX_RELOAD_DST"
+    fi
+    rm -f "$rendered"
+
+    # The vhost last: it includes the proxy rules installed above. Validated before reloading, so a bad
+    # fragment fails here, loudly, rather than at the next reload for an unrelated reason.
+    log "installing the nginx vhost → /etc/nginx/conf.d/$(basename "$NGINX_FRAGMENT")"
+    $SUDO install -m 0644 -o root -g root "$NGINX_FRAGMENT" "/etc/nginx/conf.d/$(basename "$NGINX_FRAGMENT")"
+    if $SUDO nginx -t > /dev/null 2>&1; then
+        $SUDO systemctl reload nginx 2>/dev/null || true
+    else
+        warn "nginx -t failed after installing the fragment — NOT reloading; run 'sudo nginx -t' to see why"
+    fi
+}
 
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 

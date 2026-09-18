@@ -58,7 +58,11 @@
   "Cluster": {
     "MemberId": "",
     "Urls": "http://127.0.0.1:5182",
-    "GossipUrl": ""
+    "GossipUrl": "",
+    // Where this machine is reached from the internet — normally its network's dynamic-DNS name. The
+    // cluster's DNS anchor points the chat capability's name at it while this bot holds it. Blank
+    // states no host, and the name is not published.
+    "PublicHost": ""
   },
 
   "Discord": {

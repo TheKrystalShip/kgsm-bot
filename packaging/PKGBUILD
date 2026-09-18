@@ -84,5 +84,21 @@ package() {
     install -Dm644 "${repo}/deploy/kgsm-bot.commands.json" \
         "${pkgdir}/var/lib/kgsm/leaves/commands/bot.json"
 
+    # Serving the name the cluster's DNS anchor gives the chat capability: the proxy rules every server
+    # block for the bot includes, the include that loads the site it generates, its key and site
+    # directories, and the grant to reload the web server after writing the site — reload and nothing
+    # else. Inert on a machine with no nginx.
+    install -Dm644 "${repo}/deploy/nginx/kgsm-bot.locations" \
+        "${pkgdir}/etc/nginx/kgsm/kgsm-bot.locations"
+    install -Dm644 "${repo}/deploy/nginx/kgsm-bot.sites.conf" \
+        "${pkgdir}/etc/nginx/conf.d/00-kgsm-bot-sites.conf"
+    install -Dm644 "${repo}/deploy/kgsm-bot.serving.tmpfiles" \
+        "${pkgdir}/usr/lib/tmpfiles.d/kgsm-bot-serving.conf"
+    sed -e "s|@PROJECT@|kgsm-bot|g" -e "s|@SVC_USER@|kgsm|g" \
+        "${repo}/deploy/polkit/47-kgsm-bot-nginx-reload.rules.in" \
+        > "${srcdir}/47-kgsm-bot-nginx-reload.rules"
+    install -Dm644 "${srcdir}/47-kgsm-bot-nginx-reload.rules" \
+        "${pkgdir}/usr/share/polkit-1/rules.d/47-kgsm-bot-nginx-reload.rules"
+
     install -Dm644 "${repo}/LICENSE" "${pkgdir}/usr/share/licenses/kgsm-bot/LICENSE"
 }

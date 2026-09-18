@@ -1,0 +1,21 @@
+# kgsm-bot — how a request to the bot's member wire is handled, included by every server block that
+# serves it: the host vhost in /etc/nginx/conf.d/kgsm-bot.conf, and each block the bot generates in
+# /var/lib/kgsm/nginx/kgsm-bot.conf for the names its cluster's DNS anchor gave it.
+#
+# The generated blocks carry only a name and its certificate; everything about where a request goes is
+# here, installed with the component and written by nothing at runtime.
+
+# A full account snapshot is one body, and it grows with the cluster's people. nginx's 1m default would
+# surface as a member that joined and never learned who anybody is.
+client_max_body_size 32m;
+
+location / {
+    proxy_pass         http://127.0.0.1:5182;
+    proxy_http_version 1.1;
+
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Real-IP         $remote_addr;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+    proxy_set_header   Connection        '';
+}

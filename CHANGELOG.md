@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — the chat capability's name, served by whichever bot holds it (3.55.0)
+
+In a cluster with a DNS anchor, `bot.anchors.<zone>` points at the host the holder of `bot` states,
+and the holder serves its member wire under it on a certificate the DNS anchor issues. The bot states
+its host from `Cluster__PublicHost` (normally the network's dynamic-DNS name), keeps a key per name
+under `/var/lib/kgsm/tls/kgsm-bot/`, writes its site to `/var/lib/kgsm/nginx/`, and reloads nginx
+through a grant allowing that alone. Taken through `TheKrystalShip.KGSM.Dns 0.2.0-dev.4`; inert on a
+host in no cluster.
+
+- **The member wire's vhost ships with the bot**, `deploy/nginx/kgsm-bot.conf`, and `setup.sh`
+  installs it. Its proxy rules are one file, `/etc/nginx/kgsm/kgsm-bot.locations`, included by the
+  vhost and by every generated block.
+- **The package ships the serving pieces**: the rules, the include, the directories as `tmpfiles.d`
+  entries, and the reload grant for the service account.
+
 ### Changed — the trigger is heard mid-conversation (3.54.0)
 
 `TheKrystalShip.Discord.Voice` 3.0.0, against kgsm-speech's scan lane. In a channel of open

@@ -861,6 +861,15 @@
       "group": "cluster",
       "type": "string",
       "risk": "wiring"
+    },
+    {
+      "key": "clusterPublicHost",
+      "env": "Cluster__PublicHost",
+      "label": "Public host",
+      "description": "Where this machine is reached from the internet — normally the dynamic-DNS name its network keeps pointed at a changing home address, such as example.ddns.net. In a cluster with a DNS anchor, the chat capability's name points at it while this bot holds it, and this bot serves that name on a certificate the DNS anchor issues.",
+      "group": "cluster",
+      "type": "string",
+      "risk": "wiring"
     }
   ]
 }

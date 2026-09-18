@@ -68,4 +68,21 @@ public sealed class BotClusterOptions
     [ConfigField("clusterGossipUrl", "Address other members use", Group = "cluster",
         Risk = ConfigRisk.Wiring, NoDefault = true)]
     public string GossipUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Where this machine is reached from the internet, for the cluster's DNS anchor to point the chat
+    /// capability's name at.
+    /// </summary>
+    /// <remarks>
+    /// A host rather than an address with a scheme: the DNS anchor publishes the capability's name as an
+    /// alias of it, so it is normally the dynamic-DNS name the network keeps pointed at a changing home
+    /// address. Blank states none, and the name is not published.
+    /// </remarks>
+    /// <panel>Where this machine is reached from the internet — normally the dynamic-DNS name its network
+    /// keeps pointed at a changing home address, such as example.ddns.net. In a cluster with a DNS anchor,
+    /// the chat capability's name points at it while this bot holds it, and this bot serves that name on
+    /// a certificate the DNS anchor issues.</panel>
+    [ConfigField("clusterPublicHost", "Public host", Group = "cluster", Risk = ConfigRisk.Wiring,
+        NoDefault = true)]
+    public string PublicHost { get; set; } = string.Empty;
 }
