@@ -67,12 +67,10 @@ health_probe() {
 #
 # The bot's own state — the guild store — is created by the bot, written by /setup, and lives in the
 # unit's StateDirectory, which systemd makes before ExecStart. Hearing and speaking are the kgsm-speech
-# leaf's, provisioned by that repo. What is provisioned here is the member wire's web front: the vhost
-# the other members reach this bot through, and the pieces that serve the name the cluster's DNS anchor
-# gives the chat capability — the bot's keys, the site it generates, its proxy rules (which the vhost
-# includes too), the include that loads the site, and the grant to reload the web server after writing
-# it.
-NGINX_FRAGMENT="${REPO_DIR}/deploy/nginx/${PROJECT}.conf"
+# leaf's, provisioned by that repo. What is provisioned here is the member wire's web front: the pieces
+# that serve the name the cluster's DNS anchor gives the chat capability, which is where the other
+# members reach this bot — the bot's keys, the site it generates, its proxy rules, the include that loads
+# the site, and the grant to reload the web server after writing it.
 TLS_DIR="/var/lib/kgsm/tls/${PROJECT}"
 SITES_DIR="/var/lib/kgsm/nginx"
 LOCATIONS_SRC="${REPO_DIR}/deploy/nginx/${PROJECT}.locations"
@@ -112,16 +110,6 @@ setup_project_extras() {
         $SUDO install -D -m 0644 "$rendered" "$NGINX_RELOAD_DST"
     fi
     rm -f "$rendered"
-
-    # The vhost last: it includes the proxy rules installed above. Validated before reloading, so a bad
-    # fragment fails here, loudly, rather than at the next reload for an unrelated reason.
-    log "installing the nginx vhost → /etc/nginx/conf.d/$(basename "$NGINX_FRAGMENT")"
-    $SUDO install -m 0644 -o root -g root "$NGINX_FRAGMENT" "/etc/nginx/conf.d/$(basename "$NGINX_FRAGMENT")"
-    if $SUDO nginx -t > /dev/null 2>&1; then
-        $SUDO systemctl reload nginx 2>/dev/null || true
-    else
-        warn "nginx -t failed after installing the fragment — NOT reloading; run 'sudo nginx -t' to see why"
-    fi
 }
 
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────

@@ -62,9 +62,14 @@ public sealed class BotClusterOptions
     /// <para>
     /// A members-only address: this bot serves no browser surface, so it is never handed to one.
     /// </para>
+    /// <para>
+    /// In a cluster with a DNS anchor it stays blank: the chat capability's name is advertised while
+    /// this bot serves it.
+    /// </para>
     /// </remarks>
-    /// <panel>The address the rest of the cluster reaches this bot at. Blank leaves it reachable only by
-    /// members on this same machine, which means the accounts it holds stop being updated.</panel>
+    /// <panel>The address the rest of the cluster reaches this bot at. Leave blank in a cluster with a
+    /// DNS anchor, which names the bot. Elsewhere, blank leaves it reachable only by members on this same
+    /// machine, which means the accounts it holds stop being updated.</panel>
     [ConfigField("clusterGossipUrl", "Address other members use", Group = "cluster",
         Risk = ConfigRisk.Wiring, NoDefault = true)]
     public string GossipUrl { get; set; } = string.Empty;

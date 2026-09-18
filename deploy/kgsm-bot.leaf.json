@@ -857,7 +857,7 @@
       "key": "clusterGossipUrl",
       "env": "Cluster__GossipUrl",
       "label": "Address other members use",
-      "description": "The address the rest of the cluster reaches this bot at. Blank leaves it reachable only by members on this same machine, which means the accounts it holds stop being updated.",
+      "description": "The address the rest of the cluster reaches this bot at. Leave blank in a cluster with a DNS anchor, which names the bot. Elsewhere, blank leaves it reachable only by members on this same machine, which means the accounts it holds stop being updated.",
       "group": "cluster",
       "type": "string",
       "risk": "wiring"

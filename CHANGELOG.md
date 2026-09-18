@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — other members reach the bot at its capability's name (3.56.0)
+
+In a cluster with a DNS anchor, `Cluster__GossipUrl` is left unset: while the bot holds the chat
+capability it advertises `bot.anchors.<zone>` to the cluster once its site serves the name.
+`deploy/setup.sh` installs no host vhost — the member wire is served from the site the bot generates,
+and `kgsm-bot.locations` is included by those blocks alone. Takes
+`TheKrystalShip.KGSM.Cluster 1.0.0-dev.20` and `TheKrystalShip.KGSM.Dns 0.2.0-dev.7`.
+
 ### Added — the chat capability's name, served by whichever bot holds it (3.55.0)
 
 In a cluster with a DNS anchor, `bot.anchors.<zone>` points at the host the holder of `bot` states,

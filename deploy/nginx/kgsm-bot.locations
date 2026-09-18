@@ -1,6 +1,5 @@
-# kgsm-bot — how a request to the bot's member wire is handled, included by every server block that
-# serves it: the host vhost in /etc/nginx/conf.d/kgsm-bot.conf, and each block the bot generates in
-# /var/lib/kgsm/nginx/kgsm-bot.conf for the names its cluster's DNS anchor gave it.
+# kgsm-bot — how a request to the bot's member wire is handled, included by every block the bot
+# generates in /var/lib/kgsm/nginx/kgsm-bot.conf for the names its cluster's DNS anchor gave it.
 #
 # The generated blocks carry only a name and its certificate; everything about where a request goes is
 # here, installed with the component and written by nothing at runtime.
