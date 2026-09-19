@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — an admin can renew the bot's certificate from the cluster's DNS page (3.58.0)
+
+Takes `TheKrystalShip.KGSM.Dns 0.2.0-dev.14`: when the DNS anchor asks this member to renew the
+certificate for a name it holds and has published, the member requests a new one straight away
+instead of waiting for the certificate's own renewal window.
+
 ### Changed — a removed member's departure is held for seven days (3.57.0)
 
 Takes `TheKrystalShip.KGSM.Cluster 1.0.0-dev.21`: the bot's roster keeps a removed member's `left` row

@@ -69,6 +69,6 @@
     <PackageReference Include="TheKrystalShip.KGSM.Cluster" Version="1.0.0-dev.21" />
     <!-- The member half of the cluster's names: stating where this bot is reached, and keeping a
          certificate and a served site for the capability name it holds. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Dns" Version="0.2.0-dev.10" />
+    <PackageReference Include="TheKrystalShip.KGSM.Dns" Version="0.2.0-dev.14" />
   </ItemGroup>
 </Project>
