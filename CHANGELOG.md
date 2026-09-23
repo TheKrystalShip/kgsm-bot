@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — a fact the bot changes across a restart reaches the cluster (3.58.2)
+
+Takes `TheKrystalShip.KGSM.Cluster 1.0.0-dev.23`: a restart that re-publishes as many facts as before, one
+of them different, no longer lands level with the incarnation other members hold and goes unheard.
+
 ### Changed — the bot's cluster state belongs to one cluster (3.58.1)
 
 Takes `TheKrystalShip.KGSM.Cluster 1.0.0-dev.22`: started with a different cluster secret, the bot
