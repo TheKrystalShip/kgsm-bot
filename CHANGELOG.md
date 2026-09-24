@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the auth packages match the roles (3.58.3)
+
+Takes `TheKrystalShip.KGSM.Auth 4.0.0-dev.2`, `Auth.Users 1.4.0-dev.7`, `Auth.Cluster 1.0.0-dev.8` and
+`TheKrystalShip.KGSM.Cluster 1.0.0-dev.24`, the split in which the auth anchor alone holds anything that
+mints a session. No behaviour changes.
+
 ### Fixed — a fact the bot changes across a restart reaches the cluster (3.58.2)
 
 Takes `TheKrystalShip.KGSM.Cluster 1.0.0-dev.23`: a restart that re-publishes as many facts as before, one
