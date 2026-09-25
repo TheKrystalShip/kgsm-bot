@@ -57,23 +57,38 @@ public class KgsmOptions
     public string WatchdogSocketPath { get; set; } = "/run/kgsm-watchdog/control.sock";
 
     /// <summary>
-    /// Where the bot serves its one-line status snapshot: gateway state, a row per configured guild,
-    /// the channels it holds in each, and which announcements are switched on. One JSON line per
-    /// connection, then close — the same NDJSON-over-unix-socket shape kgsm-scheduler serves, and
-    /// deliberately not HTTP: a Discord bot carries no web stack, and a tiny private protocol is
-    /// enough for the one consumer.
+    /// Where the bot serves its status snapshot over HTTP: gateway state, a row per configured guild,
+    /// the channels it holds in each, and which announcements are switched on. <c>GET /status</c> on a
+    /// unix socket, the same shape every other component on this host answers on.
     /// </summary>
     /// <remarks>
     /// This is also how the Control Panel gets a real health signal for this leaf. systemd liveness says
     /// the process is up, which is exactly the state the bot is in when a guild failed to populate and
-    /// it can post nothing there — reading a status line proves the gateway and each guild, not just the
-    /// process. Blank disables the server entirely.
+    /// it can post nothing there — reading the snapshot proves the gateway and each guild, not just the
+    /// process. Blank serves no status at all.
     /// </remarks>
     /// <panel>Where the bot publishes its status for the Control Panel to read — gateway state, each
     /// Discord server it is set up in, and its channel map. Leave blank to serve no status at all.</panel>
     [ConfigField("statusSocketPath", "Status socket", Group = "kgsm", Type = ConfigType.Path,
         Risk = ConfigRisk.Wiring)]
     public string StatusSocketPath { get; set; } = "/run/kgsm-bot/status.sock";
+
+    /// <summary>Unix socket this bot answers for ITSELF on — its configuration, its unit, its journal
+    /// and the commands it declares.</summary>
+    /// <panel>Unix socket the Control Panel reaches this bot's own configuration and journal through.
+    /// Moving it makes the panel read these settings off disk instead, which still works and cannot
+    /// apply a change while the bot is up.</panel>
+    [ConfigField("surfaceSocketPath", "Own-surface socket", Group = "kgsm", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
+    public string SurfaceSocketPath { get; set; } = "/run/kgsm-bot/surface.sock";
+
+    /// <summary>The env file a configuration change made through the panel is written to.</summary>
+    /// <panel>Where a setting changed in the Control Panel is written. It has to be a file this bot's
+    /// unit loads with EnvironmentFile= — the panel checks, and reports the settings as read-only
+    /// rather than writing a change nothing would read.</panel>
+    [ConfigField("configOverridePath", "Override file", Group = "kgsm", Type = ConfigType.Path,
+        Risk = ConfigRisk.Wiring)]
+    public string ConfigOverridePath { get; set; } = "/var/lib/kgsm-api/leaf-overrides/bot.env";
 
     /// <summary>
     /// Control-socket path for the kgsm-firewall authority, which the bot asks whether a server's

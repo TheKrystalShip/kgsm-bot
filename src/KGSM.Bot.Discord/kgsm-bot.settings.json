@@ -265,6 +265,8 @@
     "JournalDir": "/var/lib/kgsm/events",
     "WatchdogSocketPath": "/run/kgsm-watchdog/control.sock",
     "StatusSocketPath": "/run/kgsm-bot/status.sock",
+    "SurfaceSocketPath": "/run/kgsm-bot/surface.sock",
+    "ConfigOverridePath": "/var/lib/kgsm-api/leaf-overrides/bot.env",
     "FirewallSocketPath": "/run/kgsm-firewall/firewall.sock",
     "Blueprints": {
       "7dtd": {

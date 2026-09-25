@@ -1,7 +1,4 @@
-using System.Net.Sockets;
 using System.Reflection;
-using System.Text;
-using System.Text.Json;
 
 using Discord;
 using Discord.WebSocket;
@@ -10,114 +7,39 @@ using KGSM.Bot.Core.Models;
 using KGSM.Bot.Discord.Commands;
 using KGSM.Bot.Infrastructure.Configuration;
 
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace KGSM.Bot.Discord;
 
 /// <summary>
-/// Serves the bot's status over a unix domain socket: one JSON line per connection, then close.
+/// What this bot says about itself when asked: gateway state, a row per configured guild, the channels
+/// it holds in each, which announcements are switched on, and what is waiting to go out.
 /// <para>
-/// The same NDJSON-over-unix-socket shape kgsm-scheduler serves, and deliberately not HTTP — a Discord
-/// bot has no web stack and there is exactly one consumer. Reading a line is also the leaf's health
-/// check: it proves the gateway and each configured guild, where systemd liveness proves only that the
-/// process exists. Those come apart in practice, and when they do this bot is running, connected, and
-/// unable to post anything in the guild that came apart.
+/// This is the leaf's health check as well as its status. It proves the gateway and each configured
+/// guild, where systemd liveness proves only that the process exists — and those come apart in
+/// practice: this bot can be running, connected, and unable to post anything in the guild that came
+/// apart.
 /// </para>
 /// </summary>
 /// <remarks>
-/// The snapshot is built per connection rather than cached: it is asked for at human cadence by one
-/// reader, and everything in it is an in-memory read off the live client. A blank socket path disables
-/// the server outright, which is how a host that wants no status surface says so.
+/// The snapshot is built per request rather than cached: it is asked for at human cadence by one
+/// reader, and everything in it is an in-memory read off the live client. Built beside the bot rather
+/// than inside it, so it can report a gateway that never connected — which a service hanging off the
+/// client's Ready event could not.
 /// </remarks>
-public sealed class StatusSocketServer(
+public sealed class BotStatusReporter(
     DiscordSocketClient client,
     IGuildStore guilds,
     IDiscordSendQueue queue,
-    IOptions<KgsmOptions> kgsmOptions,
-    IOptions<DiscordOptions> discordOptions,
-    ILogger<StatusSocketServer> logger) : BackgroundService
+    IOptions<DiscordOptions> discordOptions)
 {
     private readonly DiscordSocketClient _client = client;
     private readonly IGuildStore _guilds = guilds;
     private readonly IDiscordSendQueue _queue = queue;
-    private readonly KgsmOptions _kgsm = kgsmOptions.Value;
     private readonly DiscordOptions _discord = discordOptions.Value;
-    private readonly ILogger<StatusSocketServer> _logger = logger;
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
-    {
-        string path = _kgsm.StatusSocketPath;
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            _logger.LogInformation("Status socket disabled (no path configured)");
-            return;
-        }
-
-        try
-        {
-            string? dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch (Exception ex)
-        {
-            // The bot's job is Discord; failing to publish a status line must never stop it serving that.
-            _logger.LogWarning(ex, "Could not prepare status socket at {Path} — no status will be served", path);
-            return;
-        }
-
-        using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-        try
-        {
-            listener.Bind(new UnixDomainSocketEndPoint(path));
-            listener.Listen(8);
-            // 0660: the api runs in this socket's group and reads it; nothing else on the host needs to.
-            if (OperatingSystem.IsLinux())
-                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite
-                    | UnixFileMode.GroupRead | UnixFileMode.GroupWrite);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not listen on status socket {Path} — no status will be served", path);
-            return;
-        }
-
-        _logger.LogInformation("Status socket listening on {Path}", path);
-
-        while (!ct.IsCancellationRequested)
-        {
-            Socket conn;
-            try { conn = await listener.AcceptAsync(ct).ConfigureAwait(false); }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { _logger.LogDebug(ex, "Status socket accept error"); continue; }
-
-            _ = Task.Run(() => ServeAsync(conn, ct), ct);
-        }
-
-        try { if (File.Exists(path)) File.Delete(path); } catch { /* shutting down */ }
-    }
-
-    private async Task ServeAsync(Socket conn, CancellationToken ct)
-    {
-        try
-        {
-            using (conn)
-            {
-                string json = JsonSerializer.Serialize(Snapshot(), BotStatusJsonContext.Default.BotStatus);
-                await conn.SendAsync(Encoding.UTF8.GetBytes(json + "\n"), SocketFlags.None, ct).ConfigureAwait(false);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Status socket client error");
-        }
-    }
-
-    private BotStatus Snapshot()
+    /// <summary>What this bot looks like from inside the gateway, right now.</summary>
+    public BotStatus Snapshot()
     {
         // Latency is only meaningful once a heartbeat has completed; Discord.Net reports 0 until then,
         // and a 0ms gateway link would read as impossibly good rather than as unmeasured.

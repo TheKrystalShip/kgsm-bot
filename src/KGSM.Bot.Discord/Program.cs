@@ -7,11 +7,16 @@ using KGSM.Bot.Application;
 using KGSM.Bot.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.ComponentSurface;
+using TheKrystalShip.KGSM.ComponentSurface.Http;
 using TheKrystalShip.KGSM.Lifecycle;
 
 namespace KGSM.Bot.Discord;
@@ -56,12 +61,88 @@ public class Program
         host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping.Register(() =>
             host.Services.GetRequiredService<LeafLifecycle>().MarkStopping(LeafStopReason.Signal));
 
+        // A socket only exists once Kestrel is listening, so the mode is set here rather than at bind
+        // time — which would be an ENOENT on a file that is not there yet.
+        KgsmOptions kgsm = host.Services.GetRequiredService<IOptions<KgsmOptions>>().Value;
+        ILogger<Program> log = host.Services.GetRequiredService<ILogger<Program>>();
+        host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStarted.Register(() =>
+        {
+            foreach (string socket in (string[])[kgsm.StatusSocketPath, kgsm.SurfaceSocketPath])
+            {
+                try
+                {
+                    if (OperatingSystem.IsLinux() && !string.IsNullOrWhiteSpace(socket) && File.Exists(socket))
+                        File.SetUnixFileMode(socket, SocketMode);
+                }
+                catch (Exception ex)
+                {
+                    log.LogWarning(ex, "could not set mode on {Socket}", socket);
+                }
+            }
+        });
+
         // Start the host
         await host.RunAsync();
     }
 
     /// <summary>The file declaring the bot's whole configurable surface, shipped beside the binary.</summary>
     private const string SettingsFile = "kgsm-bot.settings.json";
+
+    /// <summary>This component's id — what names its descriptor, its runtime directory and its unit.</summary>
+    private const string ComponentId = "bot";
+
+    /// <summary>
+    /// Permission bits every socket this bot binds is given: readable and writable by the owner and by
+    /// anything in its group, and by nothing else on the host. The node's API runs in that group.
+    /// </summary>
+    private const UnixFileMode SocketMode =
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite;
+
+    /// <summary>
+    /// The KGSM section as it stands once every configuration source has had its say, read where a
+    /// bound <c>IOptions</c> is not available yet.
+    /// </summary>
+    private static KgsmOptions Bound(IConfiguration configuration) =>
+        configuration.GetSection(KgsmOptions.Section).Get<KgsmOptions>() ?? new KgsmOptions();
+
+    /// <summary>
+    /// One unix socket as a listening address, with its directory made and any stale file cleared —
+    /// or blank when there is nothing to serve there or it could not be prepared.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An address rather than a <c>Listen</c> call.</b> Kestrel ignores the configured addresses
+    /// entirely once anything has been bound through <c>KestrelServerOptions.Listen*</c>, so binding
+    /// these sockets that way would silently unbind the member wire — the bot would run, answer about
+    /// itself, and never again hear that somebody was demoted.
+    /// </para>
+    /// <para>
+    /// A blank path is how a host says it wants that socket not served at all. A socket file left
+    /// behind by a killed process would otherwise make the bind fail, and the bot's job is Discord:
+    /// failing to publish a status must never stop it doing that.
+    /// </para>
+    /// </remarks>
+    private static string UnixAddress(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "";
+
+        try
+        {
+            string? dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            if (File.Exists(path))
+                File.Delete(path);
+
+            return "http://unix:" + path;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"<4>could not prepare {path}: {ex.Message}");
+            return "";
+        }
+    }
 
     /// <summary>The value of a <c>--flag value</c> pair, or null when the flag is absent.</summary>
     private static string? ValueAfter(string[] args, string flag)
@@ -98,30 +179,64 @@ public class Program
                     config.AddCommandLine(args);
                 }
 
-                // The listener reads its addresses from "urls", and this bot states where it answers
-                // the member wire under Cluster:Urls with every other fact about its membership.
-                // Joined here, once, so the two cannot disagree — and added last, after the file and
-                // the environment, so it is the resolved value that is joined rather than a default.
+                // Everything this bot listens on, joined into the one key the listener reads its
+                // addresses from: the member wire under Cluster:Urls with every other fact about its
+                // membership, and two unix sockets of its own. Joined here, once, so no two of them can
+                // disagree — and added last, after the file and the environment, so it is the resolved
+                // values that are joined rather than defaults.
+                IConfigurationRoot resolved = config.Build();
+                KgsmOptions kgsm = Bound(resolved);
+
                 string clusterUrls =
-                    config.Build()[$"{BotClusterOptions.Section}:{nameof(BotClusterOptions.Urls)}"]
+                    resolved[$"{BotClusterOptions.Section}:{nameof(BotClusterOptions.Urls)}"]
                         is { Length: > 0 } urls ? urls : new BotClusterOptions().Urls;
-                config.AddInMemoryCollection(
-                    new Dictionary<string, string?> { [WebHostDefaults.ServerUrlsKey] = clusterUrls });
+
+                string[] listening =
+                [
+                    clusterUrls,
+                    UnixAddress(kgsm.StatusSocketPath),
+                    UnixAddress(kgsm.SurfaceSocketPath),
+                ];
+
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [WebHostDefaults.ServerUrlsKey] =
+                        string.Join(';', listening.Where(a => a.Length > 0)),
+                });
             })
-            // The member-to-member wire, and the only thing this bot listens on. A member of a cluster
-            // is pushed to rather than polling: the auth anchor fans an account change out to every
-            // member's inbox, and a member with nowhere to be reached would hold whatever it copied
-            // when it joined and never hear that somebody was demoted.
+            // What each of those three listeners serves.
             //
-            // The address is read from the same configuration every other key comes from. Registered
-            // AFTER the configuration sources above, because these callbacks run in the order they were
-            // added: ahead of them it would read a configuration that does not yet hold the settings
-            // file or the unit's environment, and bind the default while looking configured.
-            .ConfigureWebHostDefaults(web => web.Configure(app =>
-            {
-                app.UseRouting();
-                app.UseEndpoints(endpoints => endpoints.MapClusterEndpoints());
-            }))
+            // The member wire carries the cluster's inbox: a member of a cluster is pushed to rather
+            // than polling — the auth anchor fans an account change out to every member's inbox, and a
+            // member with nowhere to be reached would hold whatever it copied when it joined and never
+            // hear that somebody was demoted.
+            //
+            // The other two are this bot's own: what it answers about the gateway, and what it answers
+            // about ITSELF. A component owns its configuration, its unit and its journal wherever it
+            // runs and only the transport differs; this is a leaf, so the node's API relays over the
+            // surface socket rather than reading the descriptor for it, and finds that socket from this
+            // component's id alone.
+            .ConfigureWebHostDefaults(web => web
+                .Configure(app =>
+                {
+                    app.UseRouting();
+                    app.UseEndpoints(endpoints =>
+                    {
+                        endpoints.MapClusterEndpoints();
+
+                        // Reachable over this bot's own sockets and nowhere else. The member wire is a
+                        // network address whose callers are other members; these two answer about this
+                        // host, and the socket's filesystem permissions are their whole boundary — so
+                        // arriving anywhere but on a unix socket is not a route at all.
+                        endpoints.MapGet("/status", (BotStatusReporter reporter) =>
+                            Results.Json(reporter.Snapshot(), BotStatusJsonContext.Default.BotStatus))
+                            .AddEndpointFilter<OwnSocketOnly>();
+
+                        endpoints.MapGroup("/component")
+                            .AddEndpointFilter<OwnSocketOnly>()
+                            .MapComponentSurface();
+                    });
+                }))
             .ConfigureLogging((context, logging) =>
             {
                 logging.ClearProviders();
@@ -153,10 +268,20 @@ public class Program
                 // Register hosted service
                 services.AddHostedService<BotService>();
 
-                // Publishes the bot's status on a unix socket for the Control Panel to read. Runs
-                // beside the bot rather than inside it: it must be able to report a gateway that never
-                // connected, which a service hanging off the client's Ready event could not.
-                services.AddHostedService<StatusSocketServer>();
+                // What this bot says about itself when the Control Panel asks. Built beside the bot
+                // rather than inside it: it must be able to report a gateway that never connected,
+                // which a service hanging off the client's Ready event could not.
+                services.AddSingleton<BotStatusReporter>();
+
+                // The descriptor this build generated, the host's deploy floors beneath it, the
+                // overrides in force, this unit's journal, and the bounce that makes a change take
+                // effect. All of it is the shared component library, which is also what the generator
+                // that writes the descriptor lives beside.
+                KgsmOptions kgsm = Bound(context.Configuration);
+                services.AddComponentSurface(new ComponentSurfaceOptions(
+                    ComponentSurfacePaths.Descriptor(ComponentId),
+                    kgsm.ConfigOverridePath,
+                    ComponentSurfacePaths.Commands(ComponentId)));
 
                 // The same facts, reported rather than only served. Nothing polls the status socket
                 // on a schedule, so a bot that went silent at three in the morning stayed silent

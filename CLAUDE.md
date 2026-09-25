@@ -67,7 +67,7 @@ Key sections: `KgsmAuth` (the host's shared sign-in application), `Auth` (the ac
 (token, status markers, `PublicAddress`, `RemoveChannelOnInstanceDeletion`, `ActionButtons`,
 `IncidentThreads`, the status-message cadence pair, the message-cleanup pair, the five `SendQueue`
 keys, and the `Announce` switches), `KGSM` (`Path` to `kgsm.sh`, `JournalDir`, `WatchdogSocketPath`, `StatusSocketPath`,
-`FirewallSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant is, and how long
+`SurfaceSocketPath`, `ConfigOverridePath`, `FirewallSocketPath`, and the `Blueprints` map), `Assistant` (where the assistant is, and how long
 one question may take), `KgsmCache` (inventory TTLs).
 
 An environment variable **overrides one key** of that file by spelling the key's path with
@@ -274,8 +274,8 @@ turn to resolves the same person against *its* copy of the same source, and neit
 word for who somebody is. A copy of a copy would put a second member's freshness between a person and
 what they may do here.
 
-Receiving that copy is what the member wire is for: `Cluster:Urls` is the only thing this bot listens
-on, `Cluster:GossipUrl` is the address the other members reach it at, and the anchor fans each account
+Receiving that copy is what the member wire is for: `Cluster:Urls` is the address this bot listens on,
+`Cluster:GossipUrl` is the address the other members reach it at, and the anchor fans each account
 change into that. **Both are needed.** A member that binds but states no address is learned by the mesh
 with no address at all — a loopback bind is never advertised, because a loopback address means "me" to
 whoever reads it — and is then never pushed to. A member with nowhere to be reached would hold
@@ -590,7 +590,7 @@ engine, the event journal, the KGSM account store, the guild store and the assis
 - **The journal's readability and the age of its newest entry are two facts and stay separate.** A
   quiet host is not a broken one; inferring a fault from silence would call every idle weekend an
   outage.
-- It overlaps the status socket on three facts (the gateway, the store, the queue) and **cannot
+- It overlaps `GET /status` on three facts (the gateway, the store, the queue) and **cannot
   disagree with it**, because both read the same live objects rather than either deriving from the
   other. Nothing is cached or held between calls.
 
@@ -787,7 +787,7 @@ belongs here too; a direct `SendMessageAsync` off the client is a producer nothi
 - **A failed send is a `Result`, never an exception** — one guild's dead channel cannot unwind the
   loop over the others. `SendAsync<T>` cannot carry a null success (`Result<T>` forbids one), so a
   call that can answer "there is no such thing" uses the non-generic overload and captures the value.
-- The backlog is on the status socket (`sendQueue`). Connected, configured, every channel visible and
+- The backlog is on `GET /status` (`sendQueue`). Connected, configured, every channel visible and
   messages arriving minutes late is a real state whose only symptom is a depth that does not fall.
 
 ### State cache & events
@@ -858,6 +858,34 @@ when no firewall answered.
 source layout (`Application/`, `Infrastructure/`, `Discord/`, `Common/`). They mock at the
 `IServerInstanceService`/`IMediator`/cache seams and at the assistant client's HTTP
 transport; there is no live Discord, kgsm or assistant in the suite.
+
+## What it listens on
+
+Three listeners on one Kestrel host, and what a route answers depends on which one took the call.
+
+| listener | setting | what it serves |
+|---|---|---|
+| the member wire | `Cluster:Urls` (`http://127.0.0.1:5182`) | the cluster's inbox — the anchor pushing an account change |
+| the status socket | `KGSM:StatusSocketPath` (`/run/kgsm-bot/status.sock`) | `GET /status`: gateway state, a row per configured guild, its channel map, the announcement switches, the send-queue backlog |
+| its own surface | `KGSM:SurfaceSocketPath` (`/run/kgsm-bot/surface.sock`) | `/component/*`: this bot's configuration, deploy floors, overrides, journal, unit and command manifest |
+
+**The two sockets answer on the sockets and nowhere else.** Kestrel applies one endpoint map to every
+listener, so both groups carry `OwnSocketOnly`, which reads the accepted socket's own local endpoint and
+answers no-route for a request that arrived anywhere else. The member wire is a network address whose
+callers are other members; what this bot says about itself is bounded by the socket's filesystem
+permissions (0660, the node's API in the group), and that is only true while it is unreachable
+elsewhere. A request from the wrong listener is a 404 rather than a 403: what is being stated is that
+this is not served there, and a 403 would be an admission that it is.
+
+Reading `GET /status` is a genuinely stronger health signal than systemd liveness here — the unit can be
+active and the gateway connected while a guild never populated, in which case the bot can post nothing
+at all, and the snapshot carries the resolved guild. `BotStatusReporter` builds it per request off the
+live client, beside the bot rather than inside it, so it can report a gateway that never connected.
+
+A change made in the Control Panel is written to `KGSM:ConfigOverridePath`
+(`/var/lib/kgsm-api/leaf-overrides/bot.env`), a file this unit already loads with `EnvironmentFile=`.
+All of `/component/*` is `TheKrystalShip.KGSM.ComponentSurface`, which lives beside the generator that
+writes the descriptor it reads, so this leaf and an anchor answer the same questions the same way.
 
 ## Version tracking
 

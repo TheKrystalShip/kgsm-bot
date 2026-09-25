@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the status socket speaks HTTP (3.59.0)
+
+`KGSM:StatusSocketPath` serves `GET /status` on the Kestrel host this bot already runs for the member
+wire, in place of the NDJSON line it wrote per connection. Same snapshot, same socket, same 0660
+permissions; `BotStatusReporter` builds it per request off the live client.
+
+### Added — the Control Panel reaches this bot's own configuration (3.59.0)
+
+`KGSM:SurfaceSocketPath` (`/run/kgsm-bot/surface.sock`) serves what this component answers about itself
+— its descriptor and the floors under it, the overrides in force, its journal, its unit and the commands
+it declares — at the routes every component serves them at. The node's API relays over it rather than
+reading the descriptor on this bot's behalf, and a change made in the panel is written to
+`KGSM:ConfigOverridePath`, which this unit already loads.
+
+Both socket groups carry `OwnSocketOnly`: one Kestrel host serves three listeners, and what this bot
+says about itself is bounded by a socket's filesystem permissions, which holds only while those routes
+are unreachable on the member wire. A request from the wrong listener is answered as no route.
+
 ### Changed — the auth packages match the roles (3.58.3)
 
 Takes `TheKrystalShip.KGSM.Auth 4.0.0-dev.2`, `Auth.Users 1.4.0-dev.7`, `Auth.Cluster 1.0.0-dev.8` and
