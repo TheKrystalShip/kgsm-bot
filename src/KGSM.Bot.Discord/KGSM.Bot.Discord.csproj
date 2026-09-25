@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>3.59.1</Version>
+    <Version>3.59.2</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -56,8 +56,8 @@
     <!-- What this bot answers about ITSELF with: its descriptor, the deploy floors under it, the
          override file, its journal and its unit. The transport half maps those onto the routes every
          component serves them at, so this leaf and an anchor answer the same questions the same way. -->
-    <PackageReference Include="TheKrystalShip.KGSM.ComponentSurface" Version="1.0.0-dev.6" />
-    <PackageReference Include="TheKrystalShip.KGSM.ComponentSurface.Http" Version="1.0.0-dev.3" />
+    <PackageReference Include="TheKrystalShip.KGSM.ComponentSurface" Version="1.0.0-dev.8" />
+    <PackageReference Include="TheKrystalShip.KGSM.ComponentSurface.Http" Version="1.0.0-dev.5" />
   </ItemGroup>
 
   <ItemGroup>
