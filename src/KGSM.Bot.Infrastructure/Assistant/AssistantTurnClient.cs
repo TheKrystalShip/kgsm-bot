@@ -105,20 +105,21 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
     }
 
     /// <summary>
-    /// Authenticates the call as this member and names the Discord account it is acting for.
+    /// Authenticates the call as this member and names the account it is acting as.
     /// </summary>
     /// <remarks>
     /// The handle is qualified with the provider, because a bare id names nobody: the assistant resolves
     /// it against the cluster's accounts, where the same person may also hold a password credential, and
-    /// an unqualified subject would have to be guessed at.
+    /// an unqualified subject would have to be guessed at. This bot's own service account is accepted
+    /// from this member alone.
     /// <para>
-    /// No tier is sent, and there is none to send. What this person may do is the assistant's answer,
-    /// read from its own replica — so a compromised bot can ask as somebody it names and never above
-    /// what that person actually holds.
+    /// Nothing about access is sent. What the account may do is the assistant's answer, read from its
+    /// own replica — so a compromised bot can ask as somebody it names and never above what that
+    /// account actually holds.
     /// </para>
     /// </remarks>
-    private void ActFor(HttpRequestMessage request, string discordUserId) =>
-        ClusterCall.ActFor(request, _tokens.Mint(), KgsmActor.Format(KgsmActorProvider.Discord, discordUserId));
+    private void ActFor(HttpRequestMessage request, string handle) =>
+        ClusterCall.ActFor(request, _tokens.Mint(), handle);
 
     /// <summary>
     /// True when there is both an address to reach the assistant at and a cluster to reach it as.
@@ -172,7 +173,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             // a human clicks. Auto-running is an admin's deliberate per-turn choice on a surface that
             // offers it, and Discord does not — a message that silently restarted a server would be
             // indistinguishable from one that asked about it.
-            ActFor(request, ask.UserId);
+            ActFor(request, ask.Handle);
             _relay.Write(
                 request,
                 new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
@@ -231,7 +232,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             // The same headers a turn carries, so the command lands on the conversation the next
             // question will continue. A room named here is the whole point: it is what makes clearing
             // a channel's conversation reach that channel's conversation and not the asker's own.
-            ActFor(request, ask.UserId);
+            ActFor(request, ask.Handle);
             _relay.Write(
                 request,
                 new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
@@ -299,7 +300,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             };
             request.Headers.Accept.ParseAdd("text/event-stream");
 
-            ActFor(request, ask.UserId);
+            ActFor(request, ask.Handle);
             _relay.Write(
                 request,
                 new RelayCall(AutoAct: false, ConversationId: ask.ConversationId, Room: ask.Room));
@@ -517,10 +518,10 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
                 Content = JsonContent.Create(new ConfirmBody(approval.Token), options: Json),
             };
 
-            // The approver, named rather than described: the assistant reads their tier from its own
-            // accounts as it is right now, not as it was when the action was proposed and not as this
+            // The approver, named rather than described: the assistant evaluates them against its own
+            // replica as it is right now, not as it was when the action was proposed and not as this
             // bot believes it to be.
-            ActFor(request, approval.UserId);
+            ActFor(request, approval.Handle);
             _relay.Write(request);
 
             using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
@@ -531,7 +532,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             {
                 _logger.LogInformation(
                     "Assistant refused a confirmation from {User} — expired, already used, or not theirs",
-                    approval.UserId);
+                    approval.Handle);
                 return Result.Failure<AssistantOutcome>(
                     "That confirmation has expired or was already used — ask me again.");
             }

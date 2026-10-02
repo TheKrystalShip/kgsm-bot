@@ -10,7 +10,9 @@ using KGSM.Bot.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using TheKrystalShip.KGSM.Auth;
+using KGSM.Bot.Infrastructure.Authorization;
+
+using TheKrystalShip.KGSM;
 using TheKrystalShip.KGSM.Events;
 
 namespace KGSM.Bot.Discord.Commands;
@@ -34,11 +36,11 @@ namespace KGSM.Bot.Discord.Commands;
 /// which is also what a type added upstream tomorrow gets, with no change here.
 /// </para>
 /// </remarks>
-[RequireTier(KgsmTier.Viewer)]
 public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerHistory _history;
     private readonly IKgsmStateCache _cache;
+    private readonly IBotAccess _access;
     private readonly DiscordOptions _options;
     private readonly ILogger<HistoryModule> _logger;
 
@@ -61,11 +63,13 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
     public HistoryModule(
         IServerHistory history,
         IKgsmStateCache cache,
+        IBotAccess access,
         IOptions<DiscordOptions> options,
         ILogger<HistoryModule> logger)
     {
         _history = history;
         _cache = cache;
+        _access = access;
         _options = options.Value;
         _logger = logger;
     }
@@ -73,6 +77,7 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
     private bool Quietly => _options.EphemeralReads;
 
     [SlashCommand("history", "What happened recently — one server's, or the whole host's")]
+    [RequireAction(KgsmActions.ServerRead, Server = "instance")]
     public async Task HistoryAsync(
         [Summary(description: "Game server instance. Leave empty for the whole host.")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -97,7 +102,7 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
                 instance ?? "the whole host", hours);
 
             var window = TimeSpan.FromHours(hours);
-            HostHistory history = await _history.ReadAsync(instance, window, QueryLimit);
+            HostHistory history = await Visible(await _history.ReadAsync(instance, window, QueryLimit));
 
             if (!history.JournalReadable)
             {
@@ -115,6 +120,23 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
             _logger.LogError(ex, "Error handling history command for {Scope}", instance ?? "the whole host");
             await FollowupAsync($"An error occurred: {ex.Message}", ephemeral: Quietly);
         }
+    }
+
+    /// <summary>
+    /// The part of <paramref name="history"/> the asker can read: each server's events where they may
+    /// read that server, and the host's own where they may read servers across this node.
+    /// </summary>
+    private async Task<HostHistory> Visible(HostHistory history)
+    {
+        PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+        bool wholeNode = await person.AllowsAsync(KgsmActions.ServerRead, null);
+        var servers = (await person.FilterAsync(KgsmActions.ServerRead,
+            history.Moments.Select(m => m.Instance).OfType<string>().Distinct(StringComparer.Ordinal))).ToHashSet();
+
+        return history with
+        {
+            Moments = [.. history.Moments.Where(m => m.Instance is { } name ? servers.Contains(name) : wholeNode)],
+        };
     }
 
     /// <summary>The window's events, and everything that qualifies the list.</summary>

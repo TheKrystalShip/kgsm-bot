@@ -1,7 +1,8 @@
 # Voice: hear a room, answer out loud
 
-`/voice join|leave|status` at operator (not `[Mutating]` — the gate is on what it exposes, since
-everybody in the channel is heard, not only whoever invited it). `Discord:Voice` is off by default.
+`/voice join|leave|status` need `bot:voice.use` (not `[Mutating]` — the gate is on what it exposes,
+since everybody in the channel is heard, not only whoever invited it). A spoken request needs
+`assistant:chat` of whoever said it. `Discord:Voice` is off by default.
 The path is **hear → scan for the trigger → capture the request → recognise → assistant → speak**,
 and the pieces are deliberately separable: capture knows nothing about recognition, and recognition
 nothing about who answers. Where the models are (the `kgsm-speech` leaf):
@@ -107,10 +108,10 @@ nothing about who answers. Where the models are (the `kgsm-speech` leaf):
   told to forget replies that it has and remembers every word. The phrase list is matched
   deterministically against the **whole request** — containment would turn *"the server didn't start
   over the weekend"* into a wipe — and the assistant owns what each command does and who may run it,
-  including the operator gate on clearing a shared room. Its wording is shown and spoken verbatim;
+  including `assistant:conversations.clear-shared` for clearing a shared room. Its wording is shown and spoken verbatim;
   nothing here forms a second opinion about what happened.
 - **A staged action is never approved out loud.** It is offered with the same buttons the @-mention
-  surface posts and the spoken reply says so. The button re-derives authority at the click; a
+  surface posts and the spoken reply says so. The button re-evaluates the clicker at the click; a
   recogniser cannot, and a spoken yes would be a second way to authorise a destructive action.
 - **Audio shorter than the output buffer is padded to it, and every write is bounded.** Discord.Net's
   buffered writer transmits nothing until its queue holds a full buffer's worth of frames — below that

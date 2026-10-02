@@ -21,8 +21,9 @@ This repo builds standalone — every dependency is a package from the org's Git
 (`nuget.config`). `TheKrystalShip.KGSM.Lib` is pinned by version in Core, Application and
 Infrastructure, and the three pins move together; the same bump → publish → re-pin loop applies to
 `TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's per-turn contract),
-`TheKrystalShip.KGSM.Cluster` (membership, and the token this bot calls the assistant with) and
-`TheKrystalShip.KGSM.Auth`.
+`TheKrystalShip.KGSM.Cluster` (membership, and the token this bot calls the assistant with),
+`TheKrystalShip.KGSM.Auth` and `TheKrystalShip.KGSM.Auth.Cluster` (the authority replica every command is
+evaluated against).
 
 ```bash
 dotnet build kgsm-bot.sln

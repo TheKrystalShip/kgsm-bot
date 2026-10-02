@@ -12,10 +12,11 @@ namespace KGSM.Bot.Infrastructure.Configuration;
 /// place to set it is where one blank and one filled look identical from the outside.
 /// </para>
 /// <para>
-/// Being a member is what lets this bot hold its own copy of the cluster's accounts. The auth anchor is
-/// the single authority; every member is given a copy directly and answers from that, so a person is
-/// identified here without asking anybody — and the assistant a turn is forwarded to resolves the same
-/// person against its own copy of the same source rather than being asked to vouch for them.
+/// Being a member is what lets this bot ask the assistant on somebody's behalf with a token the
+/// assistant believes, carry the chat capability, be named by the cluster's DNS anchor, and report
+/// what it performs to the auth anchor, which is what gives it a service account of its own. What a
+/// person may do here it reads from the replica the node on this machine keeps, not from anything a
+/// member sends it.
 /// </para>
 /// </remarks>
 [ConfigSection(Section)]
@@ -36,9 +37,8 @@ public sealed class BotClusterOptions
     /// Where this bot answers the member-to-member wire.
     /// </summary>
     /// <remarks>
-    /// A member is pushed to rather than polling: the anchor fans an account change out to every
-    /// member's inbox, so a member with nowhere to be reached holds whatever it copied when it joined
-    /// and never hears that somebody was demoted.
+    /// A member is pushed to rather than polling: what the rest of the cluster tells it arrives in its
+    /// inbox, so a member with nowhere to be reached never hears it.
     /// <para>
     /// Loopback by default, which reaches an anchor on this machine and is the ecosystem's pattern —
     /// a member binds <c>127.0.0.1</c> and whatever TLS it needs is terminated in front of it. A bot
@@ -56,9 +56,9 @@ public sealed class BotClusterOptions
     /// </summary>
     /// <remarks>
     /// Stated rather than inferred, because a member cannot work out for itself what name it is reached
-    /// by. It is what the anchor pushes account changes to, so a member without one holds whatever it
-    /// copied on joining and never hears that somebody was demoted — and a loopback bind is never
-    /// advertised, since a loopback address means "me" to whoever reads it.
+    /// by. It is where the other members deliver what they tell this one, so a member without one never
+    /// hears it — and a loopback bind is never advertised, since a loopback address means "me" to
+    /// whoever reads it.
     /// <para>
     /// A members-only address: this bot serves no browser surface, so it is never handed to one.
     /// </para>

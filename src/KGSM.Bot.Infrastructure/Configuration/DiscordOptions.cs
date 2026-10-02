@@ -51,8 +51,8 @@ public class DiscordOptions
     /// Whether an announcement about a server that is down carries a button to restart it.
     /// </summary>
     /// <remarks>
-    /// The button is a shortcut to the slash command and nothing more: it is authorized at the click
-    /// against the same account store, runs the same path, and stamps the same provenance. Turning it
+    /// The button is a shortcut to the slash command and nothing more: the clicker is evaluated at the
+    /// click for the same action, runs the same path, and stamps the same provenance. Turning it
     /// off costs the shortcut, never the safety — nobody gains authority from a button.
     /// </remarks>
     /// <panel>Whether an announcement about a server that is down carries a button to restart it.

@@ -6,14 +6,13 @@ using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
 
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
 /// Discord module for managing blueprints and installing servers
 /// </summary>
-[RequireTier(KgsmTier.Viewer)]
 public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerService _server;
@@ -28,6 +27,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("install", "Install a new game server")]
+    [RequireAction(KgsmActions.ServerInstall)]
     [Mutating]
     public async Task InstallAsync(
         [Summary(description: "Blueprint to install")]
@@ -74,6 +74,7 @@ public class BlueprintsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("uninstall", "Uninstall a game server")]
+    [RequireAction(KgsmActions.ServerUninstall, Server = "instance")]
     [Mutating]
     public async Task UninstallAsync(
         [Summary(description: "Game server instance")]

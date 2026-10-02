@@ -114,7 +114,7 @@ public class Program
     /// <b>An address rather than a <c>Listen</c> call.</b> Kestrel ignores the configured addresses
     /// entirely once anything has been bound through <c>KestrelServerOptions.Listen*</c>, so binding
     /// these sockets that way would silently unbind the member wire — the bot would run, answer about
-    /// itself, and never again hear that somebody was demoted.
+    /// itself, and never again hear from the rest of its cluster.
     /// </para>
     /// <para>
     /// A blank path is how a host says it wants that socket not served at all. A socket file left
@@ -207,9 +207,8 @@ public class Program
             // What each of those three listeners serves.
             //
             // The member wire carries the cluster's inbox: a member of a cluster is pushed to rather
-            // than polling — the auth anchor fans an account change out to every member's inbox, and a
-            // member with nowhere to be reached would hold whatever it copied when it joined and never
-            // hear that somebody was demoted.
+            // than polling, and a member with nowhere to be reached would never hear what the rest of
+            // the cluster tells it.
             //
             // The other two are this bot's own: what it answers about the gateway, and what it answers
             // about ITSELF. A component owns its configuration, its unit and its journal wherever it

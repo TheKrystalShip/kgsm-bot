@@ -9,7 +9,8 @@ using KGSM.Bot.Infrastructure.Discord;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
+using TheKrystalShip.KGSM.Auth.Access;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -19,12 +20,12 @@ namespace KGSM.Bot.Discord.Commands;
 /// <remarks>
 /// <para>
 /// <b>Authorized at the click, not at the proposal</b> — the same rule the restart button and the
-/// assistant's confirmations follow. The tier somebody held when the message was posted is not
-/// necessarily the one they hold now.
+/// assistant's confirmations follow. What somebody held when the message was posted is not
+/// necessarily what they hold now.
 /// </para>
 /// <para>
-/// <b>And it must be the same person.</b> A restart button is a shortcut to a command anybody with
-/// the tier could type, so anyone with the tier may press it. This one names a specific archive that
+/// <b>And it must be the same person.</b> A restart button is a shortcut to a command anybody holding
+/// the restart could type, so anyone holding it may press it. This one names a specific archive that
 /// somebody else chose, sitting in a channel — pressing it is agreeing to a decision you did not
 /// make, on a server you may not have been looking at.
 /// </para>
@@ -38,7 +39,7 @@ public class RestoreConfirmationModule : InteractionModuleBase<SocketInteraction
     private readonly IStagedRestores _staged;
     private readonly IServerInstanceService _instances;
     private readonly IBackupInsight _backups;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<RestoreConfirmationModule> _logger;
 
@@ -46,14 +47,14 @@ public class RestoreConfirmationModule : InteractionModuleBase<SocketInteraction
         IStagedRestores staged,
         IServerInstanceService instances,
         IBackupInsight backups,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         IInvocationContext invocation,
         ILogger<RestoreConfirmationModule> logger)
     {
         _staged = staged;
         _instances = instances;
         _backups = backups;
-        _accounts = accounts;
+        _access = access;
         _invocation = invocation;
         _logger = logger;
     }
@@ -64,13 +65,6 @@ public class RestoreConfirmationModule : InteractionModuleBase<SocketInteraction
     {
         var component = (SocketMessageComponent)Context.Interaction;
 
-        AccountAnswer account = await _accounts.ResolveAsync(Context.User.Id);
-        if (!account.Allows(KgsmTier.Operator))
-        {
-            await RespondAsync(account.Refusal(KgsmTier.Operator), ephemeral: true);
-            return;
-        }
-
         // Looked at before it is taken: a click that turns out not to be allowed must not consume the
         // proposal it was not entitled to answer, or pressing somebody else's button would cancel it
         // for the person who is actually deciding.
@@ -79,6 +73,16 @@ public class RestoreConfirmationModule : InteractionModuleBase<SocketInteraction
             await component.RespondAsync(
                 "That restore is no longer waiting — it expired, was already run, or was cancelled. " +
                 "Run `/restore` again if you still want it.", ephemeral: true);
+            return;
+        }
+
+        // Judged at the click, at the server it names: what somebody held when they proposed it is not
+        // necessarily what they hold now.
+        PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+        AccessDecision decision = await person.DecideAsync(KgsmActions.ServerBackupsRestore, restore.InstanceName);
+        if (!decision.Allowed)
+        {
+            await RespondAsync(person.Refusal(KgsmActions.ServerBackupsRestore, decision), ephemeral: true);
             return;
         }
 

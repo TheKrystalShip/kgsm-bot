@@ -1,433 +1,462 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "leaf": "bot",
   "surface": "discord",
-  "gates": {
-    "admin": [
-      {
-        "name": "setup announce",
-        "description": "Set the channel this Discord server hears about KGSM servers in",
-        "mutates": false,
-        "options": [
-          {
-            "name": "channel",
-            "description": "Channel announcements are posted in",
-            "type": "channel",
-            "required": true,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "setup board",
-        "description": "Give each game server its own channel, under a category",
-        "mutates": false,
-        "options": [
-          {
-            "name": "category",
-            "description": "Category the per-server channels are created under",
-            "type": "channel",
-            "required": true,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "setup board-off",
-        "description": "Stop making a channel per game server here",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "setup follow",
-        "description": "Hear about only this game server here (and any others you add)",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server to follow",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "setup follow-all",
-        "description": "Hear about every game server on this host again",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "setup forget",
-        "description": "Stop announcing in this Discord server entirely",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "setup show",
-        "description": "What this Discord server is set up with, and what the bot can do here",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "setup status",
-        "description": "Keep one message here always showing every server and how to reach it",
-        "mutates": false,
-        "options": [
-          {
-            "name": "channel",
-            "description": "Channel the live status message is kept in",
-            "type": "channel",
-            "required": true,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "setup status-off",
-        "description": "Stop keeping a live status message here",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "setup unfollow",
-        "description": "Stop hearing about one game server here",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server to stop hearing about",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      }
-    ],
-    "operator": [
-      {
-        "name": "backup",
-        "description": "Back up a game server now",
-        "mutates": true,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "health",
-        "description": "Whether everything this bot depends on is answering",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "install",
-        "description": "Install a new game server",
-        "mutates": true,
-        "options": [
-          {
-            "name": "blueprint",
-            "description": "Blueprint to install",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          },
-          {
-            "name": "library",
-            "description": "Library to install into (optional)",
-            "type": "string",
-            "required": false,
-            "autocomplete": true
-          },
-          {
-            "name": "version",
-            "description": "Version to install (optional)",
-            "type": "string",
-            "required": false,
-            "autocomplete": false
-          },
-          {
-            "name": "name",
-            "description": "Display name for the server (optional) \u2014 its id is generated",
-            "type": "string",
-            "required": false,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "logs",
-        "description": "The tail of a server\u0027s log, as a file only you can see",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          },
-          {
-            "name": "lines",
-            "description": "How many lines from the end. Default 200.",
-            "type": "integer",
-            "required": false,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "restart",
-        "description": "Restart a game server",
-        "mutates": true,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "restore",
-        "description": "Roll a game server back to a backup \u2014 replaces what is there now",
-        "mutates": true,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          },
-          {
-            "name": "backup",
-            "description": "Which backup. Leave empty for the newest.",
-            "type": "string",
-            "required": false,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "start",
-        "description": "Start up a game server",
-        "mutates": true,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "stop",
-        "description": "Shut down a game server",
-        "mutates": true,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "uninstall",
-        "description": "Uninstall a game server",
-        "mutates": true,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "voice join",
-        "description": "Join the voice channel you are in and start listening",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "voice leave",
-        "description": "Stop listening and leave the voice channel",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "voice speak-as",
-        "description": "Try a different speaking voice for this host, until the engine restarts",
-        "mutates": false,
-        "options": [
-          {
-            "name": "voice",
-            "description": "Which voice to speak in",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "voice status",
-        "description": "Where the bot is listening, and what it has heard",
-        "mutates": false,
-        "options": []
-      }
-    ],
-    "viewer": [
-      {
-        "name": "about",
-        "description": "Show information about the bot",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "backups",
-        "description": "What backups a game server has, and how good each one is",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "connect",
-        "description": "How to join a game server \u2014 address, ports, and whether they are reachable",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "conversation clear",
-        "description": "Forget this channel\u0027s conversation and start fresh",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "conversation compact",
-        "description": "Summarise this channel\u0027s conversation to free up context",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "history",
-        "description": "What happened recently \u2014 one server\u0027s, or the whole host\u0027s",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance. Leave empty for the whole host.",
-            "type": "string",
-            "required": false,
-            "autocomplete": true
-          },
-          {
-            "name": "hours",
-            "description": "How far back to look. Default 24 hours.",
-            "type": "integer",
-            "required": false,
-            "autocomplete": false
-          }
-        ]
-      },
-      {
-        "name": "is-active",
-        "description": "Check if an instance is currently running",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "list",
-        "description": "List all game server instances",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "ping",
-        "description": "Check if the bot is responsive",
-        "mutates": false,
-        "options": []
-      },
-      {
-        "name": "players",
-        "description": "Who is playing \u2014 on one server, or across the whole host",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance. Leave empty for every server.",
-            "type": "string",
-            "required": false,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "status",
-        "description": "Get a detailed status of a game server",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      },
-      {
-        "name": "supervision",
-        "description": "Show the watchdog supervision state of a game server",
-        "mutates": false,
-        "options": [
-          {
-            "name": "instance",
-            "description": "Game server instance",
-            "type": "string",
-            "required": true,
-            "autocomplete": true
-          }
-        ]
-      }
-    ]
-  }
+  "commands": [
+    {
+      "name": "about",
+      "description": "Show information about the bot",
+      "action": "bot:status.read",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "backup",
+      "description": "Back up a game server now",
+      "action": "kgsm:server.backups.create",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "backups",
+      "description": "What backups a game server has, and how good each one is",
+      "action": "kgsm:server.backups.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "connect",
+      "description": "How to join a game server \u2014 address, ports, and whether they are reachable",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "conversation clear",
+      "description": "Forget this channel\u0027s conversation and start fresh",
+      "action": "assistant:chat",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "conversation compact",
+      "description": "Summarise this channel\u0027s conversation to free up context",
+      "action": "assistant:chat",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "health",
+      "description": "Whether everything this bot depends on is answering",
+      "action": "bot:status.read",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "history",
+      "description": "What happened recently \u2014 one server\u0027s, or the whole host\u0027s",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance. Leave empty for the whole host.",
+          "type": "string",
+          "required": false,
+          "autocomplete": true
+        },
+        {
+          "name": "hours",
+          "description": "How far back to look. Default 24 hours.",
+          "type": "integer",
+          "required": false,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "install",
+      "description": "Install a new game server",
+      "action": "kgsm:server.install",
+      "mutates": true,
+      "options": [
+        {
+          "name": "blueprint",
+          "description": "Blueprint to install",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        },
+        {
+          "name": "library",
+          "description": "Library to install into (optional)",
+          "type": "string",
+          "required": false,
+          "autocomplete": true
+        },
+        {
+          "name": "version",
+          "description": "Version to install (optional)",
+          "type": "string",
+          "required": false,
+          "autocomplete": false
+        },
+        {
+          "name": "name",
+          "description": "Display name for the server (optional) \u2014 its id is generated",
+          "type": "string",
+          "required": false,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "is-active",
+      "description": "Check if an instance is currently running",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "list",
+      "description": "List all game server instances",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "logs",
+      "description": "The tail of a server\u0027s log, as a file only you can see",
+      "action": "kgsm:server.console.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        },
+        {
+          "name": "lines",
+          "description": "How many lines from the end. Default 200.",
+          "type": "integer",
+          "required": false,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "ping",
+      "description": "Check if the bot is responsive",
+      "action": "bot:status.read",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "players",
+      "description": "Who is playing \u2014 on one server, or across the whole host",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance. Leave empty for every server.",
+          "type": "string",
+          "required": false,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "restart",
+      "description": "Restart a game server",
+      "action": "kgsm:server.restart",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "restore",
+      "description": "Roll a game server back to a backup \u2014 replaces what is there now",
+      "action": "kgsm:server.backups.restore",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        },
+        {
+          "name": "backup",
+          "description": "Which backup. Leave empty for the newest.",
+          "type": "string",
+          "required": false,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "setup announce",
+      "description": "Set the channel this Discord server hears about KGSM servers in",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": [
+        {
+          "name": "channel",
+          "description": "Channel announcements are posted in",
+          "type": "channel",
+          "required": true,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "setup board",
+      "description": "Give each game server its own channel, under a category",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": [
+        {
+          "name": "category",
+          "description": "Category the per-server channels are created under",
+          "type": "channel",
+          "required": true,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "setup board-off",
+      "description": "Stop making a channel per game server here",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "setup follow",
+      "description": "Hear about only this game server here (and any others you add)",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server to follow",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "setup follow-all",
+      "description": "Hear about every game server on this host again",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "setup forget",
+      "description": "Stop announcing in this Discord server entirely",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "setup show",
+      "description": "What this Discord server is set up with, and what the bot can do here",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "setup status",
+      "description": "Keep one message here always showing every server and how to reach it",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": [
+        {
+          "name": "channel",
+          "description": "Channel the live status message is kept in",
+          "type": "channel",
+          "required": true,
+          "autocomplete": false
+        }
+      ]
+    },
+    {
+      "name": "setup status-off",
+      "description": "Stop keeping a live status message here",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "setup unfollow",
+      "description": "Stop hearing about one game server here",
+      "action": "bot:announcements.manage",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server to stop hearing about",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "start",
+      "description": "Start up a game server",
+      "action": "kgsm:server.start",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "description": "Get a detailed status of a game server",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "stop",
+      "description": "Shut down a game server",
+      "action": "kgsm:server.stop",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "supervision",
+      "description": "Show the watchdog supervision state of a game server",
+      "action": "kgsm:server.read",
+      "mutates": false,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "uninstall",
+      "description": "Uninstall a game server",
+      "action": "kgsm:server.uninstall",
+      "mutates": true,
+      "options": [
+        {
+          "name": "instance",
+          "description": "Game server instance",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "voice join",
+      "description": "Join the voice channel you are in and start listening",
+      "action": "bot:voice.use",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "voice leave",
+      "description": "Stop listening and leave the voice channel",
+      "action": "bot:voice.use",
+      "mutates": false,
+      "options": []
+    },
+    {
+      "name": "voice speak-as",
+      "description": "Try a different speaking voice for this host, until the engine restarts",
+      "action": "bot:voice.use",
+      "mutates": false,
+      "options": [
+        {
+          "name": "voice",
+          "description": "Which voice to speak in",
+          "type": "string",
+          "required": true,
+          "autocomplete": true
+        }
+      ]
+    },
+    {
+      "name": "voice status",
+      "description": "Where the bot is listening, and what it has heard",
+      "action": "bot:voice.use",
+      "mutates": false,
+      "options": []
+    }
+  ]
 }

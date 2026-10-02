@@ -10,28 +10,29 @@ using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
 /// Configures what this Discord server hears from this KGSM host.
 /// <para>
-/// The bot works in any guild it is invited to and announces in none of them until an admin says so
-/// here. There is no file to edit and no restart: <c>/setup announce</c> alone is a working
-/// configuration, and the per-server board is the thing you deliberately turn on.
+/// The bot works in any guild it is invited to and announces in none of them until somebody holding
+/// <c>bot:announcements.manage</c> says so here. There is no file to edit and no restart:
+/// <c>/setup announce</c> alone is a working configuration, and the per-server board is the thing you
+/// deliberately turn on.
 /// </para>
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The gate is KGSM admin, never a Discord permission.</b> Deciding where a host broadcasts —
-/// including player joins and leaves — is a host setting, and host settings are admin across the
-/// ecosystem. Gating on Discord's <i>Manage Server</i> instead would let anyone who can add the bot
-/// to a guild of their own point this host's announcements into it, and authorizing correctly would
-/// not help: an announcement has no caller to authorize.
+/// <b>The gate is a KGSM action, never a Discord permission.</b> Deciding where a host broadcasts —
+/// including player joins and leaves — is a setting of this host, granted like any other. Gating on
+/// Discord's <i>Manage Server</i> instead would let anyone who can add the bot to a guild of their own
+/// point this host's announcements into it, and authorizing correctly would not help: an announcement
+/// has no caller to authorize.
 /// </para>
 /// <para>
-/// <b>Two questions, two refusals.</b> <i>May you configure this host</i> is the tier, answered by
+/// <b>Two questions, two refusals.</b> <i>May you configure this host</i> is the action, answered by
 /// the precondition. <i>Can the bot actually do this here</i> is Discord's own answer, checked
 /// <b>before</b> anything is recorded — recording a channel the bot cannot post in, or a category it
 /// cannot create channels under, is how a guild gets configured and then silently receives nothing.
@@ -41,30 +42,31 @@ namespace KGSM.Bot.Discord.Commands;
 /// </para>
 /// </remarks>
 [Group("setup", "Configure what this Discord server hears from KGSM")]
-[RequireTier(KgsmTier.Admin)]
+[Action(BotActions.AnnouncementsManage, "Choose where the Discord bot announces", DeclaredEffect.Write, DeclaredScope.Node)]
 public class SetupModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IGuildStore _guilds;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     private readonly IStatusBoard _statusBoard;
     private readonly IServerLabels _labels;
     private readonly ILogger<SetupModule> _logger;
 
     public SetupModule(
         IGuildStore guilds,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         IStatusBoard statusBoard,
         IServerLabels labels,
         ILogger<SetupModule> logger)
     {
         _guilds = guilds;
-        _accounts = accounts;
+        _access = access;
         _statusBoard = statusBoard;
         _labels = labels;
         _logger = logger;
     }
 
     [SlashCommand("show", "What this Discord server is set up with, and what the bot can do here")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task ShowAsync()
     {
         if (await GuildOrRefuseAsync() is not SocketGuild guild)
@@ -130,6 +132,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("announce", "Set the channel this Discord server hears about KGSM servers in")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task AnnounceAsync(
         [Summary(description: "Channel announcements are posted in")]
         ITextChannel channel)
@@ -165,6 +168,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("board", "Give each game server its own channel, under a category")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task BoardAsync(
         [Summary(description: "Category the per-server channels are created under")]
         ICategoryChannel category)
@@ -205,6 +209,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("board-off", "Stop making a channel per game server here")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task BoardOffAsync()
     {
         if (await GuildOrRefuseAsync() is not SocketGuild guild)
@@ -234,6 +239,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("status", "Keep one message here always showing every server and how to reach it")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task StatusAsync(
         [Summary(description: "Channel the live status message is kept in")]
         ITextChannel channel)
@@ -283,6 +289,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("status-off", "Stop keeping a live status message here")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task StatusOffAsync()
     {
         if (await GuildOrRefuseAsync() is not SocketGuild guild)
@@ -313,6 +320,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     // ── which servers this guild follows ──────────────────────────────────────────────────────
 
     [SlashCommand("follow", "Hear about only this game server here (and any others you add)")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task FollowAsync(
         [Summary(description: "Game server to follow")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -345,6 +353,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("unfollow", "Stop hearing about one game server here")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task UnfollowAsync(
         [Summary(description: "Game server to stop hearing about")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -400,6 +409,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("follow-all", "Hear about every game server on this host again")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task FollowAllAsync()
     {
         if (await ConfiguredGuildOrRefuseAsync() is not SocketGuild guild)
@@ -425,6 +435,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("forget", "Stop announcing in this Discord server entirely")]
+    [RequireAction(BotActions.AnnouncementsManage)]
     public async Task ForgetAsync()
     {
         if (await GuildOrRefuseAsync() is not SocketGuild guild)
@@ -501,12 +512,12 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
 
     /// <summary>
     /// The KGSM account behind the caller, recorded as who configured this guild. The precondition
-    /// has already proved they hold admin; this is only reading back the name it authorized.
+    /// has already proved they hold the action; this is only reading back the name it authorized.
     /// </summary>
     private async Task<string> AccountNameAsync()
     {
-        AccountAnswer answer = await _accounts.ResolveAsync(Context.User.Id);
-        return answer.Account ?? Context.User.Username;
+        PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+        return person.Account ?? Context.User.Username;
     }
 
     private static string Mention(ulong channelId) => $"<#{channelId}>";

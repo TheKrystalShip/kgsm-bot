@@ -147,7 +147,7 @@ somebody just asked, and reaching back over a restart is exactly what it is for.
   identify somebody — it prints what the engine classifies as public and scalar, so a field
   reclassified upstream changes what Discord shows on the day the pin moves. That rule is what keeps
   four kinds of value off a line: a player's **network address** (personal — the same refusal the
-  roster makes), **console input** verbatim (privileged, and this surface answers a viewer), a
+  roster makes), **console input** verbatim (privileged, and this surface answers anybody who can read the server), a
   moderation **target** (the event does not say whether it is a name or an address — only the game's
   blueprint does, and a consumer that cannot tell treats it as personal), and **ports**, which are
   structured and already have a renderer on `/connect` that a second could disagree with. The events

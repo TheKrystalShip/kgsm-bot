@@ -1,8 +1,8 @@
 # The Discord side: where it announces, the board, presence, health, the send queue
 
 **The bot is guild-agnostic.** Nothing in configuration names a Discord server, and inviting the bot
-somewhere grants that guild nothing: a guild hears about this host because an admin ran `/setup`
-there, and a guild with no row in the store (`../Guilds/CLAUDE.md`) gets nothing whatever the bot's
+somewhere grants that guild nothing: a guild hears about this host because somebody holding
+`bot:announcements.manage` ran `/setup` there, and a guild with no row in the store (`../Guilds/CLAUDE.md`) gets nothing whatever the bot's
 membership. The `/setup` command surface is `src/KGSM.Bot.Discord/Commands/CLAUDE.md`.
 
 ## Announcing
@@ -32,7 +32,7 @@ membership. The `/setup` command surface is `src/KGSM.Bot.Discord/Commands/CLAUD
   fabricated status; counting a guild that opted out as missed is the same fault inverted, and would
   report a working filter as a partial failure on every announcement.
 - **An unreadable filter follows everything.** Reading no rows and failing to read are both "no
-  filter": the failure is loud in the log, and a guild an admin set up keeps hearing what it expected
+  filter": the failure is loud in the log, and a guild somebody set up keeps hearing what it expected
   rather than going quiet for a reason invisible from inside Discord.
 - **A server uninstalled is not unfollowed.** The stale row is correct in every case — the guild hears
   nothing about a server that no longer exists, hears nothing about the others it never followed, and
@@ -62,8 +62,8 @@ restarting it, so a button there races the supervisor over the same server and b
 it for the attempt that loses. A **thread** opens on both crash kinds, so the conversation about an
 incident stays with it; the @-mention surface keys on the channel, which makes a thread its own
 context rather than one more voice in the channel's. The button grants nothing: it is a shortcut to
-`/restart`, re-resolved against the account store **at the click** (an announcement has no caller to
-authorize at the post) and stamped with the clicker's provenance. `Discord:ActionButtons` and
+`/restart`, the clicker evaluated for `kgsm:server.restart` at that server **at the click** (an
+announcement has no caller to authorize at the post) and stamped with the clicker's provenance. `Discord:ActionButtons` and
 `Discord:IncidentThreads` switch each off; a missing `Create Public Threads` costs the thread and
 nothing else.
 
@@ -88,7 +88,8 @@ A guild with no row hears nothing by design, and from inside Discord that is ind
 broken bot — so the greeter posts an introduction on `JoinedGuild` naming `/setup` and who may run it.
 System channel, else the first channel it can actually post in, else the owner's DM, each **checked
 rather than attempted**; a guild that is already configured is not greeted, because that is a
-reconnection and it is already working. It grants nothing: `/setup` still needs KGSM admin.
+reconnection and it is already working. It grants nothing: `/setup` still needs
+`bot:announcements.manage`.
 
 ## The bot's presence (`BotPresenceService`)
 
@@ -108,13 +109,13 @@ reconnection and it is already working. It grants nothing: `/setup` still needs 
 ## `IBotHealth` (`BotHealthService`): the failure systemd cannot see
 
 The unit is active, the gateway says Connected, and the bot cannot do the thing somebody just asked it
-about — an unreadable account store refuses every command, a missing engine answers none of them, and
+about — an unreadable authority replica refuses every command, a missing engine answers none of them, and
 neither shows up as anything but a process that is running. `/health` reports it; `/setup show`
 answers a different question (what *this guild* is configured with), and the status socket answers
 the Control Panel, which is no use to somebody who only has Discord.
 
 The checks run at the moment they are reported: the gateway, the outbound queue, the engine, the event
-journal, the KGSM account store, the guild store and the assistant.
+journal, the authority replica, the guild store and the assistant.
 
 - **No check is inferred from another.** They fail independently — the engine and Discord have nothing
   to do with each other — so a summary that took one as evidence for the next would report a state

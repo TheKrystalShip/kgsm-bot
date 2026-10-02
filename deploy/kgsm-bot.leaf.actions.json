@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "component": "bot",
+  "version": "4.0.0",
+  "actions": [
+    {
+      "id": "announcements.manage",
+      "title": "Choose where the Discord bot announces",
+      "effect": "write",
+      "scope": "node"
+    },
+    {
+      "id": "config.read",
+      "title": "Read Discord bot settings",
+      "effect": "read",
+      "scope": "node"
+    },
+    {
+      "id": "config.write",
+      "title": "Change Discord bot settings",
+      "effect": "write",
+      "scope": "node"
+    },
+    {
+      "id": "journal.read",
+      "title": "Read Discord bot logs",
+      "effect": "read",
+      "scope": "node"
+    },
+    {
+      "id": "lifecycle.restart",
+      "title": "Restart Discord bot",
+      "effect": "execute",
+      "scope": "node"
+    },
+    {
+      "id": "status.read",
+      "title": "See whether the Discord bot is working",
+      "effect": "read",
+      "scope": "node"
+    },
+    {
+      "id": "voice.use",
+      "title": "Have the Discord bot listen in a voice channel",
+      "effect": "execute",
+      "scope": "node"
+    }
+  ],
+  "requires": [
+    {
+      "action": "assistant:chat",
+      "scope": "cluster",
+      "why": "Ask the assistant to investigate a server the supervisor gave up on"
+    },
+    {
+      "action": "kgsm:library.read",
+      "scope": "node",
+      "why": "Know the games this node can run, so a server is named by its game and a spoken game name is recognised"
+    },
+    {
+      "action": "kgsm:server.backups.read",
+      "scope": "instance",
+      "why": "Show how recent and how sound each server's last backup is on the live status message"
+    },
+    {
+      "action": "kgsm:server.console.read",
+      "scope": "instance",
+      "why": "Read the console of the run that died, which is what explains a crash"
+    },
+    {
+      "action": "kgsm:server.read",
+      "scope": "instance",
+      "why": "Announce what servers do, keep the live status message and presence current, and read the state of a server it investigates"
+    }
+  ]
+}

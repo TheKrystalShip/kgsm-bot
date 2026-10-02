@@ -13,7 +13,8 @@ using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.Cluster.Membership;
 
 using Xunit;
 
@@ -40,7 +41,18 @@ public sealed class IncidentTriageTests
     }
 
     private IncidentTriage Triage() =>
-        new(_assistant, _queue, Options.Create(_options), NullLogger<IncidentTriage>.Instance);
+        new(_assistant, _queue, Options.Create(_options), Member(), NullLogger<IncidentTriage>.Instance);
+
+    /// <summary>The cluster member this bot is, which its service account is named on.</summary>
+    private const string MemberId = "walter-bot";
+
+    private static ClusterOptions Member() => new()
+    {
+        MemberId = MemberId,
+        Secret = string.Empty,
+        StorePath = Path.Combine(Path.GetTempPath(), $"kgsm-bot-triage-{Guid.NewGuid():N}.db"),
+        Kind = MemberKind.Anchor,
+    };
 
     private static IThreadChannel Thread(ulong id = ThreadId, IDisposable? typing = null)
     {
@@ -173,30 +185,18 @@ public sealed class IncidentTriageTests
     }
 
     /// <summary>
-    /// Operator, because the console of the run that died is an authorized read and it is the one
-    /// artifact that explains a crash. At viewer this would report on a server whose logs it could not
-    /// open.
+    /// It asks as this bot's own service account on the member it is, not as a person. Nobody asked
+    /// for this turn, and attributing it to a human would put words in the mouth of whoever happened to
+    /// be around — and the assistant accepts that handle from this member alone, evaluating what its
+    /// requirements were approved for.
     /// </summary>
     [Fact]
-    public async Task ItAsksAtOperator_SoItCanReadTheConsole()
-    {
-        Triage().Begin(GaveUp(), Thread(), GuildId);
-
-        (await AskedAsync())!.Tier.Should().Be(KgsmTier.Operator);
-    }
-
-    /// <summary>
-    /// It asks as itself, not as a person. Nobody asked for this turn, and attributing it to a human
-    /// would put words in the mouth of whoever happened to be around.
-    /// </summary>
-    [Fact]
-    public async Task ItAsksAsItself_NotAsAnybody()
+    public async Task ItAsksAsItsOwnServiceAccount()
     {
         Triage().Begin(GaveUp(), Thread(), GuildId);
 
         var ask = (await AskedAsync())!;
-        ask.UserId.Should().NotBe(string.Empty);
-        ask.UserId.Should().NotMatchRegex(@"^\d+$", "a snowflake-shaped id would read as a Discord user");
+        ask.Handle.Should().Be("svc:bot@" + MemberId);
         ask.DisplayName.Should().NotBeNullOrWhiteSpace();
     }
 
@@ -338,7 +338,7 @@ public sealed class IncidentTriageTests
 
         var queue = Substitute.For<IDiscordSendQueue>();
         var triage = new IncidentTriage(
-            assistant, queue, Options.Create(new DiscordOptions()), NullLogger<IncidentTriage>.Instance);
+            assistant, queue, Options.Create(new DiscordOptions()), Member(), NullLogger<IncidentTriage>.Instance);
 
         triage.Begin(GaveUp(), Thread(), GuildId);
 

@@ -8,7 +8,7 @@ using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Auth.Access;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -18,29 +18,29 @@ namespace KGSM.Bot.Discord.Commands;
 /// <remarks>
 /// <para>
 /// The bot holds no part of the action — only the grant, which rides the button and goes straight
-/// back to the assistant. The assistant decides: it re-derives the clicker's authority from the tier
-/// forwarded here, re-validates the target against what exists now, and refuses a grant that belongs
-/// to somebody else or has already been redeemed.
+/// back to the assistant. The assistant decides: it evaluates the clicker named here for the staged
+/// command's action at its server, against its own replica, re-validates the target against what
+/// exists now, and refuses a grant that belongs to somebody else or has already been redeemed.
 /// </para>
 /// <para>
 /// <b>Only the person who asked can approve.</b> A conversation belongs to one person and so do the
-/// actions in it, which is the same rule the Control Panel follows — an operator cannot approve
-/// another operator's proposal there either, and a surface that disagreed would be a way around it.
+/// actions in it, which is the same rule the Control Panel follows — nobody approves another
+/// person's proposal there either, and a surface that disagreed would be a way around it.
 /// </para>
 /// </remarks>
 public class AssistantConfirmationModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IAssistantTurnClient _assistant;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     private readonly ILogger<AssistantConfirmationModule> _logger;
 
     public AssistantConfirmationModule(
         IAssistantTurnClient assistant,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         ILogger<AssistantConfirmationModule> logger)
     {
         _assistant = assistant;
-        _accounts = accounts;
+        _access = access;
         _logger = logger;
     }
 
@@ -48,13 +48,15 @@ public class AssistantConfirmationModule : InteractionModuleBase<SocketInteracti
     [ComponentInteraction(AssistantConfirmationIds.ConfirmPrefix + "*")]
     public async Task ConfirmAsync(string token)
     {
-        // Re-resolved at the click rather than trusted from the staging turn: the account someone
-        // held when the button was posted is not necessarily the one they hold now. A refusal leaves
-        // the prompt standing, so whoever IS permitted can still use it.
-        AccountAnswer account = await _accounts.ResolveAsync(Context.User.Id);
-        if (!account.Allows(KgsmTier.Operator))
+        // A courtesy in front of the call, never the gate: somebody this host cannot identify, or who
+        // may not talk to the assistant at all, is told so here in their own words rather than as a
+        // refusal relayed from the far side. The action the grant stages is the assistant's to judge.
+        // A refusal leaves the prompt standing, so whoever IS permitted can still use it.
+        PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+        AccessDecision decision = await person.DecideAsync(BotActions.AssistantChat, null);
+        if (!decision.Allowed)
         {
-            await RespondAsync(account.Refusal(KgsmTier.Operator), ephemeral: true);
+            await RespondAsync(person.Refusal(BotActions.AssistantChat, decision), ephemeral: true);
             return;
         }
 
@@ -72,7 +74,7 @@ public class AssistantConfirmationModule : InteractionModuleBase<SocketInteracti
         // No provenance scope: the action runs in the assistant's process, which records it from the
         // identity and the leaf name this call carries. Nothing here reaches kgsm from inside the bot.
         var result = await _assistant.ConfirmAsync(new AssistantApproval(
-            Context.User.Id.ToString(), Context.User.Username, account.Tier, token));
+            DiscordHandle.Of(Context.User.Id), Context.User.Username, token));
 
         if (result.IsFailure)
         {

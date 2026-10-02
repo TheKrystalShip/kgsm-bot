@@ -18,7 +18,7 @@ namespace KGSM.Bot.Infrastructure.Guilds;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is the bot's file, not the account store.</b> Guild topology is not authority and does not
+/// <b>This is the bot's file, not the authority replica.</b> Guild topology is not authority and does not
 /// belong beside credentials, and this process is its only writer.
 /// </para>
 /// <para>

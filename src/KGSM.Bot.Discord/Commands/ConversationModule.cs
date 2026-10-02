@@ -8,8 +8,6 @@ using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
-
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
@@ -34,30 +32,28 @@ namespace KGSM.Bot.Discord.Commands;
 /// talking to, and doing that invisibly leaves the next person's answer looking like a fault.
 /// </para>
 /// </remarks>
-// Viewer is the FLOOR, not the whole gate. Compacting is a maintenance action anybody in the channel
-// may ask for; clearing a conversation a channel shares is refused by the assistant below operator,
-// and that refusal is shown as it arrives. Gating both at operator here would take compaction away
-// from the people most likely to notice a conversation getting long.
-[RequireTier(KgsmTier.Viewer)]
 [Group("conversation", "Manage what the assistant remembers of this channel")]
 public class ConversationModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IAssistantTurnClient _assistant;
-    private readonly IKgsmAccounts _accounts;
     private readonly ILogger<ConversationModule> _logger;
 
-    public ConversationModule(
-        IAssistantTurnClient assistant, IKgsmAccounts accounts, ILogger<ConversationModule> logger)
+    public ConversationModule(IAssistantTurnClient assistant, ILogger<ConversationModule> logger)
     {
         _assistant = assistant;
-        _accounts = accounts;
         _logger = logger;
     }
 
+    // Talking to the assistant is the floor, not the whole gate. Clearing a conversation a thread
+    // shares also needs assistant:conversations.clear-shared, which the assistant checks itself because
+    // only it knows whose conversation this is; its refusal is shown as it arrives. Compacting is
+    // maintenance anybody in the channel may ask for.
     [SlashCommand("clear", "Forget this channel's conversation and start fresh")]
+    [RequireAction(BotActions.AssistantChat)]
     public Task ClearAsync() => RunAsync("new");
 
     [SlashCommand("compact", "Summarise this channel's conversation to free up context")]
+    [RequireAction(BotActions.AssistantChat)]
     public Task CompactAsync() => RunAsync("compact");
 
     private async Task RunAsync(string command)
@@ -70,19 +66,11 @@ public class ConversationModule : InteractionModuleBase<SocketInteractionContext
             return;
         }
 
-        // The tier the caller's KGSM account holds right now, sent rather than judged: the assistant
-        // gates its own commands, and a check here would be a second opinion able to disagree with it.
-        AccountAnswer account = await _accounts.ResolveAsync(Context.User.Id);
-        if (!account.Allows(KgsmTier.Viewer))
-        {
-            await FollowupAsync(account.Refusal(KgsmTier.Viewer));
-            return;
-        }
-
+        // The caller is named, not described: the assistant evaluates them for its own command against
+        // its own replica, and a verdict formed here would be a second opinion able to disagree with it.
         Result<string> ran = await _assistant.RunCommandAsync(command, new AssistantAsk(
-            Context.User.Id.ToString(),
+            DiscordHandle.Of(Context.User.Id),
             Context.User.Username,
-            account.Tier,
             // The channel is the conversation, exactly as it is when somebody @-mentions the bot —
             // this has to name the same one the next question will continue, or it manages a
             // conversation nobody is having.

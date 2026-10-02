@@ -55,7 +55,7 @@ public interface IStagedRestores
 /// <param name="InstanceName">The server the backup would be rolled onto.</param>
 /// <param name="BackupId">The backup, as the engine's manifest names it.</param>
 /// <param name="ProposedToDiscordUserId">
-/// Who asked. The click is authorized again at the tier, and it also has to be the same person — a
+/// Who asked. The click is evaluated again for the restore, and it also has to be the same person — a
 /// staged destructive action is not a button left lying around for the channel.
 /// </param>
 /// <param name="ProposedAtUtc">When it was staged, so an old proposal can be refused.</param>

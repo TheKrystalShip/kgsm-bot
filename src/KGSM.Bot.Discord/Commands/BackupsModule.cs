@@ -11,7 +11,7 @@ using KGSM.Bot.Infrastructure.Discord;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
 using TheKrystalShip.KGSM.Core.Models;
 
 namespace KGSM.Bot.Discord.Commands;
@@ -33,7 +33,6 @@ namespace KGSM.Bot.Discord.Commands;
 /// what lets the whole-host summary be cached without the number going wrong.
 /// </para>
 /// </remarks>
-[RequireTier(KgsmTier.Viewer)]
 public class BackupsModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IBackupInsight _backups;
@@ -65,6 +64,7 @@ public class BackupsModule : InteractionModuleBase<SocketInteractionContext>
     // ── reading ───────────────────────────────────────────────────────────────────────────────
 
     [SlashCommand("backups", "What backups a game server has, and how good each one is")]
+    [RequireAction(KgsmActions.ServerBackupsRead, Server = "instance")]
     public async Task BackupsAsync(
         [Summary(description: "Game server instance")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -143,6 +143,7 @@ public class BackupsModule : InteractionModuleBase<SocketInteractionContext>
     // ── taking one ────────────────────────────────────────────────────────────────────────────
 
     [SlashCommand("backup", "Back up a game server now")]
+    [RequireAction(KgsmActions.ServerBackupsCreate, Server = "instance")]
     [Mutating]
     public async Task BackupAsync(
         [Summary(description: "Game server instance")]
@@ -197,6 +198,7 @@ public class BackupsModule : InteractionModuleBase<SocketInteractionContext>
     // ── rolling one back ──────────────────────────────────────────────────────────────────────
 
     [SlashCommand("restore", "Roll a game server back to a backup — replaces what is there now")]
+    [RequireAction(KgsmActions.ServerBackupsRestore, Server = "instance")]
     [Mutating]
     public async Task RestoreAsync(
         [Summary(description: "Game server instance")]

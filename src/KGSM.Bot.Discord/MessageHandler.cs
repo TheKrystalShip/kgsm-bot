@@ -12,7 +12,7 @@ using KGSM.Bot.Infrastructure.Discord;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Auth.Access;
 
 namespace KGSM.Bot.Discord;
 
@@ -35,7 +35,7 @@ public class MessageHandler
 
     private readonly DiscordSocketClient _client;
     private readonly IAssistantTurnClient _assistant;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     // The paced path out to Discord. The narration of a turn is the bot posting and editing on its
     // own initiative — several edits per question — so it belongs in the queue with every other
     // unprompted send, not on a direct call that nothing paces. The reply to the person is still a
@@ -46,13 +46,13 @@ public class MessageHandler
     public MessageHandler(
         DiscordSocketClient client,
         IAssistantTurnClient assistant,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         IDiscordSendQueue queue,
         ILogger<MessageHandler> logger)
     {
         _client = client;
         _assistant = assistant;
-        _accounts = accounts;
+        _access = access;
         _queue = queue;
         _logger = logger;
     }
@@ -118,23 +118,24 @@ public class MessageHandler
                 return;
             }
 
-            // The authority the author holds right now, from the KGSM account their Discord account
-            // is connected to — the same record the Control Panel and the assistant read. Asking a
-            // question needs an account here; acting through one needs operator.
-            AccountAnswer account = await _accounts.ResolveAsync(message.Author.Id);
-            if (!account.Allows(KgsmTier.Viewer))
+            // Whether the author may talk to the assistant at all, from the KGSM account their Discord
+            // account is connected to. What each step of the answer may do is the assistant's to judge,
+            // per server, against its own replica.
+            PersonAccess person = await _access.ResolveAsync(message.Author.Id);
+            AccessDecision decision = await person.DecideAsync(BotActions.AssistantChat, null);
+            if (!decision.Allowed)
             {
                 // Answered rather than ignored: somebody asked a question, and being told why there
                 // is no answer is worth more than silence they cannot interpret.
-                await message.ReplyAsync(account.Refusal(KgsmTier.Viewer));
+                await message.ReplyAsync(person.Refusal(BotActions.AssistantChat, decision));
                 return;
             }
 
             _logger.LogDebug(
-                "Assistant prompt from {User} ({UserId}, account={Account}, tier={Tier}): {Prompt}",
-                message.Author.Username, message.Author.Id, account.Account, account.Tier, prompt);
+                "Assistant prompt from {User} ({UserId}, account={Account}): {Prompt}",
+                message.Author.Username, message.Author.Id, person.Account, prompt);
 
-            await AnswerAsync(message, prompt, account.Tier);
+            await AnswerAsync(message, prompt);
         }
         catch (Exception ex)
         {
@@ -150,7 +151,7 @@ public class MessageHandler
     /// which stamps them from the identity and the leaf name the relay carries. Nothing on this path
     /// reaches kgsm from inside the bot, so an ambient actor set here would attribute nothing.
     /// </remarks>
-    private async Task AnswerAsync(SocketUserMessage message, string prompt, KgsmTier tier)
+    private async Task AnswerAsync(SocketUserMessage message, string prompt)
     {
         Result<AssistantTurn> result;
 
@@ -170,9 +171,8 @@ public class MessageHandler
         using (message.Channel.EnterTypingState())
         {
             result = await _assistant.AskAsync(new AssistantAsk(
-                message.Author.Id.ToString(),
+                DiscordHandle.Of(message.Author.Id),
                 message.Author.Username,
-                tier,
                 // The channel is the conversation. Each channel is its own context window, and the
                 // thread is the same one this person sees wherever else they reach the assistant.
                 message.Channel.Id.ToString(),

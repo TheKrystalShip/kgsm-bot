@@ -5,12 +5,13 @@ using KGSM.Bot.Application;
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
 using KGSM.Bot.Discord.Autocomplete;
+using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
 using TheKrystalShip.KGSM.Core.Models;
 using TheKrystalShip.KGSM.Core.Models.Enums;
 
@@ -19,12 +20,12 @@ namespace KGSM.Bot.Discord.Commands;
 /// <summary>
 /// Discord module for managing game server instances
 /// </summary>
-[RequireTier(KgsmTier.Viewer)]
 public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerService _server;
     private readonly IGuildStore _guilds;
     private readonly IKgsmStateCache _cache;
+    private readonly IBotAccess _access;
     private readonly IInvocationContext _invocation;
     private readonly DiscordOptions _options;
     private readonly ILogger<InstancesModule> _logger;
@@ -34,6 +35,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         IServerService server,
         IGuildStore guilds,
         IKgsmStateCache cache,
+        IBotAccess access,
         IInvocationContext invocation,
         IOptions<DiscordOptions> options,
         ILogger<InstancesModule> logger)
@@ -41,6 +43,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
         _server = server;
         _guilds = guilds;
         _cache = cache;
+        _access = access;
         _invocation = invocation;
         _options = options.Value;
         _logger = logger;
@@ -58,6 +61,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     private bool Quietly => _options.EphemeralReads;
 
     [SlashCommand("start", "Start up a game server")]
+    [RequireAction(KgsmActions.ServerStart, Server = "instance")]
     [Mutating]
     public async Task StartAsync(
         [Summary(description: SUMMARY)]
@@ -95,6 +99,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("stop", "Shut down a game server")]
+    [RequireAction(KgsmActions.ServerStop, Server = "instance")]
     [Mutating]
     public async Task StopAsync(
         [Summary(description: SUMMARY)]
@@ -124,6 +129,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("restart", "Restart a game server")]
+    [RequireAction(KgsmActions.ServerRestart, Server = "instance")]
     [Mutating]
     public async Task RestartAsync(
         [Summary(description: SUMMARY)]
@@ -153,6 +159,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("status", "Get a detailed status of a game server")]
+    [RequireAction(KgsmActions.ServerRead, Server = "instance")]
     public async Task StatusAsync(
         [Summary(description: SUMMARY)]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -182,6 +189,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("supervision", "Show the watchdog supervision state of a game server")]
+    [RequireAction(KgsmActions.ServerRead, Server = "instance")]
     public async Task SupervisionAsync(
         [Summary(description: SUMMARY)]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -236,6 +244,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("is-active", "Check if an instance is currently running")]
+    [RequireAction(KgsmActions.ServerRead, Server = "instance")]
     public async Task IsActiveAsync(
         [Summary(description: SUMMARY)]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -276,6 +285,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("list", "List all game server instances")]
+    [RequireAction(KgsmActions.ServerRead, AnyServer = true)]
     public async Task ListAsync()
     {
         try
@@ -291,7 +301,12 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            if (result.Instances.Count == 0)
+            // The servers this person can read, and no others: a list is cut to what they can see.
+            PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+            var readable = (await person.FilterAsync(KgsmActions.ServerRead, result.Instances.Keys)).ToHashSet();
+            var shown = result.Instances.Where(pair => readable.Contains(pair.Key)).ToList();
+
+            if (shown.Count == 0)
             {
                 await RespondAsync("No instances found", ephemeral: Quietly);
                 return;
@@ -306,7 +321,7 @@ public class InstancesModule : InteractionModuleBase<SocketInteractionContext>
             // kgsm subprocess). Run them concurrently rather than sequentially so /list
             // scales with the slowest single check instead of their sum. Fields are
             // added afterwards in the original order — Discord renders by add order.
-            var fields = await Task.WhenAll(result.Instances.Select(async pair =>
+            var fields = await Task.WhenAll(shown.Select(async pair =>
             {
                 var (name, instance) = pair;
 

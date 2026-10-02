@@ -10,7 +10,11 @@ using KGSM.Bot.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using TheKrystalShip.KGSM.Auth;
+using KGSM.Bot.Infrastructure.Authorization;
+
+using TheKrystalShip.KGSM;
+using TheKrystalShip.KGSM.Cluster;
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Discord;
 
@@ -38,7 +42,15 @@ public interface IIncidentTriage
     void Begin(ServerAnnouncement announcement, IThreadChannel thread, ulong guildId);
 }
 
-/// <inheritdoc />
+/// <remarks>
+/// Nobody asked for an investigation, so it is asked as this bot's own service account, which holds
+/// what its requirements below were approved for: the assistant evaluates that account, not anybody
+/// in the channel, for every tool the turn runs.
+/// </remarks>
+[Requires(BotActions.AssistantChat, DeclaredScope.Cluster,
+    "Ask the assistant to investigate a server the supervisor gave up on")]
+[Requires(KgsmActions.ServerConsoleRead, DeclaredScope.Instance,
+    "Read the console of the run that died, which is what explains a crash")]
 public sealed class IncidentTriage : IIncidentTriage
 {
     /// <summary>
@@ -50,12 +62,6 @@ public sealed class IncidentTriage : IIncidentTriage
 
     /// <summary>Discord hard-caps a single message at 2000 characters.</summary>
     private const int DiscordMessageLimit = 2000;
-
-    /// <summary>
-    /// The identity the investigation is asked under. Opaque and constant: it is not a person, and a
-    /// name shaped like a Discord snowflake would suggest it was one.
-    /// </summary>
-    private const string TriageUserId = "system:triage";
 
     /// <summary>
     /// What the room shows as the speaker of the opening turn. It is read by people, and by the model
@@ -74,17 +80,20 @@ public sealed class IncidentTriage : IIncidentTriage
     private readonly IAssistantTurnClient _assistant;
     private readonly IDiscordSendQueue _queue;
     private readonly DiscordOptions _options;
+    private readonly string _serviceHandle;
     private readonly ILogger<IncidentTriage> _logger;
 
     public IncidentTriage(
         IAssistantTurnClient assistant,
         IDiscordSendQueue queue,
         IOptions<DiscordOptions> options,
+        ClusterOptions cluster,
         ILogger<IncidentTriage> logger)
     {
         _assistant = assistant;
         _queue = queue;
         _options = options.Value;
+        _serviceHandle = BotActions.ServiceHandle(cluster.MemberId);
         _logger = logger;
     }
 
@@ -159,15 +168,13 @@ public sealed class IncidentTriage : IIncidentTriage
                 using (Typing(thread, announcement))
                 {
                     result = await _assistant.AskAsync(new AssistantAsk(
-                        TriageUserId,
+                        // This bot's own service account, which requires the console read because the
+                        // console of the run that died is the one artifact that actually explains a
+                        // crash. Nothing is thereby executed: the bot pins auto-run off for every
+                        // caller, so anything the model proposes is staged, and a staged action is
+                        // dropped below rather than offered to a thread that asked for none.
+                        _serviceHandle,
                         TriageDisplayName,
-                        // Operator, because the console of the run that died is an authorized read and
-                        // it is the one artifact that actually explains a crash — at viewer this
-                        // reports on a server it cannot read the logs of. Nothing is thereby executed:
-                        // the bot pins auto-run off for every caller, so anything the model proposes is
-                        // staged, and a staged action is dropped below rather than offered to a thread
-                        // that asked for none.
-                        KgsmTier.Operator,
                         thread.Id.ToString(),
                         Prompt(announcement),
                         // The room, so this becomes the thread's opening turn rather than a wall of

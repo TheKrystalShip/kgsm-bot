@@ -27,7 +27,7 @@ public class BotService : BackgroundService
     private readonly IGuildGreeter _greeter;
     private readonly IDiscordChannelRegistry _channels;
     private readonly DiscordOptions _discordOptions;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     private readonly IGuildStore _guilds;
     private readonly VoiceDecryptHealth _decryptHealth;
     private readonly ILogger<BotService> _logger;
@@ -42,7 +42,7 @@ public class BotService : BackgroundService
         IGuildGreeter greeter,
         IDiscordChannelRegistry channels,
         IOptions<DiscordOptions> discordOptions,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         IGuildStore guilds,
         VoiceDecryptHealth decryptHealth,
         ILogger<BotService> logger)
@@ -56,7 +56,7 @@ public class BotService : BackgroundService
         _greeter = greeter;
         _channels = channels;
         _discordOptions = discordOptions.Value;
-        _accounts = accounts;
+        _access = access;
         _guilds = guilds;
         _decryptHealth = decryptHealth;
         _logger = logger;
@@ -69,18 +69,18 @@ public class BotService : BackgroundService
             _logger.LogInformation("Starting KGSM Bot service");
 
             // Say at startup whether anyone can be authorized at all, where an operator will see it.
-            // An unreadable account store is silent otherwise: every command still registers, the bot
-            // still connects, and the first anyone learns of it is a refusal they cannot act on.
-            if (_accounts.Available)
+            // An unreadable replica is silent otherwise: every command still registers, the bot still
+            // connects, and the first anyone learns of it is a refusal they cannot act on.
+            if (_access.Available)
                 _logger.LogInformation(
-                    "Authorization: the KGSM account store — a Discord account acts here through the " +
-                    "KGSM account it is connected to, and holds that account's tier");
+                    "Authorization: this node's authority replica — a Discord account acts here through " +
+                    "the KGSM account it is connected to, and holds what that account's roles grant");
             else
                 _logger.LogError(
-                    "The KGSM account store is unavailable ({Reason}) — every command that needs " +
-                    "authorization will refuse, and questions go unanswered. Announcements, channel " +
-                    "status and the journal reader are unaffected.",
-                    _accounts.UnavailableReason);
+                    "The authority replica is unavailable ({Reason}) — every command will refuse, and " +
+                    "questions go unanswered. Announcements, channel status and the journal reader are " +
+                    "unaffected.",
+                    _access.UnavailableReason);
 
             // Where this host broadcasts, said once at startup. A bot in ten guilds and set up in
             // none is silent by design, and that is indistinguishable from broken without this line.

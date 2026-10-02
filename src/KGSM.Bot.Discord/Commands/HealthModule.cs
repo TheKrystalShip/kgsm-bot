@@ -5,7 +5,9 @@ using KGSM.Bot.Core.Interfaces;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using KGSM.Bot.Infrastructure.Authorization;
+
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -24,10 +26,11 @@ namespace KGSM.Bot.Discord.Commands;
 /// could not be opened, and somebody diagnosing does not need the channel's help.
 /// </para>
 /// <para>
-/// Operator-gated: it is the inside of the machine rather than a question about a server.
+/// <c>bot:status.read</c>, the action the Control Panel's view of this bot's status needs: it is the
+/// inside of the machine rather than a question about a server.
 /// </para>
 /// </remarks>
-[RequireTier(KgsmTier.Operator)]
+[Action(BotActions.StatusRead, "See whether the Discord bot is working", DeclaredEffect.Read, DeclaredScope.Node)]
 public class HealthModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IBotHealth _health;
@@ -40,6 +43,7 @@ public class HealthModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("health", "Whether everything this bot depends on is answering")]
+    [RequireAction(BotActions.StatusRead)]
     public async Task HealthAsync()
     {
         try

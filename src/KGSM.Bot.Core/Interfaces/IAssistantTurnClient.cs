@@ -114,8 +114,8 @@ public interface IAssistantTurnClient
     /// <remarks>
     /// The bot holds nothing of the action itself — only the grant, which it carries on the button
     /// and hands straight back. Deciding whether the click may proceed is the assistant's: it
-    /// re-derives the approver's authority, re-validates the target against what exists now, and
-    /// refuses a grant belonging to somebody else. The bot's own tier check in front of this is a
+    /// evaluates the approver for the staged action, re-validates the target against what exists now,
+    /// and refuses a grant belonging to somebody else. The bot's own check in front of this is a
     /// courtesy to the clicker, never the gate.
     /// </remarks>
     /// <returns>

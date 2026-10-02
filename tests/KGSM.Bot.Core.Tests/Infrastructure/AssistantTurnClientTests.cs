@@ -33,9 +33,8 @@ public class AssistantTurnClientTests
     private const string Secret = "host-relay-secret";
 
     private static readonly AssistantAsk Ask = new(
-        UserId: "385730677141929985",
+        Handle: "discord:385730677141929985",
         DisplayName: "Heisen",
-        Tier: KgsmTier.Operator,
         ConversationId: "911747779704008745",
         Prompt: "is factorio running?");
 
@@ -106,7 +105,7 @@ public class AssistantTurnClientTests
         request.Headers.Authorization.Parameter.Should().NotBeNullOrWhiteSpace();
         Header(request, "X-Relay-Leaf").Should().Be("kgsm-bot");
 
-        // Nothing about what that person may do. The assistant reads their tier from its own replica,
+        // Nothing about what that person may do. The assistant evaluates them against its own replica,
         // so a compromised bot can ask as somebody it names and never above what they actually hold.
         Header(request, "X-Relay-Tier").Should().BeNull();
         Header(request, "X-Relay-Secret").Should().BeNull();
@@ -168,7 +167,7 @@ public class AssistantTurnClientTests
         var transport = Answering("""{"text":"ok","confirmations":[]}""");
         using var client = Client(transport);
 
-        await client.AskAsync(Ask with { Tier = KgsmTier.Admin });
+        await client.AskAsync(Ask);
 
         Header(transport.Seen!, "X-Relay-Auto-Act").Should().Be("false");
     }
@@ -308,12 +307,12 @@ public class AssistantTurnClientTests
     // ---- approving a staged action -------------------------------------------------------------
 
     private static readonly AssistantApproval Approval = new(
-        UserId: "385730677141929985", DisplayName: "Heisen", Tier: KgsmTier.Operator,
+        Handle: "discord:385730677141929985", DisplayName: "Heisen",
         Token: "60c24e5b21a7c863fae9648b996ae116");
 
     /// <summary>
-    /// The click is forwarded as the clicker, with the tier they hold at that moment — the assistant
-    /// judges the approval on that, not on whatever was true when the action was proposed.
+    /// The click is forwarded as the clicker — the assistant evaluates them as they stand at that
+    /// moment, not as they stood when the action was proposed.
     /// </summary>
     [Fact]
     public async Task AnApprovalNamesTheClicker_AndHandsBackTheGrantUntouched()

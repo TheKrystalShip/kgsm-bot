@@ -6,8 +6,8 @@ namespace KGSM.Bot.Core.Interfaces;
 /// <remarks>
 /// <para>
 /// Everything here is checked at the moment it is asked for. Nothing is remembered between calls and
-/// no check is derived from another: a bot can be connected to Discord with an unreadable account
-/// store, or hold a perfectly good account store while the engine is gone, and a summary that
+/// no check is derived from another: a bot can be connected to Discord with an unreadable authority
+/// replica, or hold a perfectly good one while the engine is gone, and a summary that
 /// inferred either from the other would hide exactly the state somebody is diagnosing.
 /// </para>
 /// <para>

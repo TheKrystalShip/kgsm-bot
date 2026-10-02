@@ -18,7 +18,7 @@
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <RootNamespace>KGSM.Bot.Discord</RootNamespace>
     <AssemblyName>kgsm-bot</AssemblyName>
-    <Version>3.59.2</Version>
+    <Version>4.0.0</Version>
 
     <!-- Framework-dependent single-file deploy: the host has the .NET 10 runtime installed,
          so we don't bundle it (smaller artifact). Publish-only props (build/test ignore them);
@@ -51,7 +51,7 @@
   <ItemGroup>
     <!-- Build-only: the attributes arrive as source and the generator as a tool, and the package
          declares no dependencies, so nothing here reaches the published output. -->
-    <PackageReference Include="TheKrystalShip.KGSM.ComponentConfig" Version="3.0.0" PrivateAssets="all" />
+    <PackageReference Include="TheKrystalShip.KGSM.ComponentConfig" Version="3.2.0-dev.2" PrivateAssets="all" />
 
     <!-- What this bot answers about ITSELF with: its descriptor, the deploy floors under it, the
          override file, its journal and its unit. The transport half maps those onto the routes every
@@ -70,7 +70,7 @@
     <PackageReference Include="Discord.Net.Core" Version="3.20.1" />
     <PackageReference Include="Discord.Net.Interactions" Version="3.20.1" />
     <PackageReference Include="Discord.Net.WebSocket" Version="3.20.1" />
-    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="4.0.0-dev.2" />
+    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="4.0.0-dev.3" />
 
     <!-- Pinned here as well as in Infrastructure: this project reads SpokenSentences directly, and a
          type used through a transitive reference is one a consumer can lose without touching it. -->

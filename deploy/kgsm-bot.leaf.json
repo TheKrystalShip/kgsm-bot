@@ -146,11 +146,21 @@
     {
       "key": "authUsersDbPath",
       "env": "Auth__UsersDbPath",
-      "label": "Account store",
-      "description": "The file this host keeps its KGSM accounts in, shared with the Control Panel and the assistant. Someone's Discord account decides who they are; the account it is connected to decides what they may do here.",
+      "label": "Authority replica",
+      "description": "The file the node on this machine keeps its copy of the cluster's accounts and roles in. Someone's Discord account decides who they are; the roles their account holds decide what they may do here.",
       "group": "authorization",
-      "type": "string",
+      "type": "path",
       "default": "/var/lib/kgsm/auth/users.db",
+      "risk": "wiring"
+    },
+    {
+      "key": "authProviderFile",
+      "env": "Auth__ProviderFilePath",
+      "label": "Node identity file",
+      "description": "Where this bot reads which node it is on. The node on this machine writes it; leave it at the default unless the node writes somewhere else.",
+      "group": "authorization",
+      "type": "path",
+      "default": "/var/lib/kgsm/cluster/auth-provider.json",
       "risk": "wiring"
     },
     {

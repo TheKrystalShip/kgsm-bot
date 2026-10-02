@@ -6,7 +6,7 @@ namespace KGSM.Bot.Infrastructure.Configuration;
 /// Where the bot keeps its own record of which Discord servers it announces into.
 /// </summary>
 /// <remarks>
-/// Its own file, not the account store: guild topology is not authority and does not belong beside
+/// Its own file, not the authority replica: guild topology is not authority and does not belong beside
 /// credentials. It sits outside <c>/opt/kgsm-bot</c> because the deploy syncs that prefix with
 /// <c>rsync --delete</c>, which would take this file with it.
 /// </remarks>

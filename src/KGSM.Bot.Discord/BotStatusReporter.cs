@@ -50,7 +50,7 @@ public sealed class BotStatusReporter(
         return new BotStatus(
             ConnectionState: _client.ConnectionState.ToString(),
             LatencyMs: latency,
-            CommandCount: CommandManifest.Build(Assembly.GetExecutingAssembly()).Gates.Sum(g => g.Value.Count),
+            CommandCount: CommandManifest.Build(Assembly.GetExecutingAssembly()).Commands.Count,
             StoreAvailable: _guilds.Available,
             StoreUnavailableReason: _guilds.UnavailableReason,
             Guilds: [.. _guilds.Configured().Select(Describe)],

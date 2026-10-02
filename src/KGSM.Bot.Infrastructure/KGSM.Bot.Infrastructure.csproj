@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="TheKrystalShip.KGSM.ComponentConfig" Version="3.0.0" PrivateAssets="all" />
+    <PackageReference Include="TheKrystalShip.KGSM.ComponentConfig" Version="3.2.0-dev.2" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,28 +35,23 @@
          wire contract for its socket — a few kilobytes, no native dependency, and nothing to load. -->
     <PackageReference Include="TheKrystalShip.Speech" Version="1.2.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
-    <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.KGSM.Auth.Users at
-         this same version, so naming it here costs nothing and stops the store depending on which
-         package happens to pull it. -->
+    <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.KGSM.Auth.Cluster,
+         so naming it here costs nothing and stops the store depending on which package happens to
+         pull it. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\KGSM.Bot.Application\KGSM.Bot.Application.csproj" />
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
-    <!-- kgsm-lib consumed as the packed NuGet from the local feed (nuget.config →
-         /home/heisen/local-nuget), same pattern as every other .NET consumer. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="8.7.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="4.0.0-dev.2" />
-    <!-- This host's KGSM accounts, which are what say who may act here. Opened directly off the
-         shared store file rather than asked for over HTTP: a file cannot be down, so the bot goes on
-         authorizing people with every other leaf stopped. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Auth.Users" Version="1.4.0-dev.7" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="8.10.0-dev.4" />
+    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="4.0.0-dev.3" />
 
-    <!-- What a member does about identity that is not the anchor's job: apply the accounts the anchor
-         publishes, and take the first full copy on joining. This bot holds a level-1 replica and
-         resolves every person against it — never by asking another member. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Auth.Cluster" Version="1.0.0-dev.8" />
+    <!-- The cluster's authority, read off the replica the node on this machine keeps, and evaluated
+         here: who a Discord account is, and what they may do at the server a command names. Opened
+         directly off the file rather than asked for over HTTP, so the bot goes on authorizing people
+         with every other leaf stopped. Also how this bot tells the auth anchor what it performs. -->
+    <PackageReference Include="TheKrystalShip.KGSM.Auth.Cluster" Version="1.0.0-dev.19" />
     <!-- The assistant leaf's own relay contract: the headers that carry who is asking and what they
          may do. Published by the service that reads them, so this bot and the Control Panel API
          cannot come to spell an identity differently. -->
@@ -69,6 +64,6 @@
     <PackageReference Include="TheKrystalShip.KGSM.Cluster" Version="1.0.0-dev.24" />
     <!-- The member half of the cluster's names: stating where this bot is reached, and keeping a
          certificate and a served site for the capability name it holds. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Dns" Version="0.2.0-dev.14" />
+    <PackageReference Include="TheKrystalShip.KGSM.Dns" Version="0.2.0-dev.15" />
   </ItemGroup>
 </Project>

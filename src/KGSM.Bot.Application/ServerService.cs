@@ -163,50 +163,6 @@ public sealed class ServerService : IServerService
         }
     }
 
-    public async Task<OperationResult> UpdateAsync(string instanceName, CancellationToken ct = default)
-    {
-        try
-        {
-            _logger.LogInformation("Updating server instance {InstanceName}", instanceName);
-            var result = await _serverInstanceService.UpdateAsync(instanceName);
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Failed to update server instance {InstanceName}: {Error}",
-                    instanceName, result.Error);
-                return OperationResult.Failure(result.Error ?? "Unknown error");
-            }
-            _logger.LogInformation("Successfully updated server instance {InstanceName}", instanceName);
-            return OperationResult.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating server instance {InstanceName}", instanceName);
-            return OperationResult.Failure($"An error occurred: {ex.Message}");
-        }
-    }
-
-    public async Task<OperationResult> SetConfigAsync(string instanceName, string key, string value, CancellationToken ct = default)
-    {
-        try
-        {
-            _logger.LogInformation("Setting config '{Key}' on server instance {InstanceName}", key, instanceName);
-            var result = await _serverInstanceService.SetConfigValueAsync(instanceName, key, value);
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Failed to set config '{Key}' on server instance {InstanceName}: {Error}",
-                    key, instanceName, result.Error);
-                return OperationResult.Failure(result.Error ?? "Unknown error");
-            }
-            _logger.LogInformation("Successfully set config '{Key}' on server instance {InstanceName}", key, instanceName);
-            return OperationResult.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error setting config '{Key}' on server instance {InstanceName}", key, instanceName);
-            return OperationResult.Failure($"An error occurred: {ex.Message}");
-        }
-    }
-
     // ── Queries ───────────────────────────────────────────────────────────
 
     public async Task<ServerInstancesResult> GetAllInstancesAsync(CancellationToken ct = default)

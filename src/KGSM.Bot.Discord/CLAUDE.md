@@ -8,14 +8,15 @@ Voice is `Voice/CLAUDE.md`.
 
 `MessageHandler` sends the message to the **kgsm-assistant** over its HTTP surface as a
 member-to-member call: this bot authenticates as itself with a cluster service token and names the
-asking human on `X-Kgsm-Acting`, and the assistant resolves what they may do from its own replica of
-the cluster's accounts. **No tier is sent, and there is none to send.** The bot runs no model and
-holds no conversation: the assistant's tool catalog is what acts, through its own kgsm access. A new
-assistant capability reaches Discord with no change here.
+asking human on `X-Kgsm-Acting` by their `discord:<snowflake>` handle, and the assistant evaluates
+what they may do — every tool at the server it touches — against its own replica of the cluster's
+authority. **Nothing about access is sent.** The bot runs no model and holds no conversation: the
+assistant's tool catalog is what acts, through its own kgsm access. A new assistant capability reaches
+Discord with no change here.
 
-`MessageHandler` resolves the author's account and passes `canPerformActions`; asking a question needs
-viewer, and someone with no account gets the same explanation rather than silence. The surface keys on
-the channel, so a thread is its own conversation.
+`MessageHandler` resolves the author's account first and needs `assistant:chat`, which every active
+person holds; someone with no account, a pending one or a disabled one gets the explanation rather
+than silence. The surface keys on the channel, so a thread is its own conversation.
 
 The assistant is optional: unconfigured or unreachable, the @-mention surface says so and goes quiet
 while slash commands, announcements and channel status carry on. There is deliberately **no fallback
@@ -29,7 +30,7 @@ Three listeners on one Kestrel host, and what a route answers depends on which o
 
 | listener | setting | what it serves |
 |---|---|---|
-| the member wire | `Cluster:Urls` (`http://127.0.0.1:5182`) | the cluster's inbox — the anchor pushing an account change |
+| the member wire | `Cluster:Urls` (`http://127.0.0.1:5182`) | the cluster's inbox — what the other members tell this one |
 | the status socket | `KGSM:StatusSocketPath` (`/run/kgsm-bot/status.sock`) | `GET /status`: gateway state, a row per configured guild, its channel map, the announcement switches, the send-queue backlog |
 | its own surface | `KGSM:SurfaceSocketPath` (`/run/kgsm-bot/surface.sock`) | `/component/*`: this bot's configuration, deploy floors, overrides, journal, unit and command manifest |
 

@@ -17,7 +17,7 @@ using Microsoft.Extensions.Options;
 
 using NSubstitute;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
 
 using System.Reflection;
 
@@ -48,7 +48,7 @@ public sealed class CommandManifestTests
         services.AddSingleton(Substitute.For<IInvocationContext>());
         services.AddSingleton(Substitute.For<IAssistantTurnClient>());
         services.AddSingleton<IOptions<DiscordOptions>>(Options.Create(new DiscordOptions()));
-        services.AddSingleton(Substitute.For<IKgsmAccounts>());
+        services.AddSingleton(Substitute.For<IBotAccess>());
         services.AddSingleton(Substitute.For<IGuildStore>());
         services.AddSingleton(Substitute.For<IStatusBoard>());
         services.AddSingleton(Substitute.For<IServerLabels>());
@@ -80,24 +80,23 @@ public sealed class CommandManifestTests
     private static string PathOf(SlashCommandInfo cmd) =>
         string.IsNullOrEmpty(cmd.Module.SlashGroupName) ? cmd.Name : cmd.Module.SlashGroupName + " " + cmd.Name;
 
-    // Every command the manifest lists, whichever gate bucket it sits under. The buckets are what the
-    // panel reads; these tests are about the catalog being complete and truthful, which is a property
-    // of the whole of it.
-    private static IReadOnlyList<BotCommand> AllCommands(CommandManifest manifest) =>
-        [.. manifest.Gates.Values.SelectMany(c => c)];
+    private static IReadOnlyList<BotCommand> AllCommands(CommandManifest manifest) => manifest.Commands;
 
+    /// <summary>
+    /// A command with no action is not listed at all, so listing exactly what Discord registers is also
+    /// the proof that every command checks one: nothing the bot answers is open to anybody who can
+    /// reach it, including in a DM, since the commands are registered globally.
+    /// </summary>
     [Fact]
     public async Task TheManifestListsExactlyTheCommandsTheBotRegisters()
     {
         IReadOnlyList<SlashCommandInfo> registered = await RegisteredAsync();
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
+        manifest.SchemaVersion.Should().Be(3);
         AllCommands(manifest).Select(c => c.Name).Should().BeEquivalentTo(registered.Select(PathOf));
-        foreach ((string gate, IReadOnlyList<BotCommand> bucket) in manifest.Gates)
-        {
-            bucket.Select(c => c.Name).Should().BeInAscendingOrder(StringComparer.Ordinal,
-                "the file is committed, and reflection order is not stable enough to diff against ({0})", gate);
-        }
+        AllCommands(manifest).Select(c => c.Name).Should().BeInAscendingOrder(StringComparer.Ordinal,
+            "the file is committed, and reflection order is not stable enough to diff against");
         AllCommands(manifest).Should().NotBeEmpty();
     }
 
@@ -160,86 +159,97 @@ public sealed class CommandManifestTests
     }
 
     /// <summary>
-    /// The manifest states what the bot enforces before running each command, and the modules have to
-    /// actually enforce it — the panel prints this word and cannot verify it. The bucket is read from
-    /// the same <c>RequireTier</c> attribute the precondition runs, so the two cannot drift apart; what
-    /// this pins is that every command lands in the bucket its attributes put it in.
+    /// The action each command checks, pinned by name. The manifest reads it off the same
+    /// <c>RequireAction</c> the precondition runs, so the two cannot drift apart; what this pins is the
+    /// decision — a command that starts a server checks the engine's start, the same action the Control
+    /// Panel and the assistant check for it, and changing one is a decision somebody made here.
     /// </summary>
     [Fact]
-    public void EveryCommandIsBucketedAtTheTierTheModulesEnforce()
+    public void EveryCommandChecksTheActionItPerforms()
     {
         CommandManifest manifest = CommandManifest.Build(BotAssembly);
 
-        // Every command that acts sits under the operator bucket — the bucket IS the claim, so a
-        // mutating command landing anywhere else is the drift this catches.
-        AllCommands(manifest).Where(c => c.Mutates).Select(c => c.Name)
-            .Should().BeEquivalentTo(manifest.Gates[KgsmTiers.Operator].Where(c => c.Mutates).Select(c => c.Name));
-
-        // The reverse does not hold, and must not be asserted: a command can need operator without
-        // changing anything. Both of these show the inside of the machine while changing nothing —
-        // a server's log carries the network address of everyone who connected, and the health page
-        // names host paths and the reasons stores could not be opened. The reads that sit at operator
-        // are named here, the same way the admin bucket names its own, so adding another is a
-        // decision somebody made rather than a gate that drifted.
-        // The voice commands act on no server at all, so nothing but the tier puts them here: a bot
-        // sitting in a voice channel hears everybody in the room, including people who never
-        // addressed it and cannot see that it is listening.
-        manifest.Gates[KgsmTiers.Operator].Where(c => !c.Mutates).Select(c => c.Name)
-            .Should().BeEquivalentTo(
-                ["health", "logs", "voice join", "voice leave", "voice speak-as", "voice status"]);
-
-        // Nothing is gated at "none": every slash module requires an account here, which is the
-        // property the test below pins, and this is the manifest saying the same thing.
-        manifest.Gates.Should().NotContainKey(CommandManifest.NoGate);
-
-        // Configuring where this host broadcasts is a host setting, and host settings are admin. It is
-        // not [Mutating] — it changes no server — so nothing but the tier puts it in this bucket.
-        manifest.Gates[KgsmTiers.Admin].Select(c => c.Name)
-            .Should().BeEquivalentTo(
-                ["setup show", "setup announce", "setup board", "setup board-off",
-                 "setup status", "setup status-off", "setup follow", "setup unfollow",
-                 "setup follow-all", "setup forget"]);
-        manifest.Gates[KgsmTiers.Admin].Should().OnlyContain(c => !c.Mutates);
-
-        IEnumerable<MethodInfo> mutating = BotAssembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
-            .SelectMany(t => t.GetMethods())
-            .Where(m => m.GetCustomAttribute<SlashCommandAttribute>() is not null
-                     && m.GetCustomAttribute<MutatingAttribute>() is not null);
-
-        mutating.Should().NotBeEmpty("the bot has commands that act, and a vacuous pass would hide a regression");
-
-        foreach (MethodInfo method in mutating)
-        {
-            method.GetCustomAttribute<RequireTierAttribute>()!.Minimum
-                .Should().Be(KgsmTier.Operator,
-                    "{0} changes something, so it must refuse anyone below operator", method.Name);
-        }
+        AllCommands(manifest).ToDictionary(c => c.Name, c => c.Action).Should().BeEquivalentTo(
+            new Dictionary<string, string>
+            {
+                ["start"] = KgsmActions.ServerStart,
+                ["stop"] = KgsmActions.ServerStop,
+                ["restart"] = KgsmActions.ServerRestart,
+                ["status"] = KgsmActions.ServerRead,
+                ["supervision"] = KgsmActions.ServerRead,
+                ["is-active"] = KgsmActions.ServerRead,
+                ["list"] = KgsmActions.ServerRead,
+                ["connect"] = KgsmActions.ServerRead,
+                ["players"] = KgsmActions.ServerRead,
+                ["history"] = KgsmActions.ServerRead,
+                ["install"] = KgsmActions.ServerInstall,
+                ["uninstall"] = KgsmActions.ServerUninstall,
+                ["backups"] = KgsmActions.ServerBackupsRead,
+                ["backup"] = KgsmActions.ServerBackupsCreate,
+                ["restore"] = KgsmActions.ServerBackupsRestore,
+                // A server's log carries the network address of everyone who connected: it is the
+                // console's read, not the read of whether a server is up.
+                ["logs"] = KgsmActions.ServerConsoleRead,
+                ["ping"] = BotActions.StatusRead,
+                ["about"] = BotActions.StatusRead,
+                ["health"] = BotActions.StatusRead,
+                // Where this host broadcasts is a setting of the bot's own, granted like any other.
+                ["setup show"] = BotActions.AnnouncementsManage,
+                ["setup announce"] = BotActions.AnnouncementsManage,
+                ["setup board"] = BotActions.AnnouncementsManage,
+                ["setup board-off"] = BotActions.AnnouncementsManage,
+                ["setup status"] = BotActions.AnnouncementsManage,
+                ["setup status-off"] = BotActions.AnnouncementsManage,
+                ["setup follow"] = BotActions.AnnouncementsManage,
+                ["setup unfollow"] = BotActions.AnnouncementsManage,
+                ["setup follow-all"] = BotActions.AnnouncementsManage,
+                ["setup forget"] = BotActions.AnnouncementsManage,
+                // A bot sitting in a voice channel hears everybody in the room, including people who
+                // never addressed it — an action of its own, though it changes no server.
+                ["voice join"] = BotActions.VoiceUse,
+                ["voice leave"] = BotActions.VoiceUse,
+                ["voice speak-as"] = BotActions.VoiceUse,
+                ["voice status"] = BotActions.VoiceUse,
+                // The floor; the assistant checks clearing a conversation a thread shares itself.
+                ["conversation clear"] = BotActions.AssistantChat,
+                ["conversation compact"] = BotActions.AssistantChat,
+            });
     }
 
     /// <summary>
-    /// Reading is gated too: every module carrying slash commands requires an account on this host.
-    /// Without it, a slash command would list this host's servers to any Discord account that can
-    /// reach the bot — including in a DM, since the commands are registered globally.
+    /// A command that acts on one server names the option the server is given in, so it is judged at
+    /// that server; the option has to be a real string parameter of the command, or every check would
+    /// fall back to the whole host.
     /// </summary>
-    /// <remarks>
-    /// Scoped to the modules that declare slash commands. <c>ConfirmationModule</c> answers button
-    /// clicks rather than commands and authorizes each one itself, because it has to leave the prompt
-    /// standing for whoever IS permitted instead of failing the interaction outright.
-    /// </remarks>
     [Fact]
-    public void EverySlashCommandModuleRequiresAtLeastViewer()
+    public void EveryServerOptionAGateNamesIsOneTheCommandTakes()
     {
-        IEnumerable<Type> modules = BotAssembly.GetTypes()
+        IEnumerable<MethodInfo> commands = BotAssembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
-            .Where(t => t.GetMethods().Any(m => m.GetCustomAttribute<SlashCommandAttribute>() is not null));
+            .SelectMany(t => t.GetMethods())
+            .Where(m => m.GetCustomAttribute<SlashCommandAttribute>() is not null);
 
-        modules.Should().NotBeEmpty("a vacuous pass here would leave every command ungated");
-
-        foreach (Type module in modules)
+        foreach (MethodInfo method in commands)
         {
-            module.GetCustomAttribute<RequireTierAttribute>().Should().NotBeNull(
-                "{0} exposes slash commands, so it must require membership", module.Name);
+            if (method.GetCustomAttribute<RequireActionAttribute>() is not { Server: { } server })
+                continue;
+
+            method.GetParameters().Should().Contain(
+                p => p.Name == server && p.ParameterType == typeof(string),
+                "{0} is judged at the server its '{1}' option names", method.Name, server);
         }
+
+        commands.Where(m => m.GetCustomAttribute<RequireActionAttribute>() is { Server: not null })
+            .Should().NotBeEmpty("a vacuous pass would hide every server-scoped gate falling back to the host");
+    }
+
+    /// <summary>A command that changes something never checks only a read.</summary>
+    [Fact]
+    public void NoActingCommandChecksOnlyARead()
+    {
+        CommandManifest manifest = CommandManifest.Build(BotAssembly);
+
+        AllCommands(manifest).Where(c => c.Mutates)
+            .Should().OnlyContain(c => !c.Action.EndsWith(".read", StringComparison.Ordinal));
     }
 }

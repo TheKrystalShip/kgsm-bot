@@ -17,8 +17,6 @@ public interface IServerService
     Task<OperationResult> InstallAsync(string blueprintName, string? library, string? version, string? name, CancellationToken ct = default);
     Task<OperationResult> UninstallAsync(string instanceName, CancellationToken ct = default);
     Task<OperationResult> CreateBackupAsync(string instanceName, CancellationToken ct = default);
-    Task<OperationResult> UpdateAsync(string instanceName, CancellationToken ct = default);
-    Task<OperationResult> SetConfigAsync(string instanceName, string key, string value, CancellationToken ct = default);
 
     // ── Queries ───────────────────────────────────────────────────────────
     Task<ServerInstancesResult> GetAllInstancesAsync(CancellationToken ct = default);

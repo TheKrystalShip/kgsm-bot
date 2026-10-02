@@ -20,6 +20,12 @@ using TheKrystalShip.KGSM.ComponentConfig;
 // types cannot leak their sections in here.
 [assembly: ConfigSectionAssembly("KGSM.Bot.Infrastructure")]
 
+// The engine calls are made over there too, by the adapters every command and announcement goes
+// through, and so are this bot's requirements of its own service account. Scanned, so a call to the
+// engine that neither a person's check nor a requirement covers fails the build.
+[assembly: ActionAssembly("KGSM.Bot.Infrastructure")]
+[assembly: ActionAssembly("KGSM.Bot.Application")]
+
 [assembly: ConfigGroup("general", "General", 1)]
 [assembly: ConfigGroup("discord", "Discord", 2)]
 [assembly: ConfigGroup("authorization", "Who may act", 3)]
@@ -37,8 +43,7 @@ using TheKrystalShip.KGSM.ComponentConfig;
 [assembly: ConfigGroup("assistant", "Assistant", 11)]
 [assembly: ConfigGroup("voice", "Voice", 12)]
 // What this bot is in a cluster. Last because it is the one section that says nothing about Discord:
-// it is how the host's accounts reach this member, which is what every other section then authorizes
-// against.
+// it is how this bot reaches the assistant and the rest of the cluster reaches it.
 [assembly: ConfigGroup("cluster", "Cluster", 13)]
 
 // Lowest precedence first — the same order Program.cs registers them in.

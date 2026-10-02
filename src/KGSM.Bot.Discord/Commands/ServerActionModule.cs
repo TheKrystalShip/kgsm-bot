@@ -9,7 +9,8 @@ using KGSM.Bot.Infrastructure.Discord;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
+using TheKrystalShip.KGSM.Auth.Access;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -25,8 +26,9 @@ namespace KGSM.Bot.Discord.Commands;
 /// </para>
 /// <para>
 /// <b>Authorized at the click, not at the post.</b> Nothing was authorized when the announcement went
-/// out — an announcement has no caller — so the tier is resolved here, from the KGSM account the
-/// clicker's Discord account is connected to. A refusal is ephemeral and leaves the button standing,
+/// out — an announcement has no caller — so the clicker is evaluated here, for the restart at that
+/// server, from the KGSM account their Discord account is connected to. A refusal is ephemeral and
+/// leaves the button standing,
 /// because whoever <i>is</i> permitted has not clicked it yet. This is the same rule
 /// <see cref="AssistantConfirmationModule"/> follows, for the same reason.
 /// </para>
@@ -34,18 +36,18 @@ namespace KGSM.Bot.Discord.Commands;
 public class ServerActionModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerService _server;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     private readonly IInvocationContext _invocation;
     private readonly ILogger<ServerActionModule> _logger;
 
     public ServerActionModule(
         IServerService server,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         IInvocationContext invocation,
         ILogger<ServerActionModule> logger)
     {
         _server = server;
-        _accounts = accounts;
+        _access = access;
         _invocation = invocation;
         _logger = logger;
     }
@@ -54,10 +56,11 @@ public class ServerActionModule : InteractionModuleBase<SocketInteractionContext
     [ComponentInteraction(ServerActionIds.RestartPrefix + "*")]
     public async Task RestartAsync(string instance)
     {
-        AccountAnswer account = await _accounts.ResolveAsync(Context.User.Id);
-        if (!account.Allows(KgsmTier.Operator))
+        PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+        AccessDecision decision = await person.DecideAsync(KgsmActions.ServerRestart, instance);
+        if (!decision.Allowed)
         {
-            await RespondAsync(account.Refusal(KgsmTier.Operator), ephemeral: true);
+            await RespondAsync(person.Refusal(KgsmActions.ServerRestart, decision), ephemeral: true);
             return;
         }
 

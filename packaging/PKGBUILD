@@ -79,6 +79,12 @@ package() {
     install -Dm644 "${repo}/deploy/kgsm-bot.leaf.json" \
         "${pkgdir}/var/lib/kgsm/leaves/bot.json"
 
+    # The actions the bot performs and the ones its own service account requires, beside the
+    # descriptor in its actions/ directory under the same name: the node reports it to the auth
+    # anchor, and so does the bot as a member of the cluster.
+    install -Dm644 "${repo}/deploy/kgsm-bot.leaf.actions.json" \
+        "${pkgdir}/var/lib/kgsm/leaves/actions/bot.json"
+
     # The command catalog kgsm-api scans to list this leaf's commands. A subdirectory, because the
     # descriptor scan globs *.json at the level above and would read it as a malformed descriptor.
     install -Dm644 "${repo}/deploy/kgsm-bot.commands.json" \

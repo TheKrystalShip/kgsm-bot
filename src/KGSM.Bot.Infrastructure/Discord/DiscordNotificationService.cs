@@ -158,8 +158,8 @@ public class DiscordNotificationService : IDiscordNotificationService
     /// </summary>
     /// <remarks>
     /// Which announcements are worth acting on is <see cref="AnnouncementActions"/>'s decision. The
-    /// button itself grants nothing: it is a shortcut to <c>/restart</c>, authorized at the click
-    /// against the same account store, and a name too long to fit an id simply gets no button rather
+    /// button itself grants nothing: it is a shortcut to <c>/restart</c>, the clicker evaluated at the
+    /// click for <c>kgsm:server.restart</c> at that server, and a name too long to fit an id simply gets no button rather
     /// than a truncated one pointing at a different server.
     /// </remarks>
     private MessageComponent? ActionsFor(ServerAnnouncement announcement)

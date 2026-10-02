@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM.Auth.Access;
 using TheKrystalShip.Speech;
 
 namespace KGSM.Bot.Discord.Voice;
@@ -68,7 +68,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
 
     private readonly DiscordSocketClient _client;
     private readonly IAssistantTurnClient _assistant;
-    private readonly IKgsmAccounts _accounts;
+    private readonly IBotAccess _access;
     private readonly ITextToSpeech _speech;
     private readonly IVoiceSessions _sessions;
     private readonly IVoiceChimes _chimes;
@@ -79,7 +79,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     public AssistantVoiceCommandHandler(
         DiscordSocketClient client,
         IAssistantTurnClient assistant,
-        IKgsmAccounts accounts,
+        IBotAccess access,
         ITextToSpeech speech,
         IVoiceSessions sessions,
         IVoiceChimes chimes,
@@ -89,7 +89,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     {
         _client = client;
         _assistant = assistant;
-        _accounts = accounts;
+        _access = access;
         _speech = speech;
         _sessions = sessions;
         _chimes = chimes;
@@ -125,12 +125,14 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
                 return;
             }
 
-            AccountAnswer account = await _accounts.ResolveAsync(command.SpeakerId);
-            if (!account.Allows(KgsmTier.Viewer))
+            PersonAccess person = await _access.ResolveAsync(command.SpeakerId, ct);
+            AccessDecision decision = await person.DecideAsync(BotActions.AssistantChat, null, ct);
+            if (!decision.Allowed)
             {
                 // Said in the channel rather than dropped: from inside a voice call, a bot that hears
                 // you and says nothing is indistinguishable from one that is broken.
-                await channel.SendMessageAsync($"🎙️ {command.SpeakerName}: {account.Refusal(KgsmTier.Viewer)}");
+                await channel.SendMessageAsync(
+                    $"🎙️ {command.SpeakerName}: {person.Refusal(BotActions.AssistantChat, decision)}");
                 return;
             }
 
@@ -138,15 +140,15 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
             // question: "go ahead" is not a prompt, it is a decision about a specific grant.
             if (command.Answering is { For: VoiceWaitingFor.Confirmation } waiting)
             {
-                await DecideAsync(channel, command, waiting, account.Tier, ct);
+                await DecideAsync(channel, command, waiting, ct);
                 return;
             }
 
             _logger.LogInformation(
-                "Voice: putting {Speaker}'s request to the assistant (account={Account}, tier={Tier})",
-                command.SpeakerName, account.Account, account.Tier);
+                "Voice: putting {Speaker}'s request to the assistant (account={Account})",
+                command.SpeakerName, person.Account);
 
-            await AnswerAsync(channel, command, account.Tier, ct);
+            await AnswerAsync(channel, command, ct);
         }
         catch (Exception ex)
         {
@@ -156,8 +158,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         }
     }
 
-    private async Task AnswerAsync(
-        IMessageChannel channel, VoiceCommand command, KgsmTier tier, CancellationToken ct)
+    private async Task AnswerAsync(IMessageChannel channel, VoiceCommand command, CancellationToken ct)
     {
         // Echoed before the answer, because a recogniser mishears and the person needs to see what
         // the bot thought they said — an answer about the wrong server is otherwise inexplicable.
@@ -169,7 +170,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         SpokenConversationCommand asked = SpokenConversationCommands.Read(command.Text);
         if (asked != SpokenConversationCommand.None)
         {
-            await RunConversationCommandAsync(channel, command, tier, asked, ct);
+            await RunConversationCommandAsync(channel, command, asked, ct);
             return;
         }
 
@@ -191,9 +192,8 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
             // account and wants the written answer — the style describes where this reply lands, not
             // who asked for it, which is why it rides the turn instead of being configured once.
             result = await _assistant.AskAsync(new AssistantAsk(
-                command.SpeakerId.ToString(),
+                DiscordHandle.Of(command.SpeakerId),
                 command.SpeakerName,
-                tier,
                 command.ChannelId.ToString(),
                 command.Text,
                 RoomFor(command),
@@ -340,8 +340,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// </para>
     /// </remarks>
     private async Task DecideAsync(
-        IMessageChannel channel, VoiceCommand command, VoiceWaiting waiting, KgsmTier tier,
-        CancellationToken ct)
+        IMessageChannel channel, VoiceCommand command, VoiceWaiting waiting, CancellationToken ct)
     {
         SpokenIntent intent = SpokenIntents.Read(command.Text);
 
@@ -369,7 +368,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
                     "Voice: {Speaker} asked something else instead of answering — leaving the offer standing",
                     command.SpeakerName);
 
-                await AnswerAsync(channel, command, tier, ct);
+                await AnswerAsync(channel, command, ct);
                 return;
             }
 
@@ -393,7 +392,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
         foreach (string token in waiting.Tokens ?? [])
         {
             Result<AssistantOutcome> done = await _assistant.ConfirmAsync(
-                new AssistantApproval(command.SpeakerId.ToString(), command.SpeakerName, tier, token), ct);
+                new AssistantApproval(DiscordHandle.Of(command.SpeakerId), command.SpeakerName, token), ct);
 
             if (done.IsFailure)
             {
@@ -619,8 +618,7 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
     /// </para>
     /// </remarks>
     private async Task RunConversationCommandAsync(
-        IMessageChannel channel, VoiceCommand command, KgsmTier tier,
-        SpokenConversationCommand asked, CancellationToken ct)
+        IMessageChannel channel, VoiceCommand command, SpokenConversationCommand asked, CancellationToken ct)
     {
         string name = asked == SpokenConversationCommand.Compact ? "compact" : "new";
 
@@ -629,9 +627,8 @@ public sealed class AssistantVoiceCommandHandler : IVoiceCommandHandler
             command.SpeakerName, name, command.ChannelId);
 
         Result<string> ran = await _assistant.RunCommandAsync(name, new AssistantAsk(
-            command.SpeakerId.ToString(),
+            DiscordHandle.Of(command.SpeakerId),
             command.SpeakerName,
-            tier,
             command.ChannelId.ToString(),
             command.Text,
             RoomFor(command),

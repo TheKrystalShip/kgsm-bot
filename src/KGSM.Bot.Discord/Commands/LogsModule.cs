@@ -7,7 +7,7 @@ using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -27,11 +27,10 @@ namespace KGSM.Bot.Discord.Commands;
 /// the same thing with more of it. The person who asked gets the file; the channel gets nothing.
 /// </para>
 /// <para>
-/// Operator-gated: the log is the inside of the machine, and reading it is not the same permission as
-/// asking whether a server is up.
+/// <c>kgsm:server.console.read</c>, the action that reads what a server prints, which is not the same
+/// grant as asking whether it is up.
 /// </para>
 /// </remarks>
-[RequireTier(KgsmTier.Operator)]
 public class LogsModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerInstanceService _instances;
@@ -59,6 +58,7 @@ public class LogsModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("logs", "The tail of a server's log, as a file only you can see")]
+    [RequireAction(KgsmActions.ServerConsoleRead, Server = "instance")]
     public async Task LogsAsync(
         [Summary(description: "Game server instance")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]

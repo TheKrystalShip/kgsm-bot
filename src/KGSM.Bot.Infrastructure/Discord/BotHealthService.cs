@@ -37,7 +37,7 @@ public sealed class BotHealthService(
     IDiscordSendQueue queue,
     IServerInstanceService instances,
     IServerHistory history,
-    IKgsmAccounts accounts,
+    IBotAccess access,
     IGuildStore guilds,
     IAssistantTurnClient assistant,
     ILogger<BotHealthService> logger) : IBotHealth
@@ -46,7 +46,7 @@ public sealed class BotHealthService(
     private readonly IDiscordSendQueue _queue = queue;
     private readonly IServerInstanceService _instances = instances;
     private readonly IServerHistory _history = history;
-    private readonly IKgsmAccounts _accounts = accounts;
+    private readonly IBotAccess _access = access;
     private readonly IGuildStore _guilds = guilds;
     private readonly IAssistantTurnClient _assistant = assistant;
     private readonly ILogger<BotHealthService> _logger = logger;
@@ -183,14 +183,14 @@ public sealed class BotHealthService(
     }
 
     /// <summary>
-    /// Whether this host's KGSM accounts can be read — which decides whether anybody may do anything.
+    /// Whether this node's authority replica can be read — which decides whether anybody may do anything.
     /// </summary>
     private HealthCheck Accounts() =>
-        _accounts.Available
+        _access.Available
             ? new HealthCheck("KGSM accounts", HealthVerdict.Ok, "Readable — commands can be authorized.")
             : new HealthCheck("KGSM accounts", HealthVerdict.Failing,
-                Sentence(_accounts.UnavailableReason ?? "The account store could not be opened") +
-                " Every command that needs authorization refuses until it can be.");
+                Sentence(_access.UnavailableReason ?? "The authority replica could not be opened") +
+                " Every command refuses until it can be.");
 
     /// <summary>
     /// Whether the bot's own store can be read, and how many Discord servers are set up in it.

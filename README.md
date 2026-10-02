@@ -42,7 +42,7 @@ A variable naming a key the settings file does not declare binds to nothing, so 
 against that file — a test fails the build if the template ever names one that is not declared.
 
 **No Discord server is named in either file.** Invite the bot, then run `/setup announce` in the
-Discord server that should hear about this host — anyone holding KGSM admin can, and it takes effect
+Discord server that should hear about this host — anyone holding `bot:announcements.manage` can, and it takes effect
 at once. That one channel is a working setup; `/setup board` additionally gives each game server its
 own channel under a category, and needs **Manage Channels**. The bot records all of it in its own
 store at `/var/lib/kgsm-bot/bot.db`, outside the install prefix the deploy overwrites.

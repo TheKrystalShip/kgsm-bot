@@ -31,13 +31,15 @@
     }
   },
 
-  // Who may do what here. A Discord account says who somebody is; the KGSM account it is connected to
-  // says what they may do, and that account is the only thing consulted — a guild role is a fact
-  // about a chat server and grants nothing. One file per host, shared with the Control Panel API and
-  // the assistant, so the same person holds the same tier on all three. Read straight off disk: a
-  // file cannot be down, so the bot keeps authorizing people with every other leaf stopped.
+  // Who may do what here. A Discord account says who somebody is; the roles the KGSM account it is
+  // connected to holds say what they may do, and that account is the only thing consulted — a guild
+  // role is a fact about a chat server and grants nothing. Both files are the node's on this machine,
+  // read and never written: its replica of the cluster's authority, which every member here evaluates
+  // a person against, and the file it names itself in. Read straight off disk, so the bot keeps
+  // authorizing people with every other leaf stopped.
   "Auth": {
-    "UsersDbPath": "/var/lib/kgsm/auth/users.db"
+    "UsersDbPath": "/var/lib/kgsm/auth/users.db",
+    "ProviderFilePath": "/var/lib/kgsm/cluster/auth-provider.json"
   },
 
   // Which Discord servers the bot announces into, and the channel each server reports in. Written by
@@ -53,8 +55,9 @@
   // shared by every member on the machine, and a second place to set it is where one blank and one
   // filled look identical from the outside.
   //
-  // Being a member is what gives this bot its own copy of the cluster's accounts, pushed to it by the
-  // auth anchor. Standing alone it reads the accounts on its own host, exactly as it always has.
+  // Being a member is what lets this bot ask the assistant on somebody's behalf, carry the chat
+  // capability, and hold a service account of its own for what it does with nobody asking. Who may do
+  // what is read from the node's replica either way.
   "Cluster": {
     "MemberId": "",
     "Urls": "http://127.0.0.1:5182",
@@ -75,7 +78,7 @@
     "PublicAddress": "",
 
     // What an announcement about a server that is down carries with it. A button is a shortcut to the
-    // slash command — authorized at the click, against the same account store — so turning it off
+    // slash command — the clicker evaluated at the click for the same action — so turning it off
     // costs the shortcut and never the safety. A thread needs "Create Public Threads"; without the
     // permission the announcement posts plainly and nothing else changes.
     "ActionButtons": true,

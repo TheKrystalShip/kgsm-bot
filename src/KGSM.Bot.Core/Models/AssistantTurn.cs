@@ -1,17 +1,15 @@
-using TheKrystalShip.KGSM.Auth;
-
 namespace KGSM.Bot.Core.Models;
 
 /// <summary>
-/// One person's question, as the assistant needs it: who is asking, what authority they hold, which
-/// of their conversations it belongs to, and the text itself.
+/// One person's question, as the assistant needs it: who is asking, which of their conversations it
+/// belongs to, and the text itself. What they may do is the assistant's to read from its own replica.
 /// </summary>
-/// <param name="UserId">The Discord snowflake of the person asking. Their memory is keyed under it.</param>
-/// <param name="DisplayName">Their name, for the assistant to address them by.</param>
-/// <param name="Tier">
-/// The authority their KGSM account holds right now, which decides whether the assistant may propose
-/// an action for them or only read.
+/// <param name="Handle">
+/// Who is asking, as the qualified handle the assistant resolves against its accounts:
+/// <c>discord:&lt;snowflake&gt;</c> for a person, whose memory is keyed under it, or this bot's own
+/// service account (<c>svc:bot@&lt;member&gt;</c>) for work nobody asked for.
 /// </param>
+/// <param name="DisplayName">Their name, for the assistant to address them by.</param>
 /// <param name="ConversationId">
 /// Which of this person's conversations to continue — the channel they asked in, so a thread in one
 /// channel is a separate context window from a thread in another. It sub-scopes their own memory and
@@ -22,7 +20,7 @@ namespace KGSM.Bot.Core.Models;
 /// The place this conversation belongs to, when it belongs to a place rather than to the person
 /// asking — a thread, where everyone talking to the assistant is talking to it together. Set, it is
 /// the conversation: each of them continues the one transcript, and each still acts with their own
-/// <paramref name="Tier"/>.
+/// access.
 /// <para>
 /// It travels alongside <paramref name="ConversationId"/> rather than replacing it, and the assistant
 /// prefers it. That is what makes an assistant which knows nothing of rooms degrade cleanly: it reads
@@ -46,9 +44,8 @@ namespace KGSM.Bot.Core.Models;
 /// </para>
 /// </param>
 public sealed record AssistantAsk(
-    string UserId,
+    string Handle,
     string DisplayName,
-    KgsmTier Tier,
     string ConversationId,
     string Prompt,
     string? Room = null,
@@ -79,8 +76,8 @@ public sealed record StagedAction(
     string? ConfigValue = null);
 
 /// <summary>
-/// One person approving one staged action: who is approving, what authority they hold at the moment
-/// they approve, and the grant they are redeeming.
+/// One person approving one staged action: who is approving, as the qualified handle the assistant
+/// resolves (<c>discord:&lt;snowflake&gt;</c>), and the grant they are redeeming.
 /// </summary>
 /// <remarks>
 /// The approver is named separately from whoever staged it because approving is its own act, judged
@@ -89,9 +86,8 @@ public sealed record StagedAction(
 /// that issued the grant decide whether that is allowed.
 /// </remarks>
 public sealed record AssistantApproval(
-    string UserId,
+    string Handle,
     string DisplayName,
-    KgsmTier Tier,
     string Token);
 
 /// <summary>

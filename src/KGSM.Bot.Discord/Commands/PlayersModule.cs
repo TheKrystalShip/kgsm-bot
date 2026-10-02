@@ -8,7 +8,9 @@ using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using KGSM.Bot.Infrastructure.Authorization;
+
+using TheKrystalShip.KGSM;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -27,20 +29,26 @@ namespace KGSM.Bot.Discord.Commands;
 /// supervisor that could not be reached, and a stopped server are three different sentences, and none
 /// of them is "0 online" — a server nobody can see into may be full.
 /// </para>
+/// <para>
+/// <b>The whole host is the servers the asker can read.</b> The total is summed over those, never over
+/// every server with the rest left unmentioned.
+/// </para>
 /// </remarks>
-[RequireTier(KgsmTier.Viewer)]
 public class PlayersModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IPlayerRoster _roster;
+    private readonly IBotAccess _access;
     private readonly ILogger<PlayersModule> _logger;
 
-    public PlayersModule(IPlayerRoster roster, ILogger<PlayersModule> logger)
+    public PlayersModule(IPlayerRoster roster, IBotAccess access, ILogger<PlayersModule> logger)
     {
         _roster = roster;
+        _access = access;
         _logger = logger;
     }
 
     [SlashCommand("players", "Who is playing — on one server, or across the whole host")]
+    [RequireAction(KgsmActions.ServerRead, Server = "instance")]
     public async Task PlayersAsync(
         [Summary(description: "Game server instance. Leave empty for every server.")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
@@ -55,7 +63,9 @@ public class PlayersModule : InteractionModuleBase<SocketInteractionContext>
             if (string.IsNullOrWhiteSpace(instance))
             {
                 IReadOnlyList<ServerRoster> all = await _roster.GetAllAsync();
-                await FollowupAsync(embed: RenderHost(all));
+                PersonAccess person = await _access.ResolveAsync(Context.User.Id);
+                var readable = (await person.FilterAsync(KgsmActions.ServerRead, all.Select(r => r.Server))).ToHashSet();
+                await FollowupAsync(embed: RenderHost([.. all.Where(r => readable.Contains(r.Server))]));
                 return;
             }
 
@@ -125,7 +135,7 @@ public class PlayersModule : InteractionModuleBase<SocketInteractionContext>
 
         if (rosters.Count == 0)
         {
-            embed.WithDescription("No servers are installed on this host.");
+            embed.WithDescription("There are no servers on this host that you can see.");
             return embed.Build();
         }
 

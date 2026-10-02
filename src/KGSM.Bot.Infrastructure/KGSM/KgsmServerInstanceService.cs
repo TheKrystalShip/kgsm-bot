@@ -1,15 +1,17 @@
 using KGSM.Bot.Core.Common;
 using KGSM.Bot.Core.Interfaces;
+using KGSM.Bot.Infrastructure.Authorization;
 using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using TheKrystalShip.KGSM;
 using TheKrystalShip.KGSM.Core.Interfaces;
 using TheKrystalShip.KGSM.Core.Models;
 
-// KGSM.Lib 1.1.0 added TheKrystalShip.KGSM.Core.Models.KgsmOptions, which collides with
-// the bot's own config type; pin the unqualified name to the bot's.
+// TheKrystalShip.KGSM.Core.Models.KgsmOptions collides with the bot's own config type; pin the
+// unqualified name to the bot's.
 using KgsmOptions = KGSM.Bot.Infrastructure.Configuration.KgsmOptions;
 
 namespace KGSM.Bot.Infrastructure.KGSM;
@@ -63,6 +65,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerInstall)]
     public async Task<Result> InstallAsync(string blueprintName, string? library = null, string? version = null, string? name = null)
     {
         try
@@ -96,6 +99,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.EngineConfigRead)]
     public async Task<Result<IReadOnlyList<Library>>> GetLibrariesAsync()
     {
         try
@@ -123,6 +127,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerUninstall)]
     public async Task<Result> UninstallAsync(string instanceName)
     {
         try
@@ -154,6 +159,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerStart)]
     public async Task<Result> StartAsync(string instanceName)
     {
         try
@@ -189,6 +195,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerStop)]
     public async Task<Result> StopAsync(string instanceName)
     {
         try
@@ -224,6 +231,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerRestart)]
     public async Task<Result> RestartAsync(string instanceName)
     {
         try
@@ -246,34 +254,6 @@ public class KgsmServerInstanceService : IServerInstanceService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error restarting server instance {InstanceName}", instanceName);
-            return Result.Failure(ex.Message);
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task<Result> UpdateAsync(string instanceName)
-    {
-        try
-        {
-            _logger.LogInformation("Updating server instance {InstanceName}", instanceName);
-
-            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var (actor, origin) = Provenance();
-            var result = await Task.Run(() => _kgsmClient.Instances.Update(instanceName, actor, origin));
-
-            if (result.IsFailure)
-            {
-                _logger.LogWarning("Error updating server instance {InstanceName}: {Error}",
-                    instanceName, result.Stderr);
-                return Result.Failure(result.Stderr ?? "Unknown error");
-            }
-
-            _logger.LogInformation("Successfully updated server instance {InstanceName}", instanceName);
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating server instance {InstanceName}", instanceName);
             return Result.Failure(ex.Message);
         }
     }
@@ -306,6 +286,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerConsoleRead)]
     public async Task<Result<IReadOnlyList<string>>> GetLogsAsync(string instanceName, int lines)
     {
         try
@@ -387,6 +368,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerBackupsCreate)]
     public async Task<Result> CreateBackupAsync(string instanceName)
     {
         try
@@ -435,6 +417,7 @@ public class KgsmServerInstanceService : IServerInstanceService
     }
 
     /// <inheritdoc />
+    [PerformedFor(KgsmActions.ServerBackupsRestore)]
     public async Task<Result> RestoreBackupAsync(string instanceName, string backupId)
     {
         try
@@ -459,34 +442,6 @@ public class KgsmServerInstanceService : IServerInstanceService
         {
             _logger.LogError(ex, "Error restoring backup {BackupId} onto server instance {InstanceName}",
                 backupId, instanceName);
-            return Result.Failure(ex.Message);
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task<Result> SetConfigValueAsync(string instanceName, string key, string value)
-    {
-        try
-        {
-            _logger.LogInformation("Setting config '{Key}' on server instance {InstanceName}", key, instanceName);
-
-            // KGSM-Lib operates synchronously, but we'll maintain async signature for consistency
-            var (actor, origin) = Provenance();
-            var result = await Task.Run(() => _kgsmClient.Instances.SetInstanceConfigValue(instanceName, key, value, actor, origin));
-            if (result.IsFailure)
-            {
-                // kgsm refuses denylisted/invalid keys with a clear stderr message — surface it.
-                _logger.LogWarning("Failed to set config '{Key}' on server instance {InstanceName}: {Error}",
-                    key, instanceName, result.Stderr);
-                return Result.Failure(result.Stderr ?? "Unknown error");
-            }
-
-            _logger.LogInformation("Successfully set config '{Key}' on server instance {InstanceName}", key, instanceName);
-            return Result.Success();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error setting config '{Key}' on server instance {InstanceName}", key, instanceName);
             return Result.Failure(ex.Message);
         }
     }

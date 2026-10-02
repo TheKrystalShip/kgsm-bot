@@ -9,7 +9,9 @@ using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using KGSM.Bot.Infrastructure.Authorization;
+
+using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Discord.Commands;
 
@@ -18,11 +20,10 @@ namespace KGSM.Bot.Discord.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Operator, and not because it changes anything.</b> These commands act on no server at all, so
-/// they are not <c>[Mutating]</c> — what puts them here is that the bot in a voice channel hears
-/// everybody in the room, including people who never addressed it. That is the same reason
-/// <c>/logs</c> sits at operator while changing nothing: the gate is on what it exposes, not on what
-/// it alters.
+/// <b>An action of its own, and not because it changes anything.</b> These commands act on no server
+/// at all, so they are not <c>[Mutating]</c> — what puts them behind <c>bot:voice.use</c> is that the
+/// bot in a voice channel hears everybody in the room, including people who never addressed it. The
+/// gate is on what it exposes, not on what it alters.
 /// </para>
 /// <para>
 /// <b>The bot goes where the person asking already is.</b> There is no channel argument: somebody
@@ -30,8 +31,8 @@ namespace KGSM.Bot.Discord.Commands;
 /// not part of, and everybody who will be heard can see who brought it in.
 /// </para>
 /// </remarks>
-[RequireTier(KgsmTier.Operator)]
 [Group("voice", "Have the bot listen in a voice channel")]
+[Action(BotActions.VoiceUse, "Have the Discord bot listen in a voice channel", DeclaredEffect.Execute, DeclaredScope.Node)]
 public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IVoiceSessions _voice;
@@ -49,6 +50,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("join", "Join the voice channel you are in and start listening")]
+    [RequireAction(BotActions.VoiceUse)]
     public async Task JoinAsync()
     {
         await DeferAsync(ephemeral: true);
@@ -85,6 +87,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("leave", "Stop listening and leave the voice channel")]
+    [RequireAction(BotActions.VoiceUse)]
     public async Task LeaveAsync()
     {
         await DeferAsync(ephemeral: true);
@@ -116,6 +119,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     /// </para>
     /// </remarks>
     [SlashCommand("speak-as", "Try a different speaking voice for this host, until the engine restarts")]
+    [RequireAction(BotActions.VoiceUse)]
     public async Task SpeakAsAsync(
         [Summary("voice", "Which voice to speak in")]
         [Autocomplete(typeof(SpeechVoiceAutocompleteHandler))]
@@ -155,6 +159,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("status", "Where the bot is listening, and what it has heard")]
+    [RequireAction(BotActions.VoiceUse)]
     public async Task StatusAsync()
     {
         VoiceSession? session = _voice.Describe(Context.Guild.Id);

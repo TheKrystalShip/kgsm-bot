@@ -2,24 +2,31 @@ using Discord;
 using Discord.Interactions;
 
 using KGSM.Bot.Application;
+using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
+
+using TheKrystalShip.KGSM;
 
 namespace KGSM.Bot.Discord.Autocomplete;
 
 /// <summary>
-/// Autocomplete handler for the libraries an instance can be installed into.
+/// Autocomplete handler for the libraries an instance can be installed into, offered to whoever may
+/// read this node's engine configuration, where the libraries are kept.
 /// </summary>
 public class LibraryAutocompleteHandler : AutocompleteHandler
 {
     private readonly IServerService _server;
+    private readonly IBotAccess _access;
     private readonly ILogger<LibraryAutocompleteHandler> _logger;
 
     public LibraryAutocompleteHandler(
         IServerService server,
+        IBotAccess access,
         ILogger<LibraryAutocompleteHandler> logger)
     {
         _server = server;
+        _access = access;
         _logger = logger;
     }
 
@@ -34,6 +41,10 @@ public class LibraryAutocompleteHandler : AutocompleteHandler
             _logger.LogDebug("Generating library suggestions for autocomplete");
 
             string currentValue = autocompleteInteraction.Data.Current.Value.ToString() ?? string.Empty;
+
+            PersonAccess person = await _access.ResolveAsync(context.User.Id);
+            if (!await person.AllowsAsync(KgsmActions.EngineConfigRead, null))
+                return AutocompletionResult.FromSuccess();
 
             var result = await _server.GetLibrariesAsync();
             if (!result.IsSuccess)

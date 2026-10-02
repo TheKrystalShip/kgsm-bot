@@ -3,24 +3,31 @@ using Discord.Interactions;
 
 using KGSM.Bot.Application;
 using KGSM.Bot.Core.Models;
+using KGSM.Bot.Infrastructure.Authorization;
 
 using Microsoft.Extensions.Logging;
+
+using TheKrystalShip.KGSM;
 
 namespace KGSM.Bot.Discord.Autocomplete;
 
 /// <summary>
-/// Autocomplete handler for instances
+/// Autocomplete handler for instances: the servers on this node the person typing can read, and no
+/// others — a suggestion list is a server list, cut to what they can see.
 /// </summary>
 public class InstancesAutocompleteHandler : AutocompleteHandler
 {
     private readonly IServerService _server;
+    private readonly IBotAccess _access;
     private readonly ILogger<InstancesAutocompleteHandler> _logger;
 
     public InstancesAutocompleteHandler(
         IServerService server,
+        IBotAccess access,
         ILogger<InstancesAutocompleteHandler> logger)
     {
         _server = server;
+        _access = access;
         _logger = logger;
     }
 
@@ -45,10 +52,14 @@ public class InstancesAutocompleteHandler : AutocompleteHandler
                 return AutocompletionResult.FromError(new Exception(result.ErrorMessage));
             }
 
+            PersonAccess person = await _access.ResolveAsync(context.User.Id);
+            var readable = (await person.FilterAsync(KgsmActions.ServerRead, result.Instances!.Keys)).ToHashSet();
+
             // Matched on both names and shown as both. What is typed back is always the id: it is
             // what the command takes, what the engine keys on, and the one of the two that cannot
             // change under a person mid-interaction.
             var filteredInstances = result.Instances!
+                .Where(i => readable.Contains(i.Key))
                 .Where(i => i.Key.Contains(currentValue, StringComparison.OrdinalIgnoreCase)
                             || i.Value.DisplayName.Contains(currentValue, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(i => i.Value.DisplayName, StringComparer.OrdinalIgnoreCase)

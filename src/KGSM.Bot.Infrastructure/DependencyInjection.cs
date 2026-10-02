@@ -76,7 +76,8 @@ public static class DependencyInjection
             // A chat surface, not a node: it runs no game servers and hosts no leaves.
             Kind = MemberKind.Anchor,
             // Members only. This bot has no browser surface, so the address it states is never one a
-            // browser is handed — it exists so the anchor has somewhere to push an account change to.
+            // browser is handed — it exists so the other members have somewhere to deliver what they
+            // tell this one.
             GossipUrl = clusterSettings.GossipUrl.Trim(),
         });
 
@@ -87,7 +88,7 @@ public static class DependencyInjection
         services.AddKgsmDnsMember(clusterSettings.PublicHost, "kgsm-bot");
 
         // Which Discord servers this host announces into. A singleton because it holds the open
-        // store, and — like the account store — opening it is what can fail, so it fails into an
+        // store, and opening it is what can fail, so it fails into an
         // unavailable store rather than out of the constructor and takes the whole bot with it.
         services.Configure<GuildOptions>(configuration.GetSection(GuildOptions.Section));
         services.AddSingleton<IGuildStore, Guilds.SqliteGuildStore>();
@@ -97,33 +98,44 @@ public static class DependencyInjection
         // "a leaf runs standalone" means for an optional sibling.
         services.AddSingleton<IAssistantTurnClient, Assistant.AssistantTurnClient>();
 
-        // This host's KGSM accounts — the one answer to who may act, shared with the Control Panel
-        // and the assistant. A singleton because it holds the open store; opening it is what can
-        // fail, and it fails into an unavailable directory rather than out of the constructor.
+        // The cluster's authority — accounts, roles, permissions, assignments and the catalog — which
+        // every question about what somebody may do here is answered from. It is the replica the node on
+        // this machine keeps, read and never written: two writers of one file would be the node's
+        // authority rewritten by an echo of itself. The assistant this bot forwards a question to
+        // evaluates the same person against its own replica of the same source, and neither takes the
+        // other's word for what somebody may do. Unreadable is an outage every command reports as one.
         services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.Section));
-        services.AddSingleton<KgsmAccounts>();
-        services.AddSingleton<IKgsmAccounts>(sp => sp.GetRequiredService<KgsmAccounts>());
+        services.AddSingleton<IReplicatedAuthority>(sp => new AuthorityReplicaFile(
+            sp.GetRequiredService<IOptions<AuthOptions>>().Value.UsersDbPath,
+            sp.GetRequiredService<ILogger<AuthorityReplicaFile>>()));
+        services.AddSingleton<MemberAccess>();
 
-        // This member's own copy of the cluster's accounts, and the only thing it resolves a person
-        // against. The auth anchor is the single authority in a cluster; every member holds a copy it
-        // was given directly and answers from that.
-        //
-        // A copy of a copy is deliberately not a thing here. This bot forwards a question to the
-        // assistant, and the assistant resolves the same person against ITS copy of the same source —
-        // two members reading one authority, neither taking the other's word for who somebody is.
-        services.AddSingleton<IReplicatedAccounts>(sp => sp.GetRequiredService<KgsmAccounts>());
-        services.AddSingleton<IClusterMessageHandler, AccountReplicationHandler>();
-        services.AddSingleton<IClusterMessageHandler, AccountRemovalHandler>();
+        // Where this bot is, as a grant names it: the node it sits on, as that node writes it into the
+        // host file, and each server on it as the install it is.
+        services.AddSingleton(sp => new HostSessionKeys(
+            sp.GetRequiredService<IOptions<AuthOptions>>().Value.ProviderFilePath,
+            sp.GetRequiredService<ILogger<HostSessionKeys>>()));
+        services.AddSingleton(sp => new BotStanding(
+            () => sp.GetRequiredService<HostSessionKeys>().Node,
+            sp.GetRequiredService<IKgsmStateCache>()));
+        services.AddSingleton<IBotAccess, BotAccess>();
+
+        // What this bot performs, told to the holder of the accounts as this member's own report, which
+        // is what gives it a service account of its own: the one it names when it asks the assistant
+        // something nobody asked it to. The node on this machine reports the same manifest from the
+        // leaves' directory, where its actions reach the catalog with no cluster at all.
+        services.AddSingleton(new AuthorityReporterOptions
+        {
+            ManifestFiles = [BotActions.ActionManifest],
+        });
+        services.AddSingleton<AuthorityReporter>();
+        services.AddHostedService(sp => sp.GetRequiredService<AuthorityReporter>());
 
         // Which member of the cluster carries the chat surface. Registered beside the membership
         // above and inert without a secret for the same reason: a bot standing alone reports itself
         // not clustered and serves what it always has. It claims only into an assignment nobody
         // holds, so a cluster that already named a bot is left alone.
         services.AddHostedService<Cluster.BotCapabilityWorker>();
-
-        // The first full copy. The stream alone would leave this member holding only what changed after
-        // it joined, resolving everybody who existed before that as a stranger.
-        services.AddHostedService<AccountSnapshotWorker>();
 
         // Register Discord services
         services.AddDiscordServices();

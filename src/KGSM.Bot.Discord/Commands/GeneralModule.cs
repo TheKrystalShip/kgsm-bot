@@ -5,14 +5,14 @@ using Microsoft.Extensions.Logging;
 
 using System.Reflection;
 
-using TheKrystalShip.KGSM.Auth;
+using KGSM.Bot.Infrastructure.Authorization;
 
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
-/// Discord module for general commands
+/// Discord module for general commands: whether the bot answers, and what it is. Both are a view of
+/// the bot's own status, held under the same action as <c>/health</c>.
 /// </summary>
-[RequireTier(KgsmTier.Viewer)]
 public class GeneralModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly ILogger<GeneralModule> _logger;
@@ -23,6 +23,7 @@ public class GeneralModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("ping", "Check if the bot is responsive")]
+    [RequireAction(BotActions.StatusRead)]
     public async Task PingAsync()
     {
         try
@@ -48,6 +49,7 @@ public class GeneralModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("about", "Show information about the bot")]
+    [RequireAction(BotActions.StatusRead)]
     public async Task AboutAsync()
     {
         try

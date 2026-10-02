@@ -1,8 +1,6 @@
 using Discord;
 using Discord.Interactions;
 
-using TheKrystalShip.KGSM.Auth;
-
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,19 +8,13 @@ using System.Text.Json.Serialization;
 namespace KGSM.Bot.Discord.Commands;
 
 /// <summary>
-/// Marks a slash command that changes something — a server's run state, or what is installed — and
-/// requires <see cref="KgsmTier.Operator"/> to run it. The manifest below carries the mark so the
-/// Control Panel can separate the commands that read from the commands that act, which is the
-/// distinction an operator is actually looking for when they open the list.
+/// Marks a slash command that changes something — a server's run state, what is installed, a backup.
+/// The manifest below carries the mark so the Control Panel can separate the commands that read from
+/// the commands that act, which is the distinction somebody is actually looking for when they open the
+/// list. It decides nothing: who may run a command is its <see cref="RequireActionAttribute"/>.
 /// </summary>
-/// <remarks>
-/// One attribute is both the mark and the gate on purpose: the thing that puts a command in the "acts"
-/// column is exactly the thing that decides who may run it, so a new mutating command cannot be added
-/// and left open by forgetting a second attribute. A command needing a different tier carries
-/// <see cref="RequireTierAttribute"/> directly.
-/// </remarks>
 [AttributeUsage(AttributeTargets.Method)]
-internal sealed class MutatingAttribute() : RequireTierAttribute(KgsmTier.Operator);
+internal sealed class MutatingAttribute : Attribute;
 
 /// <summary>
 /// One option of a slash command, named and typed the way Discord presents it. <c>Autocomplete</c>
@@ -35,10 +27,11 @@ internal sealed record CommandOption(
     bool Required,
     bool Autocomplete);
 
-/// <summary>One slash command this build registers.</summary>
+/// <summary>One slash command this build registers, and the action whoever runs it must hold.</summary>
 internal sealed record BotCommand(
     string Name,
     string Description,
+    string Action,
     bool Mutates,
     IReadOnlyList<CommandOption> Options);
 
@@ -53,40 +46,26 @@ internal sealed record BotCommand(
 /// command cannot be listed that does not exist or renamed without the list following.
 /// </para>
 /// <para>
-/// The catalog is <strong>keyed by the gate that admits each command</strong> — the tier the
-/// command's own <see cref="RequireTierAttribute"/> demands, the method's where it carries one and
-/// otherwise its module's. That is the attribute the bot actually enforces, so the panel prints the
-/// word that decides the answer rather than one derived from it: a command that changes no server
-/// but configures the host still lands in <c>admin</c>, where it belongs.
+/// Each command names <strong>the action its <see cref="RequireActionAttribute"/> checks</strong> —
+/// the attribute the bot actually enforces, so the panel prints the action that decides the answer
+/// rather than one derived from it. A command with none is not listed as open: it is not in the
+/// catalog, and <c>CommandManifestTests</c> fails on it.
 /// </para>
 /// </summary>
 internal sealed record CommandManifest(
     int SchemaVersion,
     string Leaf,
     string Surface,
-    IReadOnlyDictionary<string, IReadOnlyList<BotCommand>> Gates)
+    IReadOnlyList<BotCommand> Commands)
 {
     /// <summary>The schema readers match on. A reader that does not know the version skips the file.</summary>
-    public const int Version = 2;
+    public const int Version = 3;
 
     /// <summary>
     /// The leaf id this manifest belongs to — the same id the config descriptor declares and the
     /// filename stem it is installed under.
     /// </summary>
     public const string LeafId = "bot";
-
-    /// <summary>
-    /// A mutating slash command requires <see cref="KgsmTier.Operator"/>, enforced by
-    /// <see cref="MutatingAttribute"/> before the command body runs.
-    /// </summary>
-    public const string SlashCommandGate = KgsmTiers.Operator;
-
-    /// <summary>
-    /// The bucket a command sits in when this bot checks nothing of its own before running it. Not a
-    /// gap — a statement, so the panel can say plainly that the only restriction on such a command is
-    /// whatever Discord itself imposes.
-    /// </summary>
-    public const string NoGate = "none";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -100,17 +79,12 @@ internal sealed record CommandManifest(
         SchemaVersion: Version,
         Leaf: LeafId,
         Surface: "discord",
-        Gates: assembly.GetTypes()
+        // Reflection makes no promise about the order it returns types or methods in, and this file is
+        // committed — an unordered write would show up as a diff on an unrelated build.
+        Commands: [.. assembly.GetTypes()
             .Where(t => t.IsClass && !t.IsAbstract && typeof(IInteractionModuleBase).IsAssignableFrom(t))
             .SelectMany(CommandsIn)
-            .GroupBy(c => c.Gate, c => c.Command, StringComparer.Ordinal)
-            .OrderBy(g => g.Key, StringComparer.Ordinal)
-            .ToDictionary(
-                g => g.Key,
-                // Reflection makes no promise about the order it returns types or methods in, and this
-                // file is committed — an unordered write would show up as a diff on an unrelated build.
-                g => (IReadOnlyList<BotCommand>)[.. g.OrderBy(c => c.Name, StringComparer.Ordinal)],
-                StringComparer.Ordinal));
+            .OrderBy(c => c.Name, StringComparer.Ordinal)]);
 
     /// <summary>Generate the manifest and write it where the deploy expects to find it.</summary>
     public static void WriteTo(string path)
@@ -122,7 +96,7 @@ internal sealed record CommandManifest(
         File.WriteAllText(path, json + Environment.NewLine);
     }
 
-    private static IEnumerable<(string Gate, BotCommand Command)> CommandsIn(Type module)
+    private static IEnumerable<BotCommand> CommandsIn(Type module)
     {
         // A module may nest its commands under a group word, which becomes part of what a user types.
         string prefix = module.GetCustomAttribute<GroupAttribute>() is { Name: string g } && g.Length > 0
@@ -131,38 +105,19 @@ internal sealed record CommandManifest(
 
         foreach (MethodInfo method in module.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
         {
-            if (method.GetCustomAttribute<SlashCommandAttribute>() is not { } slash)
+            if (method.GetCustomAttribute<SlashCommandAttribute>() is not { } slash
+                || method.GetCustomAttribute<RequireActionAttribute>() is not { } required)
+            {
                 continue;
+            }
 
-            yield return (GateOf(module, method), new BotCommand(
+            yield return new BotCommand(
                 Name: prefix + slash.Name,
                 Description: slash.Description,
+                Action: required.Action,
                 Mutates: method.GetCustomAttribute<MutatingAttribute>() is not null,
-                Options: [.. method.GetParameters().Select(OptionOf)]));
+                Options: [.. method.GetParameters().Select(OptionOf)]);
         }
-    }
-
-    /// <summary>
-    /// The tier this command is actually refused below: its own <see cref="RequireTierAttribute"/>
-    /// where it carries one, otherwise the module's.
-    /// </summary>
-    /// <remarks>
-    /// Discord.Net evaluates a method's preconditions and its module's, so a method attribute never
-    /// replaces the module's — it raises the bar, which is what makes taking the higher of the two the
-    /// honest answer. A command under no attribute at all reports <see cref="NoGate"/> rather than
-    /// being quietly filed under a tier nothing enforces.
-    /// </remarks>
-    private static string GateOf(Type module, MethodInfo method)
-    {
-        KgsmTier? onMethod = method.GetCustomAttribute<RequireTierAttribute>()?.Minimum;
-        KgsmTier? onModule = module.GetCustomAttribute<RequireTierAttribute>()?.Minimum;
-
-        return (onMethod, onModule) switch
-        {
-            (null, null) => NoGate,
-            _ => KgsmTiers.ToWire((KgsmTier)Math.Max((int)(onMethod ?? KgsmTier.None),
-                                                     (int)(onModule ?? KgsmTier.None))),
-        };
     }
 
     private static CommandOption OptionOf(ParameterInfo p)

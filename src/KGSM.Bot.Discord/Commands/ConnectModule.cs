@@ -8,7 +8,7 @@ using KGSM.Bot.Discord.Autocomplete;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.KGSM;
 using TheKrystalShip.KGSM.Core.Models;
 
 namespace KGSM.Bot.Discord.Commands;
@@ -23,7 +23,6 @@ namespace KGSM.Bot.Discord.Commands;
 /// authority still hands out an address, and a host that could not read its external IP still hands
 /// out the ports.
 /// </remarks>
-[RequireTier(KgsmTier.Viewer)]
 public class ConnectModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IServerConnectionService _connections;
@@ -36,6 +35,7 @@ public class ConnectModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     [SlashCommand("connect", "How to join a game server — address, ports, and whether they are reachable")]
+    [RequireAction(KgsmActions.ServerRead, Server = "instance")]
     public async Task ConnectAsync(
         [Summary(description: "Game server instance")]
         [Autocomplete(typeof(InstancesAutocompleteHandler))]
