@@ -5,10 +5,7 @@ using TheKrystalShip.KGSM.ComponentConfig;
 // deploy/kgsm-bot.leaf.json; deploy.sh installs that into /var/lib/kgsm/leaves/bot.json, where
 // kgsm-api scans for it. The bot itself never reads any of this.
 //
-// The Discord, KGSM, KgsmCache and Assistant sections are declared on their own types in
-// KGSM.Bot.Infrastructure. KgsmAuth is declared here instead: that type belongs to the shared auth
-// package, and each surface describes the same keys in its own words, so the prose has to live with
-// the surface that shows it.
+// The settings sections are declared on their own types in KGSM.Bot.Infrastructure.
 
 [assembly: Leaf(
     id: "bot",
@@ -59,20 +56,3 @@ using TheKrystalShip.KGSM.ComponentConfig;
     Group = "general",
     Type = ConfigType.Enum,
     Values = ["Trace", "Debug", "Information", "Warning", "Error", "Critical"])]
-
-// ── TheKrystalShip.KGSM.Auth's section, described for this surface ───────────
-// The shared Discord application. The type lives in the auth package, which is deliberately free of
-// every dependency including this one, so its keys are described here. The values are shared with the
-// Control Panel API and the assistant: a host that changes them here without changing them there
-// points two surfaces at two different applications.
-//
-// Who may act is not in this section. It is the KGSM account behind a Discord account, in the store
-// declared on AuthOptions over in KGSM.Bot.Infrastructure.
-
-[assembly: ConfigFrameworkField("authClientId", "KgsmAuth__Providers__discord__ClientId", "Discord application id",
-    Description = "The Discord application people sign in through on the surfaces that have a sign-in. The bot itself does not, and works without this.",
-    Group = "authorization", NoDefault = true)]
-
-[assembly: ConfigFrameworkField("authClientSecret", "KgsmAuth__Providers__discord__ClientSecret", "Discord application secret",
-    Description = "Secret for that application. Only the surfaces with a sign-in use it; the bot does not.",
-    Group = "authorization", Type = ConfigType.Secret, NoDefault = true)]

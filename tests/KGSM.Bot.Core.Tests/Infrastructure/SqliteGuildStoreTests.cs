@@ -41,7 +41,7 @@ public sealed class SqliteGuildStoreTests : IDisposable
     {
         SqliteGuildStore store = Open();
 
-        store.Configured().Should().BeEmpty("nothing is announced until an admin runs /setup");
+        store.Configured().Should().BeEmpty("nothing is announced until somebody runs /setup");
         store.Find(1).Should().BeNull();
 
         store.SetAnnounceChannel(1, 2, "heisen").IsSuccess.Should().BeTrue();
@@ -172,7 +172,7 @@ public sealed class SqliteGuildStoreTests : IDisposable
         SqliteGuildStore store = Open();
         store.SetAnnounceChannel(1, 2, "heisen");
 
-        store.Find(1)!.KeepsStatus.Should().BeFalse("nothing is kept current until an admin asks");
+        store.Find(1)!.KeepsStatus.Should().BeFalse("nothing is kept current until somebody asks");
 
         store.SetStatusChannel(1, 7).IsSuccess.Should().BeTrue();
         store.SetStatusMessage(1, BigSnowflake).IsSuccess.Should().BeTrue();
@@ -375,7 +375,7 @@ public sealed class SqliteGuildStoreTests : IDisposable
 
     /// <summary>
     /// Forgetting a guild takes its filter with it, so re-running <c>/setup announce</c> later starts
-    /// from "everything" rather than from a list the new admin never chose and cannot see.
+    /// from "everything" rather than from a list whoever sets it up next never chose and cannot see.
     /// </summary>
     [Fact]
     public void ForgettingAGuildForgetsItsFilter()
@@ -393,7 +393,7 @@ public sealed class SqliteGuildStoreTests : IDisposable
 
     /// <summary>
     /// A store that could not be opened follows everything rather than nothing. An unreadable filter
-    /// must not be able to silence a guild an admin set up: the failure is visible in the log, and the
+    /// must not be able to silence a guild somebody set up: the failure is visible in the log, and the
     /// announcements a guild already expected keep arriving.
     /// </summary>
     [Fact]

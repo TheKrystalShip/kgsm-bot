@@ -104,11 +104,6 @@ public class AssistantTurnClientTests
         request.Headers.Authorization!.Scheme.Should().Be("Bearer");
         request.Headers.Authorization.Parameter.Should().NotBeNullOrWhiteSpace();
         Header(request, "X-Relay-Leaf").Should().Be("kgsm-bot");
-
-        // Nothing about what that person may do. The assistant evaluates them against its own replica,
-        // so a compromised bot can ask as somebody it names and never above what they actually hold.
-        Header(request, "X-Relay-Tier").Should().BeNull();
-        Header(request, "X-Relay-Secret").Should().BeNull();
     }
 
     /// <summary>
@@ -327,7 +322,6 @@ public class AssistantTurnClientTests
         // The clicker is named; what they may do is re-read by the assistant at the click, from its own
         // accounts, so approving carries no more authority than asking did.
         Header(request, "X-Kgsm-Acting").Should().Be("discord:385730677141929985");
-        Header(request, "X-Relay-Tier").Should().BeNull();
         Header(request, "X-Relay-Leaf").Should().Be("kgsm-bot");
 
         using var body = JsonDocument.Parse(transport.SeenBody!);

@@ -33,12 +33,7 @@ Environment=KGSM__JournalDir=/var/lib/kgsm/events
 # which ships in the /opt artifact. No Discord server is named in either — which guilds hear about
 # this host is set with /setup from inside Discord and kept in /var/lib/kgsm-bot/bot.db.
 # A SECRET — keep this file chmod 600. The deploy script creates it from kgsm-bot.env.example.
-# Who may do what on this host, shared with every other KGSM surface. Loaded FIRST so the per-leaf
-# file below can still override a value deliberately; setting one there is how a host ends up
-# granting the same person different authority on different surfaces, so prefer the shared file.
-# Seeded by deploy/setup.sh; optional, so a host that never provisioned it still starts.
-EnvironmentFile=-/etc/kgsm/kgsm-auth.env
-# The cluster's shared secret, host-level like the file above and read by every member on this machine.
+# The cluster's shared secret, host-level and read by every member on this machine.
 # Its presence with a secret in it is what lets this bot ask the assistant on somebody's behalf: the
 # call is a member-to-member one, authenticated by a token minted from this secret. Absent or blank,
 # the conversational surface stays off and slash commands, announcements and the board carry on.

@@ -16,6 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="8.10.0-dev.4" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="9.0.0-dev.1" />
   </ItemGroup>
 </Project>

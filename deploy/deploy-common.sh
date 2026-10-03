@@ -112,10 +112,6 @@ setup_project_extras() {
     rm -f "$rendered"
 }
 
-# The Discord application the surfaces with a sign-in use. The bot has none and works without it; the
-# unit loads it before its own env file, and setup.sh seeds it blank.
-SHARED_AUTH_FILE="${KGSM_SHARED_AUTH_FILE:-/etc/kgsm/kgsm-auth.env}"
-
 # ── END PROJECT BLOCK ─────────────────────────────────────────────────────────
 
 # ── Derived paths (do not edit) ───────────────────────────────────────────────

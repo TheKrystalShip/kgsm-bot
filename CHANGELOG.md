@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed — the sign-in providers' file (4.1.0)
+
+- The unit no longer loads `/etc/kgsm/kgsm-auth.env` and `setup.sh` no longer seeds it: the auth anchor
+  is the one reader, and its own setup seeds it. The `KgsmAuth` section and the two Discord-application
+  fields it put on the Control Panel's configuration page are gone with it.
+- Pinned to `TheKrystalShip.KGSM.Lib` 9.0.0-dev.1, `Auth` 4.0.0-dev.4 and `Auth.Cluster`
+  1.0.0-dev.21; the Discord project takes no `Auth` reference of its own.
+
 ### Changed — the bot names no admin (4.0.1)
 
 The greeting a new Discord server gets says `/setup` is for whoever the KGSM host lets manage its

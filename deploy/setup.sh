@@ -104,42 +104,6 @@ else
     ENV_SEEDED=0
 fi
 
-# ── 2a. The shared authorization file ─────────────────────────────────────────
-# The Discord application this host signs people in through, in one place. A host that set it
-# per-leaf would sign the same person in through two different applications — which is the drift
-# this file exists to prevent. What anyone may do is not here: that is their KGSM account, in the
-# account store, set in the Control Panel.
-#
-# Created by whichever project's setup.sh runs first, seeded blank, and NEVER overwritten: a
-# re-run on a configured host must not wipe the operator's values. Owned by the deploying user so
-# it can be edited without privilege; 0600 because it holds the application secret.
-if [[ ! -f "$SHARED_AUTH_FILE" ]]; then
-    log "seeding ${SHARED_AUTH_FILE} — EDIT IT: sign-in needs the Discord application id and secret"
-    $SUDO install -d -m 0755 "$(dirname "$SHARED_AUTH_FILE")"
-    $SUDO install -m 0600 -o "$DEPLOY_USER" -g "$DEPLOY_GROUP" /dev/null "$SHARED_AUTH_FILE"
-    $SUDO tee "$SHARED_AUTH_FILE" >/dev/null <<'SHARED_AUTH'
-# ── KGSM shared sign-in — read by every surface on this host ──────────────────
-# The OAuth applications people sign in through, keyed by provider. Loaded by each leaf's unit
-# BEFORE its own env file, so a leaf can still override one deliberately — but then two surfaces
-# sign people in through different applications. Prefer changing it here.
-#
-# Wiring this host to another provider is a pair of keys and no rebuild anywhere:
-#   KgsmAuth__Providers__github__ClientId=
-#   KgsmAuth__Providers__github__ClientSecret=
-# Each one also needs BOTH of its callbacks registered on the application — the sign-in
-# (/auth/<provider>/callback) and the account-linking one (/auth/identities/<provider>/callback) —
-# or linking is refused at the provider, before anything here sees it.
-#
-# WHO MAY DO WHAT IS NOT HERE. A sign-in establishes who someone is; what they may do is on their
-# KGSM account, in the account store at /var/lib/kgsm/auth/users.db, and it is set in the Control
-# Panel. No group, guild or role grants anything on any surface.
-
-KgsmAuth__Providers__discord__ClientId=
-KgsmAuth__Providers__discord__ClientSecret=
-SHARED_AUTH
-    $SUDO chown "${DEPLOY_USER}:${DEPLOY_GROUP}" "$SHARED_AUTH_FILE"
-fi
-
 # ── 2b. The shared leaf-descriptor directory ──────────────────────────────────
 # Where this leaf declares its configurable surface for the Control Panel. Shared by every leaf
 # and scanned by kgsm-api, so it is created once by whichever project's setup.sh runs first and

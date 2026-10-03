@@ -18,18 +18,6 @@
   // each takes announcements in, and whether it keeps a channel per server are set with /setup from
   // inside Discord and recorded in the guild store (Guilds:DbPath) — one command, no file to edit, no
   // restart. What this host announces at all is host policy and is below.
-  // The Discord application the host signs people in through, shared with the Control Panel API and
-  // the assistant. The bot signs nobody in and needs neither key; it declares them so the Control
-  // Panel can show the host's whole sign-in block in one place. The secret is delivered by the
-  // environment. Owned by TheKrystalShip.KGSM.Auth.
-  "KgsmAuth": {
-    "Providers": {
-      "discord": {
-        "ClientId": "",
-        "ClientSecret": ""
-      }
-    }
-  },
 
   // Who may do what here. A Discord account says who somebody is; the roles the KGSM account it is
   // connected to holds say what they may do, and that account is the only thing consulted — a guild

@@ -53,12 +53,6 @@ A change made in the Control Panel is written to `KGSM:ConfigOverridePath`
 All of `/component/*` is `TheKrystalShip.KGSM.ComponentSurface`, which lives beside the generator that
 writes the descriptor it reads, so this leaf and an anchor answer the same questions the same way.
 
-## `LeafDescriptor.cs`
-
-`KgsmAuth` is declared here as `[LeafFrameworkField]`s rather than on its options type: that type
-belongs to `TheKrystalShip.KGSM.Auth`, and each surface describes the same keys in its own words, so
-the prose has to live with the surface that shows it.
-
 ## `kgsm-bot --adopt-guild-config [--apply]` (`GuildConfigAdoption.cs`)
 
 Imports a single-guild configuration into the guild store. It reads `Discord:GuildId` /
