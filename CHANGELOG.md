@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — the bot names no admin (4.0.1)
+
+The greeting a new Discord server gets says `/setup` is for whoever the KGSM host lets manage its
+announcements, and its first step reads "Run `/setup announce`"; a failure that points at the bot's
+log says to ask whoever runs this host; the startup log says how another server is added rather than
+who adds it. Comments name `bot:announcements.manage` and `assistant:autorun`.
+
 ### Changed — every command checks the action it performs, at the server it names (4.0.0)
 
 **Breaking.** The admin / operator / viewer tiers are gone. A Discord account acts through the roles of

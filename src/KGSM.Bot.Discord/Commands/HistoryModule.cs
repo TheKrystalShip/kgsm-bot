@@ -108,7 +108,7 @@ public class HistoryModule : InteractionModuleBase<SocketInteractionContext>
             {
                 await FollowupAsync(
                     "⚠️ I couldn't read this host's event journal, so I don't know what happened. " +
-                    "That's a different thing from nothing having happened — ask an admin to check the bot's log.",
+                    "That's a different thing from nothing having happened — ask whoever runs this host to check the bot's log.",
                     ephemeral: Quietly);
                 return;
             }

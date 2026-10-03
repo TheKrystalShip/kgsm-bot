@@ -444,7 +444,7 @@ public sealed class SqliteGuildStore : IGuildStore
         catch (Exception e)
         {
             // Reading nothing reads as "no filter", which is the state that hears everything. That is
-            // the right way to fail: a guild an admin set up keeps hearing about its servers when this
+            // the right way to fail: a guild somebody set up keeps hearing about its servers when this
             // file cannot be read, rather than going silent for a reason nobody can see in Discord.
             _logger.LogError(e,
                 "Could not read the servers guild {GuildId} follows; treating it as following all.",

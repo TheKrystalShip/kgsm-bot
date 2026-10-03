@@ -19,7 +19,7 @@ namespace KGSM.Bot.Discord;
 /// <param name="StoreAvailable">Whether the guild store could be opened. False means nothing is
 /// announced anywhere and <c>/setup</c> refuses, whatever else here reads healthy.</param>
 /// <param name="StoreUnavailableReason">Why not, when it could not.</param>
-/// <param name="Guilds">One row per Discord server an admin has set up, in the order the store holds
+/// <param name="Guilds">One row per Discord server that has been set up, in the order the store holds
 /// them. <b>Empty is a real state</b>: a bot invited everywhere and set up nowhere is deliberately
 /// silent, and that is a different fact from a broken one.</param>
 /// <param name="Announcements">Every announcement switch and its state, in declaration order. Host

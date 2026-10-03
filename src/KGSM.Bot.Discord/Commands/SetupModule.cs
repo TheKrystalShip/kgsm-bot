@@ -494,7 +494,7 @@ public class SetupModule : InteractionModuleBase<SocketInteractionContext>
         {
             await RespondAsync(
                 $"⚠️ I can't read this host's setup ({_guilds.UnavailableReason}), so I won't record " +
-                "one either. Nothing was changed — ask an admin to check the bot's log.",
+                "one either. Nothing was changed — ask whoever runs this host to check the bot's log.",
                 ephemeral: true);
             return null;
         }

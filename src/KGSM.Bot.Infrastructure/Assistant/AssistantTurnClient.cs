@@ -170,7 +170,7 @@ public sealed class AssistantTurnClient : IAssistantTurnClient, IDisposable
             };
 
             // AutoAct is false and not configurable: this surface stages every action behind a button
-            // a human clicks. Auto-running is an admin's deliberate per-turn choice on a surface that
+            // a human clicks. Auto-running is a deliberate per-turn choice, under assistant:autorun, on a surface that
             // offers it, and Discord does not — a message that silently restarted a server would be
             // indistinguishable from one that asked about it.
             ActFor(request, ask.Handle);

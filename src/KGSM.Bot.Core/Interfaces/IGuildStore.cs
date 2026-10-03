@@ -9,7 +9,7 @@ namespace KGSM.Bot.Core.Interfaces;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A guild receives announcements because an admin set it up</b>, never because the bot happens to
+/// <b>A guild receives announcements because somebody set it up</b>, never because the bot happens to
 /// be in it. A guild with a row here gets every enabled announcement; a guild with no row gets
 /// nothing, whatever the bot's membership.
 /// </para>
@@ -28,7 +28,7 @@ public interface IGuildStore
     /// <summary>Why not, when <see cref="Available"/> is <see langword="false"/>.</summary>
     string? UnavailableReason { get; }
 
-    /// <summary>Every guild an admin has configured, ordered by id.</summary>
+    /// <summary>Every guild that has been set up, ordered by id.</summary>
     IReadOnlyList<GuildTopology> Configured();
 
     /// <summary>What one guild is configured with, or <see langword="null"/> when it is not.</summary>

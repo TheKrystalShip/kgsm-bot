@@ -41,7 +41,7 @@ public class DiscordNotificationService : IDiscordNotificationService
     /// Posts the announcement in every configured guild that follows the server it is about.
     /// </summary>
     /// <remarks>
-    /// <b>A guild hears about this host because an admin ran <c>/setup</c> there</b>, never because
+    /// <b>A guild hears about this host because somebody holding <c>bot:announcements.manage</c> ran <c>/setup</c> there</b>, never because
     /// the bot happens to be a member, and <b>only about the servers it follows</b>. One resolve and
     /// one send each, so a guild that has revoked a permission, lost its channel or gone unreachable
     /// is logged and the rest still hear about it — and the result counts the guilds reached against

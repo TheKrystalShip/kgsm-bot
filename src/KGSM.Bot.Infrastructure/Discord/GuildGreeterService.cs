@@ -71,7 +71,7 @@ public sealed class GuildGreeterService : IGuildGreeter
             if (await SomewhereAsync(guild) is not IMessageChannel channel)
             {
                 _logger.LogWarning(
-                    "Added to guild {GuildId} with nowhere to post — an admin there will have to run " +
+                    "Added to guild {GuildId} with nowhere to post — somebody there will have to run " +
                     "/setup with no prompting from me.", guild.Id);
                 return;
             }
@@ -147,14 +147,14 @@ public sealed class GuildGreeterService : IGuildGreeter
                 "somebody tells me to. That's deliberate — a host doesn't get to start broadcasting " +
                 "into a server just because someone added a bot.")
             .AddField("To start",
-                "An admin runs `/setup announce` with the channel this server should hear about game " +
+                "Run `/setup announce` with the channel this server should hear about game " +
                 "servers in. That one command is a working setup.")
             .AddField("Then, optionally",
                 "`/setup follow` — hear about only the servers you care about\n" +
                 "`/setup status` — keep one message always showing what's up\n" +
                 "`/setup board` — give each game server its own channel")
             .AddField("Who can do it",
-                "Whoever holds **admin** on the KGSM host — a Discord role grants nothing here. " +
+                "Whoever the KGSM host lets manage its announcements — a Discord role grants nothing here. " +
                 "Everyone else can already use the read commands: try `/list` or `/players`.")
             .Build();
 }

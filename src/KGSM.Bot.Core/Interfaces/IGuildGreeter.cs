@@ -13,7 +13,7 @@ namespace KGSM.Bot.Core.Interfaces;
 /// </para>
 /// <para>
 /// <b>It is not an announcement and grants nothing.</b> It names <c>/setup</c> and stops; running
-/// that still needs KGSM admin, so a guild cannot talk itself into hearing about this host.
+/// that still needs <c>bot:announcements.manage</c>, so a guild cannot talk itself into hearing about this host.
 /// </para>
 /// </remarks>
 public interface IGuildGreeter

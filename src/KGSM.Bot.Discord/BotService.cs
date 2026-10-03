@@ -91,12 +91,12 @@ public class BotService : BackgroundService
                     _guilds.UnavailableReason);
             else if (_guilds.Configured().Count is int configured and > 0)
                 _logger.LogInformation(
-                    "Announcing into {Configured} Discord server(s). An admin adds another with /setup.",
+                    "Announcing into {Configured} Discord server(s). Another is added with /setup.",
                     configured);
             else
                 _logger.LogWarning(
-                    "No Discord server has been set up here yet, so nothing will be announced. An " +
-                    "admin runs /setup announce in the server that should hear about this host.");
+                    "No Discord server has been set up here yet, so nothing will be announced. Run " +
+                    "/setup announce in the server that should hear about this host.");
 
             // Add Discord client logging
             _discordClient.Log += OnDiscordClientLogAsync;
