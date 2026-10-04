@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 using TheKrystalShip.KGSM;
-using TheKrystalShip.KGSM.Auth.Access;
+using TheKrystalShip.Auth.Access;
 
 using Xunit;
 

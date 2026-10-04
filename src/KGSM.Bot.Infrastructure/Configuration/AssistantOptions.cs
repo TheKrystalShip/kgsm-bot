@@ -1,4 +1,4 @@
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.Auth;
 using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — built on tks-auth's packages (4.1.2)
+
+- `TheKrystalShip.Auth` 5.0.0 and `TheKrystalShip.Auth.Cluster` 2.0.0, the auth packages under their
+  new ids. The namespaces follow. No behaviour changes.
+
 ### Changed — built on released packages (4.1.1)
 
 Pinned to the release of every package it takes: `Lib` 9.0.0, `Auth` 4.0.0, `Auth.Cluster` 1.0.0,

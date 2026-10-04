@@ -10,7 +10,7 @@ using KGSM.Bot.Infrastructure.Configuration;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.Auth;
 
 using Xunit;
 using TheKrystalShip.KGSM.Cluster;

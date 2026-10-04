@@ -10,7 +10,7 @@ using KGSM.Bot.Infrastructure.Discord;
 using Microsoft.Extensions.Logging;
 
 using TheKrystalShip.KGSM;
-using TheKrystalShip.KGSM.Auth.Access;
+using TheKrystalShip.Auth.Access;
 
 namespace KGSM.Bot.Discord.Commands;
 

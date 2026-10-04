@@ -22,7 +22,7 @@ This repo builds standalone — every dependency is a package from the org's Git
 Infrastructure, and the three pins move together; the same bump → publish → re-pin loop applies to
 `TheKrystalShip.Kgsm.Assistant.Relay` (the assistant's per-turn contract),
 `TheKrystalShip.KGSM.Cluster` (membership, and the token this bot calls the assistant with),
-`TheKrystalShip.KGSM.Auth` and `TheKrystalShip.KGSM.Auth.Cluster` (the authority replica every command is
+`TheKrystalShip.Auth` and `TheKrystalShip.Auth.Cluster` (the authority replica every command is
 evaluated against).
 
 ```bash

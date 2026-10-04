@@ -1,4 +1,4 @@
-using TheKrystalShip.KGSM.Auth;
+using TheKrystalShip.Auth;
 using KGSM.Bot.Core.Interfaces;
 using TheKrystalShip.Discord.Voice;
 using KGSM.Bot.Infrastructure.Authorization;
@@ -18,7 +18,7 @@ using Discord.Interactions;
 using TheKrystalShip.KGSM.Extensions;
 using TheKrystalShip.KGSM.Lifecycle;
 using System.Reflection;
-using TheKrystalShip.KGSM.Auth.Cluster;
+using TheKrystalShip.Auth.Cluster;
 using TheKrystalShip.KGSM.Cluster;
 using TheKrystalShip.KGSM.Cluster.Messaging;
 using TheKrystalShip.KGSM.Cluster.Membership;

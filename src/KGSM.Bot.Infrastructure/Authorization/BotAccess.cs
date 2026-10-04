@@ -2,9 +2,9 @@ using System.Globalization;
 
 using KGSM.Bot.Core.Interfaces;
 
-using TheKrystalShip.KGSM.Auth;
-using TheKrystalShip.KGSM.Auth.Access;
-using TheKrystalShip.KGSM.Auth.Cluster;
+using TheKrystalShip.Auth;
+using TheKrystalShip.Auth.Access;
+using TheKrystalShip.Auth.Cluster;
 using TheKrystalShip.KGSM.Core.Models;
 
 namespace KGSM.Bot.Infrastructure.Authorization;

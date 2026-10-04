@@ -1,5 +1,5 @@
-using TheKrystalShip.KGSM.Auth.Cluster;
-using TheKrystalShip.KGSM.Auth.Users;
+using TheKrystalShip.Auth.Cluster;
+using TheKrystalShip.Auth.Users;
 using TheKrystalShip.KGSM.ComponentConfig;
 
 namespace KGSM.Bot.Infrastructure.Configuration;

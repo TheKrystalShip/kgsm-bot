@@ -35,7 +35,7 @@
          wire contract for its socket — a few kilobytes, no native dependency, and nothing to load. -->
     <PackageReference Include="TheKrystalShip.Speech" Version="1.2.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
-    <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.KGSM.Auth.Cluster,
+    <!-- The bot's own guild store. Already in the graph beneath TheKrystalShip.Auth.Cluster,
          so naming it here costs nothing and stops the store depending on which package happens to
          pull it. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
@@ -45,13 +45,13 @@
     <ProjectReference Include="..\KGSM.Bot.Application\KGSM.Bot.Application.csproj" />
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
     <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="9.0.0" />
-    <PackageReference Include="TheKrystalShip.KGSM.Auth" Version="4.0.0" />
+    <PackageReference Include="TheKrystalShip.Auth" Version="5.0.0" />
 
     <!-- The cluster's authority, read off the replica the node on this machine keeps, and evaluated
          here: who a Discord account is, and what they may do at the server a command names. Opened
          directly off the file rather than asked for over HTTP, so the bot goes on authorizing people
          with every other leaf stopped. Also how this bot tells the auth anchor what it performs. -->
-    <PackageReference Include="TheKrystalShip.KGSM.Auth.Cluster" Version="1.0.0" />
+    <PackageReference Include="TheKrystalShip.Auth.Cluster" Version="2.0.0" />
     <!-- The assistant's per-turn contract: which leaf is calling, the conversation and room a turn
          belongs to, the auto-accept preference, and the liveness probe. Published by the service that
          reads them, so this bot cannot come to spell one differently. -->

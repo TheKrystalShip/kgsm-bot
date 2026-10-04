@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 
 using Microsoft.Extensions.Logging;
 
-using TheKrystalShip.KGSM.Auth.Access;
+using TheKrystalShip.Auth.Access;
 using TheKrystalShip.Speech;
 
 namespace KGSM.Bot.Discord.Voice;

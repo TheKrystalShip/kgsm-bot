@@ -7,9 +7,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 using TheKrystalShip.KGSM;
-using TheKrystalShip.KGSM.Auth.Access;
-using TheKrystalShip.KGSM.Auth.Cluster;
-using TheKrystalShip.KGSM.Auth.Users;
+using TheKrystalShip.Auth.Access;
+using TheKrystalShip.Auth.Cluster;
+using TheKrystalShip.Auth.Users;
 
 using Xunit;
 

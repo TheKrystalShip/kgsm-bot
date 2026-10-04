@@ -2,7 +2,7 @@
 
   <!-- Repo-wide scoped NuGet-audit suppression (NOT a blanket NuGetAudit=off). GHSA-2m69-gcr7-jv3q is an
        advisory on the native SQLite lib (SQLitePCLRaw.lib.e_sqlite3 2.1.11) pulled transitively by
-       Microsoft.Data.Sqlite — TheKrystalShip.KGSM.Auth.Users, the KGSM account store this bot authorizes
+       Microsoft.Data.Sqlite — TheKrystalShip.Auth.Users, the KGSM account store this bot authorizes
        against. 2.1.11 is the latest published build of that native lib, so there is no fixed version to
        move to yet. Every project in the graph audits it transitively, so the suppression lives here (one
        place) rather than in each csproj. Exposure is minimal: the store is a local file on one host, holds
