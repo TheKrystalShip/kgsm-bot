@@ -7,7 +7,7 @@ function every member evaluates with — over the cluster's authority replica, f
 **target**: `kgsm:server.start` at `instance:walter/terraria#9f3c`, `bot:voice.use` at `node:walter`.
 The Control Panel and the assistant evaluate the same person the same way, so all three agree by
 construction rather than by each deriving an answer. Model and vocabulary:
-`kgsm-docs/plans/permissions.md`.
+`kgsm-docs/systems/authorization/`.
 
 **A guild role grants nothing, and neither does guild membership.** The gate is a grant on the account,
 strictly narrower than being in the Discord server, and the reason the slash commands are safe
