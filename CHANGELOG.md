@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — built on released packages (4.1.1)
+
+Pinned to the release of every package it takes: `Lib` 9.0.0, `Auth` 4.0.0, `Auth.Cluster` 1.0.0,
+`Cluster` 1.0.0, `Dns` 0.2.0, `ComponentConfig` 3.2.0, and `ComponentSurface` and
+`ComponentSurface.Http` 1.0.0. No behaviour changes.
+
 ### Removed — the sign-in providers' file (4.1.0)
 
 - The unit no longer loads `/etc/kgsm/kgsm-auth.env` and `setup.sh` no longer seeds it: the auth anchor
