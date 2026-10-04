@@ -44,7 +44,7 @@
   <ItemGroup>
     <ProjectReference Include="..\KGSM.Bot.Application\KGSM.Bot.Application.csproj" />
     <ProjectReference Include="..\KGSM.Bot.Core\KGSM.Bot.Core.csproj" />
-    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="9.0.0" />
+    <PackageReference Include="TheKrystalShip.KGSM.Lib" Version="9.1.0" />
     <PackageReference Include="TheKrystalShip.Auth" Version="5.0.0" />
 
     <!-- The cluster's authority, read off the replica the node on this machine keeps, and evaluated
